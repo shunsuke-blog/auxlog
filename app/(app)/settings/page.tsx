@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { ChevronRight, Dumbbell } from 'lucide-react'
 import LogoutButton from './LogoutButton'
 
 function getStatusLabel(status: string): string {
@@ -68,6 +70,17 @@ export default async function SettingsPage() {
             <span className="text-sm text-black dark:text-white">¥480/月</span>
           </div>
         </div>
+
+        <Link
+          href="/exercises"
+          className="flex items-center justify-between px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900"
+        >
+          <div className="flex items-center gap-3">
+            <Dumbbell className="w-4 h-4 text-zinc-400" />
+            <span className="text-sm text-black dark:text-white">種目を管理する</span>
+          </div>
+          <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
+        </Link>
 
         <LogoutButton />
       </div>

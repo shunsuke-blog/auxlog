@@ -1,3 +1,5 @@
+import Link from 'next/link'
+import { Pencil } from 'lucide-react'
 import type { UserExercise, TrainingSet } from '@/types'
 
 type Session = {
@@ -42,14 +44,20 @@ export default function SessionList({ sessions, exercises }: Props) {
             className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900"
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold text-black dark:text-white">{date}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-black dark:text-white">{date}</span>
+                <span className="text-xs text-zinc-400">疲労度 {session.fatigue_level}</span>
+              </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-zinc-400">
-                  疲労度 {session.fatigue_level}
-                </span>
                 <span className="text-xs text-zinc-400">
                   {session.total_volume.toLocaleString()}kg
                 </span>
+                <Link
+                  href={`/record/edit/${session.id}`}
+                  className="p-1.5 text-zinc-300 dark:text-zinc-700 hover:text-black dark:hover:text-white transition-colors"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </Link>
               </div>
             </div>
 
@@ -57,17 +65,15 @@ export default function SessionList({ sessions, exercises }: Props) {
               {exerciseIds.map(exId => {
                 const exercise = exerciseMap.get(exId)
                 const exSets = session.sets.filter(s => s.exercise_id === exId)
-                if (!exercise || exSets.length === 0) return null
+                if (exSets.length === 0) return null
 
+                const name = exercise?.name ?? '不明な種目'
                 const maxWeight = Math.max(...exSets.map(s => s.weight_kg))
-                const totalReps = exSets.reduce((a, s) => a + s.reps, 0)
 
                 return (
                   <div key={exId} className="flex items-baseline justify-between">
-                    <span className="text-xs text-zinc-600 dark:text-zinc-400">
-                      {exercise.name}
-                    </span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-500">
+                    <span className="text-xs text-zinc-600 dark:text-zinc-400">{name}</span>
+                    <span className="text-xs text-zinc-500">
                       {maxWeight}kg × {exSets[0].reps}回 × {exSets.length}セット
                     </span>
                   </div>
