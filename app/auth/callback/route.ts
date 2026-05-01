@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -6,30 +7,38 @@ export async function GET(request: Request) {
   const code = searchParams.get('code')
   const next = searchParams.get('next') ?? '/'
 
+  // Vercel 本番環境では x-forwarded-host が実際のドメイン
+  const forwardedHost = request.headers.get('x-forwarded-host')
+  const isLocal = process.env.NODE_ENV === 'development'
+  const redirectBase = isLocal
+    ? origin
+    : forwardedHost
+      ? `https://${forwardedHost}`
+      : origin
+
   if (code) {
-    const supabase = await createClient()
+    const cookieStore = await cookies()
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll() },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          },
+        },
+      }
+    )
+
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      // 新規ユーザーの場合はStripeトライアルを開始
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('stripe_customer_id')
-          .eq('id', user.id)
-          .single()
-
-        if (userData && !userData.stripe_customer_id) {
-          // Stripeトライアル開始（非同期で実行）
-          await fetch(`${origin}/api/stripe/create-subscription`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-          })
-        }
-      }
-      return NextResponse.redirect(`${origin}${next}`)
+      return NextResponse.redirect(`${redirectBase}${next}`)
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth`)
+  return NextResponse.redirect(`${redirectBase}/login?error=auth`)
 }
