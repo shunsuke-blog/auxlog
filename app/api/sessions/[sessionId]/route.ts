@@ -72,6 +72,7 @@ export async function PATCH(
     weight_kg: s.weight_kg,
     reps: s.reps,
     rir: s.rir,
+    is_warmup: s.is_warmup ?? false,
   }))
 
   const { error: insertError } = await supabase

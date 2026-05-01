@@ -127,8 +127,13 @@ export default function SessionList({ sessions, exercises }: Props) {
                           <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider text-right">余裕</span>
                         </div>
                         {exSets.map(set => (
-                          <div key={set.id} className="grid grid-cols-4 gap-2">
-                            <span className="text-xs text-zinc-500">{set.set_number}</span>
+                          <div key={set.id} className={`grid grid-cols-4 gap-2 ${set.is_warmup ? 'opacity-50' : ''}`}>
+                            <span className="text-xs text-zinc-500 flex items-center gap-1">
+                              {set.set_number}
+                              {set.is_warmup && (
+                                <span className="text-[9px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-1 rounded">W</span>
+                              )}
+                            </span>
                             <span className="text-xs text-black dark:text-white text-right font-medium">
                               {isBodyweight
                                 ? (set.weight_kg > 0 ? `+${set.weight_kg}kg` : '自重')

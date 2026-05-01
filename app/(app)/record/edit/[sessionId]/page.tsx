@@ -123,6 +123,7 @@ function EditContent() {
           weight_kg: parseFloat(s.weight_kg),
           reps: parseInt(s.reps),
           rir: s.rir,
+          is_warmup: s.is_warmup,
         }))
     )
 

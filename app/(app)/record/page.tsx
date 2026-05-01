@@ -51,7 +51,7 @@ function RecordContent() {
               weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
               reps: String(t.reps),
               rir: true,
-              is_warmup: false,
+              is_warmup: t.is_warmup,
             })),
           }))
         )

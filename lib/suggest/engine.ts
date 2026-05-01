@@ -39,44 +39,54 @@ export function suggestMenu(input: SuggestInput): Suggestion[] {
         volume_status: getVolumeStatus(weeklyVolumeSets),
       }
     })
-    // 48時間未満（昨日・当日）はまだ回復中のため除外
     .filter(s => s.days_since_last >= 2)
     .sort((a, b) => b.days_since_last - a.days_since_last)
 }
 
 /**
- * セットごとの目標（重量・回数）を生成する
- *
- * prevWorkingSets がある場合: 前回の各セット重量を引き継ぎ、repsDelta 分だけ回数を調整
- * ない場合: topWeight の直線セット + 疲労モデル（1セットごとに1回減）
+ * ワーキングセットの目標を生成する
+ * - 前回のワーキングセットが揃っている場合: 各セット重量を引き継ぎ repsDelta 分回数調整
+ * - 不足している場合: topWeight の直線セット + 疲労モデル
  */
-function generateSetTargets(
+function generateWorkingSetTargets(
   setsCount: number,
   topWeight: number,
   topReps: number,
   prevWorkingSets: TrainingSet[],
-  repsDelta: number,   // 前回比 +1 = 漸進, 0 = 維持
+  repsDelta: number,
+  startSetNumber: number,
 ): SetTarget[] {
   const sorted = [...prevWorkingSets]
     .sort((a, b) => a.set_number - b.set_number)
     .slice(0, setsCount)
 
-  // 前回の各セットデータを引き継げる場合
   if (sorted.length === setsCount) {
-    // 追加セットが必要な場合は末尾に疲労モデルで補完
     return sorted.map((s, i) => ({
-      set_number: i + 1,
+      set_number: startSetNumber + i,
       weight_kg: s.weight_kg,
       reps: Math.max(1, s.reps + repsDelta),
+      is_warmup: false,
     }))
   }
 
-  // 前回データ不足: topWeight の直線セット + 疲労モデル
   return Array.from({ length: setsCount }, (_, i) => ({
-    set_number: i + 1,
+    set_number: startSetNumber + i,
     weight_kg: topWeight,
     reps: Math.max(1, topReps - i),
+    is_warmup: false,
   }))
+}
+
+/** ウォームアップセットは前回の重量・回数を維持（進捗不要）*/
+function buildWarmupTargets(warmupSets: TrainingSet[]): SetTarget[] {
+  return [...warmupSets]
+    .sort((a, b) => a.set_number - b.set_number)
+    .map((s, i) => ({
+      set_number: i + 1,
+      weight_kg: s.weight_kg,
+      reps: s.reps,
+      is_warmup: true,
+    }))
 }
 
 function proposeNextSet(
@@ -89,60 +99,63 @@ function proposeNextSet(
   if (lastSets.length === 0) {
     const reps = exercise.default_reps
     const sets = exercise.default_sets
-    return {
-      weight: 0,
-      sets,
-      reps,
-      reason: '初回のため初期値を使用',
-      setTargets: generateSetTargets(sets, 0, reps, [], 0),
-    }
+    const setTargets: SetTarget[] = Array.from({ length: sets }, (_, i) => ({
+      set_number: i + 1,
+      weight_kg: 0,
+      reps: Math.max(1, reps - i),
+      is_warmup: false,
+    }))
+    return { weight: 0, sets, reps, reason: '初回のため初期値を使用', setTargets }
   }
 
-  // ── ウォームアップを除いたワーキングセットのみで判断 ──────
+  // ── ウォームアップとワーキングセットを分離 ────────────────
+  const prevWarmupSets = lastSets.filter(s => s.is_warmup)
   const workingSets = lastSets.filter(s => !s.is_warmup)
   const effectiveSets = workingSets.length > 0 ? workingSets : lastSets
+
+  const warmupTargets = buildWarmupTargets(prevWarmupSets)
+  const warmupCount = warmupTargets.length
+  const workingStart = warmupCount + 1  // ワーキングセットの開始番号
 
   const lastWeight = Math.max(...effectiveSets.map(s => s.weight_kg))
   const lastSetsCount = effectiveSets.length
 
-  // トップセット（最大重量）のみで RIR・レップを判定
   const topSets = effectiveSets.filter(s => s.weight_kg === lastWeight)
   const allTopSetsHadRoom = topSets.every(s => s.rir === true)
   const bestTopReps = Math.max(...topSets.map(s => s.reps))
   const reachedTarget = bestTopReps >= exercise.default_reps
 
+  const combine = (workingTargets: SetTarget[]): SetTarget[] =>
+    [...warmupTargets, ...workingTargets]
+
   // ── 疲労度が高い → 回復セッション ─────────────────────────
   if (lastFatigue && lastFatigue >= 4) {
     if (lastWeight === 0) {
       const reps = Math.max(1, Math.round(bestTopReps * 0.8))
+      const working = generateWorkingSetTargets(lastSetsCount, 0, reps, [], 0, workingStart)
       return {
-        weight: 0,
-        sets: lastSetsCount,
-        reps,
+        weight: 0, sets: warmupCount + lastSetsCount, reps,
         reason: '前回の疲労度が高いため回数を20%減',
-        setTargets: generateSetTargets(lastSetsCount, 0, reps, [], 0),
+        setTargets: combine(working),
       }
     }
     const weight = Math.round((lastWeight * 0.95) / 2.5) * 2.5
+    const working = generateWorkingSetTargets(lastSetsCount, weight, bestTopReps, [], 0, workingStart)
     return {
-      weight,
-      sets: lastSetsCount,
-      reps: bestTopReps,
+      weight, sets: warmupCount + lastSetsCount, reps: bestTopReps,
       reason: '前回の疲労度が高いため重量を5%減',
-      setTargets: generateSetTargets(lastSetsCount, weight, bestTopReps, [], 0),
+      setTargets: combine(working),
     }
   }
 
   // ── レップ未達 ─────────────────────────────────────────────
-  // ウォームアップ除外後の各セット重量を引き継ぎ、それぞれ+1回を目標
   if (!reachedTarget) {
     const nextReps = Math.min(bestTopReps + 1, exercise.default_reps)
+    const working = generateWorkingSetTargets(lastSetsCount, lastWeight, nextReps, effectiveSets, +1, workingStart)
     return {
-      weight: lastWeight,
-      sets: lastSetsCount,
-      reps: nextReps,
+      weight: lastWeight, sets: warmupCount + lastSetsCount, reps: nextReps,
       reason: `前回${bestTopReps}回のため重量維持・目標${nextReps}回`,
-      setTargets: generateSetTargets(lastSetsCount, lastWeight, nextReps, effectiveSets, +1),
+      setTargets: combine(working),
     }
   }
 
@@ -150,52 +163,47 @@ function proposeNextSet(
   if (allTopSetsHadRoom) {
     if (lastWeight === 0) {
       const reps = bestTopReps + 2
+      const working = generateWorkingSetTargets(lastSetsCount, 0, reps, effectiveSets, +2, workingStart)
       return {
-        weight: 0,
-        sets: lastSetsCount,
-        reps,
+        weight: 0, sets: warmupCount + lastSetsCount, reps,
         reason: `前回${bestTopReps}回余裕ありのため目標回数+2`,
-        setTargets: generateSetTargets(lastSetsCount, 0, reps, effectiveSets, +2),
+        setTargets: combine(working),
       }
     }
     const weight = lastWeight + 2.5
     const reps = exercise.default_reps
-    // 重量が上がるので直線セット + 疲労モデル
+    const working = generateWorkingSetTargets(lastSetsCount, weight, reps, [], 0, workingStart)
     return {
-      weight,
-      sets: lastSetsCount,
-      reps,
+      weight, sets: warmupCount + lastSetsCount, reps,
       reason: '前回余裕あり・全セット達成のため重量+2.5kg',
-      setTargets: generateSetTargets(lastSetsCount, weight, reps, [], 0),
+      setTargets: combine(working),
     }
   }
 
   // ── ストール → セット数+1 ─────────────────────────────────
   if (isStagnant) {
-    const sets = lastSetsCount + 1
-    // 追加セットは末尾に同重量・疲労モデルで補完
-    const baseTargets = generateSetTargets(lastSetsCount, lastWeight, bestTopReps, effectiveSets, 0)
-    const lastTarget = baseTargets[baseTargets.length - 1]
-    const setTargets: SetTarget[] = [
-      ...baseTargets,
-      { set_number: sets, weight_kg: lastTarget.weight_kg, reps: Math.max(1, lastTarget.reps - 1) },
-    ]
+    const newWorkingCount = lastSetsCount + 1
+    const baseWorking = generateWorkingSetTargets(lastSetsCount, lastWeight, bestTopReps, effectiveSets, 0, workingStart)
+    const lastTarget = baseWorking[baseWorking.length - 1]
+    const extraSet: SetTarget = {
+      set_number: workingStart + lastSetsCount,
+      weight_kg: lastTarget.weight_kg,
+      reps: Math.max(1, lastTarget.reps - 1),
+      is_warmup: false,
+    }
     return {
-      weight: lastWeight,
-      sets,
-      reps: bestTopReps,
+      weight: lastWeight, sets: warmupCount + newWorkingCount, reps: bestTopReps,
       reason: '3週間停滞のためセット数+1',
-      setTargets,
+      setTargets: combine([...baseWorking, extraSet]),
     }
   }
 
   // ── ギリギリ達成 → 前回実績をそのまま目標に ───────────────
+  const working = generateWorkingSetTargets(lastSetsCount, lastWeight, bestTopReps, effectiveSets, 0, workingStart)
   return {
-    weight: lastWeight,
-    sets: lastSetsCount,
-    reps: bestTopReps,
+    weight: lastWeight, sets: warmupCount + lastSetsCount, reps: bestTopReps,
     reason: '前回ギリギリのため重量・レップ維持',
-    setTargets: generateSetTargets(lastSetsCount, lastWeight, bestTopReps, effectiveSets, 0),
+    setTargets: combine(working),
   }
 }
 
@@ -210,7 +218,6 @@ function diffDays(a: Date, b: Date): number {
 function calcWeeklyVolumeSets(exercise: UserExercise, sessions: SessionWithSets[], today: Date): number {
   const weekAgo = new Date(today)
   weekAgo.setDate(weekAgo.getDate() - 7)
-
   return sessions
     .filter(s => new Date(s.trained_at) >= weekAgo)
     .flatMap(s => s.sets)
@@ -222,14 +229,11 @@ function checkStagnation(exerciseId: string, sessions: SessionWithSets[]): boole
   const exerciseSessions = sessions
     .filter(s => s.sets.some(set => set.exercise_id === exerciseId && !set.is_warmup))
     .slice(0, 3)
-
   if (exerciseSessions.length < 3) return false
-
   const weights = exerciseSessions.map(s => {
-    const workingSets = s.sets.filter(set => set.exercise_id === exerciseId && !set.is_warmup)
-    return workingSets.length > 0 ? Math.max(...workingSets.map(set => set.weight_kg)) : 0
+    const ws = s.sets.filter(set => set.exercise_id === exerciseId && !set.is_warmup)
+    return ws.length > 0 ? Math.max(...ws.map(set => set.weight_kg)) : 0
   })
-
   return weights.every(w => w === weights[0])
 }
 

@@ -73,8 +73,9 @@ export type SessionWithSets = TrainingSession & {
 
 export type SetTarget = {
   set_number: number;
-  weight_kg: number;   // セットごとの目標重量
+  weight_kg: number;
   reps: number;
+  is_warmup: boolean;
 };
 
 export type Suggestion = {

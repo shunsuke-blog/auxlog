@@ -36,6 +36,7 @@ export default function HomeMenu({ today, initialSuggestions, allExercises }: Pr
         set_number: i + 1,
         weight_kg: 0,
         reps: Math.max(1, defaultReps - i),
+        is_warmup: false,
       })),
       reason: '手動で追加',
       days_since_last: 0,

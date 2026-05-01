@@ -23,69 +23,86 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
   const { is_warmup } = setData
 
   return (
-    <div className={`flex items-center gap-2 ${is_warmup ? 'opacity-60' : ''}`}>
-      {/* ウォームアップトグル */}
-      <button
-        type="button"
-        onClick={() => onChange({ ...setData, is_warmup: !is_warmup })}
-        title={is_warmup ? 'ワーキングセットに変更' : 'ウォームアップに変更'}
-        className={`w-5 h-5 rounded-full text-[9px] font-bold shrink-0 transition-colors ${
-          is_warmup
-            ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'
-            : 'text-zinc-300 dark:text-zinc-700'
-        }`}
-      >
-        {is_warmup ? 'W' : setData.set_number}
-      </button>
-
-      {isBodyweight ? (
-        <>
-          <input
-            type="number"
-            inputMode="decimal"
-            value={setData.weight_kg === '0' ? '' : setData.weight_kg}
-            onChange={e => onChange({ ...setData, weight_kg: e.target.value || '0' })}
-            placeholder="—"
-            className="w-16 text-center py-2 px-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
-          />
-          <span className="text-xs text-zinc-400 shrink-0">加重kg</span>
-        </>
-      ) : (
-        <>
-          <input
-            type="number"
-            inputMode="decimal"
-            value={setData.weight_kg}
-            onChange={e => onChange({ ...setData, weight_kg: e.target.value })}
-            placeholder="0"
-            className="w-16 text-center py-2 px-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
-          />
-          <span className="text-xs text-zinc-400 shrink-0">kg</span>
-        </>
+    <div className={`transition-opacity ${is_warmup ? 'opacity-60' : ''}`}>
+      {/* ウォームアップバナー（アクティブ時のみ表示） */}
+      {is_warmup && (
+        <div className="flex items-center gap-1 mb-1">
+          <span className="text-[10px] font-semibold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full">
+            ウォームアップ
+          </span>
+        </div>
       )}
 
-      <input
-        type="number"
-        inputMode="numeric"
-        value={setData.reps}
-        onChange={e => onChange({ ...setData, reps: e.target.value })}
-        placeholder="0"
-        className="w-14 text-center py-2 px-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
-      />
-      <span className="text-xs text-zinc-400 shrink-0">回</span>
-      <RirToggle
-        value={setData.rir}
-        onChange={rir => onChange({ ...setData, rir })}
-      />
-      {canDelete && (
+      <div className="flex items-center gap-2">
+        {/* セット番号（静的表示） */}
+        <span className="w-5 text-xs font-medium text-zinc-400 dark:text-zinc-500 text-center shrink-0">
+          {setData.set_number}
+        </span>
+
+        {isBodyweight ? (
+          <>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={setData.weight_kg === '0' ? '' : setData.weight_kg}
+              onChange={e => onChange({ ...setData, weight_kg: e.target.value || '0' })}
+              placeholder="—"
+              className="w-16 text-center py-2 px-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
+            />
+            <span className="text-xs text-zinc-400 shrink-0">加重kg</span>
+          </>
+        ) : (
+          <>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={setData.weight_kg}
+              onChange={e => onChange({ ...setData, weight_kg: e.target.value })}
+              placeholder="0"
+              className="w-16 text-center py-2 px-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
+            />
+            <span className="text-xs text-zinc-400 shrink-0">kg</span>
+          </>
+        )}
+
+        <input
+          type="number"
+          inputMode="numeric"
+          value={setData.reps}
+          onChange={e => onChange({ ...setData, reps: e.target.value })}
+          placeholder="0"
+          className="w-14 text-center py-2 px-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
+        />
+        <span className="text-xs text-zinc-400 shrink-0">回</span>
+
+        <RirToggle
+          value={setData.rir}
+          onChange={rir => onChange({ ...setData, rir })}
+        />
+
+        {/* ウォームアップトグル */}
         <button
           type="button"
-          onClick={onDelete}
-          className="p-1 text-zinc-300 dark:text-zinc-700 hover:text-red-400 transition-colors shrink-0"
+          onClick={() => onChange({ ...setData, is_warmup: !is_warmup })}
+          className={`shrink-0 px-2 py-1 rounded-full text-[10px] font-semibold border transition-colors ${
+            is_warmup
+              ? 'border-amber-400 text-amber-500 bg-amber-50 dark:bg-amber-950/40'
+              : 'border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-600 hover:border-amber-300 hover:text-amber-400'
+          }`}
         >
-          <Minus className="w-4 h-4" />
+          W
         </button>
-      )}
+
+        {canDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="p-1 text-zinc-300 dark:text-zinc-700 hover:text-red-400 transition-colors shrink-0"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+        )}
+      </div>
     </div>
   )
 }
