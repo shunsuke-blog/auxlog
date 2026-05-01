@@ -28,6 +28,7 @@ export async function POST(request: Request) {
     weight_kg: number
     reps: number
     rir: boolean
+    is_warmup: boolean
   }) => ({
     session_id: session.id,
     exercise_id: s.exercise_id,
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
     weight_kg: s.weight_kg,
     reps: s.reps,
     rir: s.rir,
+    is_warmup: s.is_warmup ?? false,
   }))
 
   const { error: setsError } = await supabase
@@ -79,6 +81,7 @@ export async function GET(request: Request) {
       weight_kg: number
       reps: number
       rir: boolean
+      is_warmup: boolean
       created_at: string
     }[]
   }) => {

@@ -64,6 +64,7 @@ export async function PATCH(
     weight_kg: number
     reps: number
     rir: boolean
+    is_warmup: boolean
   }) => ({
     session_id: sessionId,
     exercise_id: s.exercise_id,

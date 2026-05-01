@@ -45,6 +45,7 @@ export async function GET() {
     default_reps: number
     sort_order: number
     is_active: boolean
+    is_bodyweight: boolean
     created_at: string
     exercise_master: { name: string; target_muscle: string } | null
   }) => ({
@@ -69,6 +70,7 @@ export async function GET() {
       weight_kg: number
       reps: number
       rir: boolean
+      is_warmup: boolean
       created_at: string
     }[]
   }) => ({

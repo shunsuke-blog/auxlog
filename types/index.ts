@@ -26,6 +26,7 @@ export type ExerciseMaster = {
   name: string;
   target_muscle: TargetMuscle;
   sort_order: number;
+  is_bodyweight: boolean;
   created_at: string;
 };
 
@@ -39,6 +40,7 @@ export type UserExercise = {
   default_reps: number;
   sort_order: number;
   is_active: boolean;
+  is_bodyweight: boolean;
   created_at: string;
   name: string;
   target_muscle: TargetMuscle;
@@ -52,6 +54,7 @@ export type TrainingSet = {
   weight_kg: number;
   reps: number;
   rir: boolean;
+  is_warmup: boolean;
   created_at: string;
 };
 
@@ -68,11 +71,18 @@ export type SessionWithSets = TrainingSession & {
   sets: TrainingSet[];
 };
 
+export type SetTarget = {
+  set_number: number;
+  weight_kg: number;   // セットごとの目標重量
+  reps: number;
+};
+
 export type Suggestion = {
   exercise: UserExercise;
   proposed_sets: number;
-  proposed_reps: number;
+  proposed_reps: number;        // トップセット（1セット目）の目標回数
   proposed_weight_kg: number;
+  proposed_set_targets: SetTarget[]; // セットごとの目標回数（疲労考慮済み）
   reason: string;
   days_since_last: number;
   weekly_volume_sets: number;

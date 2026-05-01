@@ -9,6 +9,7 @@ import { Plus, ChevronLeft } from 'lucide-react'
 type ExerciseSets = {
   exerciseId: string
   exerciseName: string
+  isBodyweight: boolean
   sets: SetData[]
 }
 
@@ -42,14 +43,17 @@ function EditContent() {
           ?? set.user_exercises?.exercise_master?.name
           ?? '不明な種目'
 
+        const isBodyweight = set.user_exercises?.is_bodyweight ?? false
+
         if (!grouped.has(exId)) {
-          grouped.set(exId, { exerciseId: exId, exerciseName: exName, sets: [] })
+          grouped.set(exId, { exerciseId: exId, exerciseName: exName, isBodyweight, sets: [] })
         }
         grouped.get(exId)!.sets.push({
           set_number: set.set_number,
           weight_kg: String(set.weight_kg),
           reps: String(set.reps),
           rir: set.rir,
+          is_warmup: set.is_warmup ?? false,
         })
       }
 
@@ -88,6 +92,7 @@ function EditContent() {
             weight_kg: lastSet.weight_kg,
             reps: lastSet.reps,
             rir: true,
+            is_warmup: false,
           },
         ],
       }
@@ -186,6 +191,7 @@ function EditContent() {
                   key={setIdx}
                   setData={set}
                   canDelete={ex.sets.length > 1}
+                  isBodyweight={ex.isBodyweight}
                   onChange={data => updateSet(exIdx, setIdx, data)}
                   onDelete={() => deleteSet(exIdx, setIdx)}
                 />

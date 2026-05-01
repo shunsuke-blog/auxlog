@@ -1,5 +1,8 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
-import { Pencil } from 'lucide-react'
+import { Pencil, ChevronDown } from 'lucide-react'
 import type { UserExercise, TrainingSet } from '@/types'
 
 type Session = {
@@ -17,6 +20,18 @@ type Props = {
 }
 
 export default function SessionList({ sessions, exercises }: Props) {
+  // 展開中の種目キー: "sessionId-exerciseId"
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  const toggleExpand = (key: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
   const exerciseMap = new Map(exercises.map(e => [e.id, e]))
 
   if (sessions.length === 0) {
@@ -41,9 +56,10 @@ export default function SessionList({ sessions, exercises }: Props) {
         return (
           <div
             key={session.id}
-            className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900"
+            className="bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 overflow-hidden"
           >
-            <div className="flex items-center justify-between mb-3">
+            {/* セッションヘッダー */}
+            <div className="flex items-center justify-between px-5 pt-4 pb-3">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-black dark:text-white">{date}</span>
                 <span className="text-xs text-zinc-400">疲労度 {session.fatigue_level}</span>
@@ -61,28 +77,81 @@ export default function SessionList({ sessions, exercises }: Props) {
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            {/* 種目一覧 */}
+            <div className="divide-y divide-zinc-50 dark:divide-zinc-900">
               {exerciseIds.map(exId => {
                 const exercise = exerciseMap.get(exId)
-                const exSets = session.sets.filter(s => s.exercise_id === exId)
+                const exSets = session.sets
+                  .filter(s => s.exercise_id === exId)
+                  .sort((a, b) => a.set_number - b.set_number)
                 if (exSets.length === 0) return null
 
                 const name = exercise?.name ?? '不明な種目'
                 const maxWeight = Math.max(...exSets.map(s => s.weight_kg))
+                const expandKey = `${session.id}-${exId}`
+                const isExpanded = expanded.has(expandKey)
+                const isBodyweight = exercise?.is_bodyweight ?? false
 
                 return (
-                  <div key={exId} className="flex items-baseline justify-between">
-                    <span className="text-xs text-zinc-600 dark:text-zinc-400">{name}</span>
-                    <span className="text-xs text-zinc-500">
-                      {maxWeight}kg × {exSets[0].reps}回 × {exSets.length}セット
-                    </span>
+                  <div key={exId}>
+                    {/* 種目行（タップで展開） */}
+                    <button
+                      onClick={() => toggleExpand(expandKey)}
+                      className="w-full flex items-center justify-between px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm text-zinc-700 dark:text-zinc-300 truncate">
+                          {name}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-zinc-400">
+                          {isBodyweight
+                            ? (maxWeight > 0 ? `+${maxWeight}kg` : '自重')
+                            : `${maxWeight}kg`
+                          }{' '}× {exSets.length}セット
+                        </span>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        />
+                      </div>
+                    </button>
+
+                    {/* 展開時：セット詳細 */}
+                    {isExpanded && (
+                      <div className="px-5 pb-3 space-y-1.5 bg-zinc-50 dark:bg-zinc-900/50">
+                        <div className="grid grid-cols-4 gap-2 pt-2 pb-1">
+                          <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">セット</span>
+                          <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider text-right">重量</span>
+                          <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider text-right">回数</span>
+                          <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider text-right">余裕</span>
+                        </div>
+                        {exSets.map(set => (
+                          <div key={set.id} className="grid grid-cols-4 gap-2">
+                            <span className="text-xs text-zinc-500">{set.set_number}</span>
+                            <span className="text-xs text-black dark:text-white text-right font-medium">
+                              {isBodyweight
+                                ? (set.weight_kg > 0 ? `+${set.weight_kg}kg` : '自重')
+                                : `${set.weight_kg}kg`
+                              }
+                            </span>
+                            <span className="text-xs text-black dark:text-white text-right font-medium">
+                              {set.reps}回
+                            </span>
+                            <span className={`text-xs text-right font-medium ${set.rir ? 'text-emerald-500' : 'text-red-500'}`}>
+                              {set.rir ? '余裕' : '限界'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
               })}
             </div>
 
             {session.memo && (
-              <p className="mt-2.5 text-xs text-zinc-400 dark:text-zinc-600 border-t border-zinc-100 dark:border-zinc-900 pt-2.5">
+              <p className="px-5 py-3 text-xs text-zinc-400 dark:text-zinc-600 border-t border-zinc-100 dark:border-zinc-900">
                 {session.memo}
               </p>
             )}

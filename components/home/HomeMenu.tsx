@@ -25,11 +25,18 @@ export default function HomeMenu({ today, initialSuggestions, allExercises }: Pr
   }
 
   const addExercise = (exercise: UserExercise) => {
+    const defaultReps = exercise.default_reps
+    const defaultSets = exercise.default_sets
     const suggestion: Suggestion = {
       exercise,
       proposed_weight_kg: 0,
-      proposed_sets: exercise.default_sets,
-      proposed_reps: exercise.default_reps,
+      proposed_sets: defaultSets,
+      proposed_reps: defaultReps,
+      proposed_set_targets: Array.from({ length: defaultSets }, (_, i) => ({
+        set_number: i + 1,
+        weight_kg: 0,
+        reps: Math.max(1, defaultReps - i),
+      })),
       reason: '手動で追加',
       days_since_last: 0,
       weekly_volume_sets: 0,

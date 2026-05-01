@@ -39,26 +39,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // 認証済みユーザーのオンボーディングチェック（onboarding以外の(app)ページ）
-  if (
-    user &&
-    !pathname.startsWith('/onboarding') &&
-    !pathname.startsWith('/login') &&
-    !pathname.startsWith('/auth') &&
-    !pathname.startsWith('/api') &&
-    !pathname.startsWith('/settings')
-  ) {
-    const { count } = await supabase
-      .from('user_exercises')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-
-    if (count === 0) {
-      return NextResponse.redirect(new URL('/onboarding', request.url))
-    }
-  }
-
   return supabaseResponse
 }
 

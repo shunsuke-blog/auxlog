@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import VolumeChartWrapper from '@/components/history/VolumeChartWrapper'
-import SessionList from '@/components/history/SessionList'
+import HistoryClient from '@/components/history/HistoryClient'
 import type { TargetMuscle } from '@/types'
 
 export default async function HistoryPage() {
@@ -14,7 +13,7 @@ export default async function HistoryPage() {
       .select('*, training_sets(*)')
       .eq('user_id', user.id)
       .order('trained_at', { ascending: false })
-      .limit(20),
+      .limit(60),
     supabase
       .from('user_exercises')
       .select('*, exercise_master(name, target_muscle)')
@@ -33,6 +32,7 @@ export default async function HistoryPage() {
     default_reps: number
     sort_order: number
     is_active: boolean
+    is_bodyweight: boolean
     created_at: string
     exercise_master: { name: string; target_muscle: string } | null
   }) => ({
@@ -57,6 +57,7 @@ export default async function HistoryPage() {
       weight_kg: number
       reps: number
       rir: boolean
+      is_warmup: boolean
       created_at: string
     }[]
   }) => {
@@ -78,11 +79,8 @@ export default async function HistoryPage() {
         <h1 className="text-xl font-semibold text-black dark:text-white">履歴</h1>
       </div>
 
-      <div className="px-6 py-6 space-y-4">
-        {exercises.length > 0 && (
-          <VolumeChartWrapper sessions={sessions} exercises={exercises} />
-        )}
-        <SessionList sessions={sessions} exercises={exercises} />
+      <div className="px-6 py-6">
+        <HistoryClient sessions={sessions} exercises={exercises} />
       </div>
     </div>
   )

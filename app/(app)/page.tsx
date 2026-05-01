@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { suggestMenu } from '@/lib/suggest/engine'
 import HomeMenu from '@/components/home/HomeMenu'
+import { redirect } from 'next/navigation'
 import type { TargetMuscle } from '@/types'
 
 export default async function HomePage() {
@@ -14,6 +15,11 @@ export default async function HomePage() {
     .eq('user_id', user.id)
     .eq('is_active', true)
     .order('sort_order')
+
+  // 種目未登録ならオンボーディングへ
+  if (!exercises || exercises.length === 0) {
+    redirect('/onboarding')
+  }
 
   const fourWeeksAgo = new Date()
   fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28)
@@ -35,6 +41,7 @@ export default async function HomePage() {
     default_reps: number
     sort_order: number
     is_active: boolean
+    is_bodyweight: boolean
     created_at: string
     exercise_master: { name: string; target_muscle: string } | null
   }) => ({
@@ -59,6 +66,7 @@ export default async function HomePage() {
       weight_kg: number
       reps: number
       rir: boolean
+      is_warmup: boolean
       created_at: string
     }[]
   }) => ({

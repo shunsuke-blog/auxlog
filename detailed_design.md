@@ -335,121 +335,82 @@ CREATE INDEX idx_user_exercises_user
 
 ## 5. メニュー提案ロジック詳細（engine.ts）
 
-```typescript
-type SuggestInput = {
-  exercises: Exercise[];
-  recentSessions: SessionWithSets[]; // 直近4週間分
-  todayDate: Date;
-};
+### 5.1 設計方針（実装を通じて確立）
 
-function suggestMenu(input: SuggestInput): Suggestion[] {
-  const { exercises, recentSessions, todayDate } = input;
+初期設計から実際の使用を経て以下の問題が判明し、ロジックを修正した。
 
-  return exercises
-    .filter(e => e.is_active)
-    .map(exercise => {
-      const lastSession = getLastSession(exercise.id, recentSessions);
-      const daysSinceLast = lastSession
-        ? diffDays(todayDate, lastSession.trained_at)
-        : 999;
-      const weeklyVolumeSets = calcWeeklyVolumeSets(
-        exercise.target_muscle,
-        recentSessions,
-        todayDate
-      );
-      const lastSets = lastSession?.sets.filter(
-        s => s.exercise_id === exercise.id
-      ) ?? [];
+**修正の背景**
+- ピラミッド・逆ピラミッドセット：先頭セットの重量を基準にすると、ウォームアップ重量が提案に反映されてしまう
+- バックオフセット：高重量のトップセット後に軽い重量で行うセットが判定を汚染する
+- 自重種目（チンアップ等）：0kg×18回実績に対し「8回」を提案するなど、default_repsを基準にすると実態と乖離する
 
-      // 重量・セット提案
-      const { weight, sets, reps, reason } = proposeNextSet(
-        lastSets,
-        exercise,
-        lastSession?.fatigue_level
-      );
+**確立した方針**
+| 項目 | 方針 |
+|---|---|
+| 基準重量 | 全セット中の最大重量（ウォームアップを除外） |
+| セット数カウント | 最大重量の80%以上のセットのみ（ウォームアップ除外） |
+| RIR・レップ判定 | トップセット（最大重量のセット）のみ |
+| 提案回数の基準 | `exercise.default_reps` ではなく前回実績（`bestTopReps`） |
+| ストール判定 | レップ達成済みの場合のみ適用 |
 
-      return {
-        exercise,
-        proposed_weight_kg: weight,
-        proposed_sets: sets,
-        proposed_reps: reps,
-        reason,
-        days_since_last: daysSinceLast,
-        weekly_volume_sets: weeklyVolumeSets,
-        volume_status: getVolumeStatus(weeklyVolumeSets),
-      };
-    })
-    // 経過日数が長い順に並べる
-    .sort((a, b) => b.days_since_last - a.days_since_last);
-}
+### 5.2 判定フロー
 
-function proposeNextSet(
-  lastSets: TrainingSet[],
-  exercise: Exercise,
-  lastFatigue?: number
-): { weight: number; sets: number; reps: number; reason: string } {
-  if (lastSets.length === 0) {
-    return {
-      weight: 0,
-      sets: exercise.default_sets,
-      reps: exercise.default_reps,
-      reason: '初回のため初期値を使用',
-    };
-  }
-
-  const allSetsHadRoom = lastSets.every(s => s.rir === true);
-  // 全セット余裕ありだったか
-  const allSetsHitReps = lastSets.every(s => s.reps >= exercise.default_reps);
-  const lastWeight = lastSets[0].weight_kg;
-  const lastSetsCount = lastSets.length;
-
-  // 疲労度が高い場合
-  if (lastFatigue && lastFatigue >= 4) {
-    return {
-      weight: Math.round((lastWeight * 0.95) / 2.5) * 2.5,
-      sets: lastSetsCount,
-      reps: exercise.default_reps,
-      reason: '前回の疲労度が高いため重量を5%減',
-    };
-  }
-
-  // 3週間停滞チェックは別途呼び出し元で判定
-
-  // 全セット余裕ありかつ全セットレップ達成 → 重量UP
-  if (allSetsHadRoom && allSetsHitReps) {
-    return {
-      weight: lastWeight + 2.5,
-      sets: lastSetsCount,
-      reps: exercise.default_reps,
-      reason: '前回余裕あり・全セット達成のため重量+2.5kg',
-    };
-  }
-
-  // レップ未達 → 重量維持・レップ目標を1下げる
-  if (!allSetsHitReps) {
-    return {
-      weight: lastWeight,
-      sets: lastSetsCount,
-      reps: exercise.default_reps - 1,
-      reason: '前回レップ未達のため重量維持・目標レップ-1',
-    };
-  }
-
-  // それ以外 → 維持
-  return {
-    weight: lastWeight,
-    sets: lastSetsCount,
-    reps: exercise.default_reps,
-    reason: '前回ギリギリのため重量・レップ維持',
-  };
-}
-
-function getVolumeStatus(weeklySets: number): 'low' | 'optimal' | 'high' {
-  if (weeklySets < 10) return 'low';
-  if (weeklySets <= 20) return 'optimal';
-  return 'high';
-}
 ```
+入力: lastSets（前回セット一覧）, exercise, lastFatigue, isStagnant
+
+1. lastSets が空 → 初回提案（default_sets × default_reps）
+
+2. 基礎値を算出
+   lastWeight    = max(全セットの重量)
+   workingSets   = lastWeight × 80%以上のセット
+   lastSetsCount = workingSets.length
+   topSets       = lastWeight と同じ重量のセット
+   bestTopReps   = max(topSetsの回数)
+   reachedTarget = bestTopReps >= default_reps
+
+3. 疲労度 >= 4
+   → 有酸素: weight × 0.95（2.5kg丸め）, reps = bestTopReps
+   → 自重:   reps = bestTopReps × 0.8（20%減）
+
+4. reachedTarget = false（レップ未達）
+   → weight 維持, reps = min(bestTopReps + 1, default_reps)
+   ※ ストール判定は適用しない
+
+5. allTopSetsHadRoom = true（全トップセット余裕あり）
+   → 有酸素: weight + 2.5kg, reps = default_reps（新重量でリセット）
+   → 自重:   reps = bestTopReps + 2
+
+6. isStagnant = true（3セッション重量変化なし）
+   → weight 維持, sets + 1, reps = bestTopReps
+
+7. ギリギリ達成（余裕なし・レップ達成）
+   → weight 維持, sets 維持, reps = bestTopReps
+```
+
+### 5.3 ストール（停滞）判定
+
+直近3セッションのトップセット最大重量がすべて同一の場合に `isStagnant = true` とする。
+ただし `proposeNextSet` 内でレップ未達の場合は適用しない（未達は停滞ではなく漸進中）。
+
+### 5.4 週ボリューム状態
+
+| 状態 | 条件 | 表示 |
+|---|---|---|
+| `low` | 週セット数 < 10 | ボリューム不足インジケーター |
+| `optimal` | 10 ≤ 週セット数 ≤ 20 | 表示なし |
+| `high` | 週セット数 > 20 | オーバートレーニング注意インジケーター |
+
+### 5.5 直線セット提案について
+
+現在の実装は**直線セット（Straight Sets）**を提案する。すなわち「Xkg × Y回 × Zセット」はすべてのセットで同一の重量・回数を指定する。
+
+**根拠**
+- 直線セットはプログレッシブオーバーロードの基本形であり、多くのエビデンスベースプログラムで採用されている
+- 筋肥大においてはセット間で多少回数が減っても総ボリュームが担保されれば効果的（Schoenfeld et al. 2021）
+
+**限界**
+- 実際には疲労によりセットを重ねるごとに回数は自然に減少する
+- ユーザーは記録入力時にセットごとの実績値（重量・回数・RIR）を個別入力することで乖離を吸収する設計としている
 
 ---
 

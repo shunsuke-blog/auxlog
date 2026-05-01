@@ -46,11 +46,12 @@ function RecordContent() {
           target.map(s => ({
             exercise: s.exercise,
             enabled: true,
-            sets: Array.from({ length: s.proposed_sets }, (_, i) => ({
-              set_number: i + 1,
-              weight_kg: s.proposed_weight_kg > 0 ? String(s.proposed_weight_kg) : '',
-              reps: String(s.proposed_reps),
+            sets: s.proposed_set_targets.map(t => ({
+              set_number: t.set_number,
+              weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
+              reps: String(t.reps),
               rir: true,
+              is_warmup: false,
             })),
           }))
         )
@@ -69,7 +70,7 @@ function RecordContent() {
           filtered.map(ex => ({
             exercise: ex,
             enabled: true,
-            sets: [{ set_number: 1, weight_kg: '', reps: String(ex.default_reps), rir: true }],
+            sets: [{ set_number: 1, weight_kg: '', reps: String(ex.default_reps), rir: true, is_warmup: false }],
           }))
         )
         if (exerciseId && filtered.length > 0) {
@@ -105,6 +106,7 @@ function RecordContent() {
             weight_kg: lastSet.weight_kg,
             reps: lastSet.reps,
             rir: true,
+            is_warmup: false,
           },
         ],
       }
@@ -138,13 +140,14 @@ function RecordContent() {
       .filter(ex => ex.enabled)
       .flatMap(ex =>
         ex.sets
-          .filter(s => s.weight_kg !== '' && s.reps !== '')
+          .filter(s => s.reps !== '' && (ex.exercise.is_bodyweight || s.weight_kg !== ''))
           .map(s => ({
             exercise_id: ex.exercise.id,
             set_number: s.set_number,
-            weight_kg: parseFloat(s.weight_kg),
+            weight_kg: s.weight_kg === '' ? 0 : parseFloat(s.weight_kg),
             reps: parseInt(s.reps),
             rir: s.rir,
+            is_warmup: s.is_warmup,
           }))
       )
 
@@ -228,6 +231,7 @@ function RecordContent() {
                       key={setIdx}
                       setData={set}
                       canDelete={ex.sets.length > 1}
+                      isBodyweight={ex.exercise.is_bodyweight}
                       onChange={data => updateSet(exIdx, setIdx, data)}
                       onDelete={() => deleteSet(exIdx, setIdx)}
                     />

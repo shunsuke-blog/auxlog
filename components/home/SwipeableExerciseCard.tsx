@@ -28,7 +28,13 @@ export default function SwipeableExerciseCard({ suggestion, onDelete }: Props) {
   const moved = useRef(false)   // タップとスワイプの判別用
   const axis = useRef<'h' | 'v' | null>(null) // 決定した軸
 
-  const { exercise, proposed_weight_kg, proposed_sets, proposed_reps, reason, days_since_last, volume_status } = suggestion
+  const { exercise, proposed_weight_kg, proposed_sets, proposed_reps, proposed_set_targets, reason, days_since_last, volume_status } = suggestion
+
+  // セットごとの回数が異なる場合は "8 / 7 / 6" 形式、同じなら "8" のみ
+  const allSameReps = proposed_set_targets.every(t => t.reps === proposed_reps)
+  const repsLabel = allSameReps
+    ? `${proposed_reps}回`
+    : proposed_set_targets.map(t => t.reps).join(' / ') + '回'
   const dayLabel = days_since_last >= 999 ? '初回' : `${days_since_last}日ぶり`
 
   // passive: false が必要なので useEffect でネイティブ登録
@@ -124,13 +130,24 @@ export default function SwipeableExerciseCard({ suggestion, onDelete }: Props) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onClick={handleClick}
-        className="relative bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 px-6 py-5 cursor-pointer select-none active:bg-zinc-50 dark:active:bg-zinc-900"
+        className={`relative bg-white dark:bg-zinc-950 rounded-2xl border cursor-pointer select-none active:bg-zinc-50 dark:active:bg-zinc-900 px-6 py-5 ${
+          days_since_last >= 7
+            ? 'border-amber-400 dark:border-amber-500 border-l-4'
+            : 'border-zinc-100 dark:border-zinc-900'
+        }`}
       >
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
+            <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-black dark:text-white">
               {exercise.name}
             </h3>
+            {days_since_last >= 7 && (
+              <span className="text-[10px] font-semibold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-full">
+                優先
+              </span>
+            )}
+            </div>
             <span className="text-xs text-zinc-400 dark:text-zinc-500">
               {TARGET_MUSCLE_LABELS[exercise.target_muscle]}
             </span>
@@ -144,9 +161,12 @@ export default function SwipeableExerciseCard({ suggestion, onDelete }: Props) {
         </div>
 
         <div className="text-2xl font-semibold tracking-tight text-black dark:text-white mb-1.5">
-          {proposed_weight_kg > 0 ? `${proposed_weight_kg}kg` : '—'}{' '}
+          {exercise.is_bodyweight
+            ? (proposed_weight_kg > 0 ? `+${proposed_weight_kg}kg` : '自重')
+            : (proposed_weight_kg > 0 ? `${proposed_weight_kg}kg` : '—')
+          }{' '}
           <span className="text-base font-normal text-zinc-500">
-            × {proposed_reps}回 × {proposed_sets}セット
+            × {repsLabel} × {proposed_sets}セット
           </span>
         </div>
 
