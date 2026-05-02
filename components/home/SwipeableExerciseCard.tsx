@@ -138,7 +138,7 @@ export default function SwipeableExerciseCard({ suggestion, onDelete }: Props) {
         onClick={handleClick}
         className={`relative bg-white dark:bg-zinc-950 rounded-2xl border cursor-pointer select-none active:bg-zinc-50 dark:active:bg-zinc-900 px-6 py-5 ${
           days_since_last >= 7
-            ? 'border-amber-400 dark:border-amber-500 border-l-4'
+            ? 'border-amber-400 dark:border-amber-500'
             : 'border-zinc-100 dark:border-zinc-900'
         }`}
       >
