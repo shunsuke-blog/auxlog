@@ -3,7 +3,7 @@ import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 
 export async function POST() {
-  if (!process.env.STRIPE_SECRET_KEY) {
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_PRICE_ID) {
     return NextResponse.json({ error: 'Stripe not configured' }, { status: 503 })
   }
 
@@ -13,25 +13,48 @@ export async function POST() {
 
   const { data: userData } = await supabase
     .from('users')
-    .select('stripe_customer_id, email')
+    .select('stripe_customer_id, stripe_subscription_id, email')
     .eq('id', user.id)
     .single()
 
-  if (userData?.stripe_customer_id) {
+  if (userData?.stripe_subscription_id) {
     return NextResponse.json({ message: 'Already has subscription' })
   }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
-  const customer = await stripe.customers.create({
-    email: userData?.email ?? user.email ?? '',
-    metadata: { supabase_user_id: user.id },
+  // 既存CustomerがあればそのまM利用、なければ新規作成（カード不要）
+  let customerId = userData?.stripe_customer_id ?? null
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      email: userData?.email ?? user.email ?? '',
+      metadata: { supabase_user_id: user.id },
+    })
+    customerId = customer.id
+  }
+
+  // 30日トライアル・カード未登録で開始、終了時に未登録なら自動キャンセル
+  const subscription = await stripe.subscriptions.create({
+    customer: customerId,
+    items: [{ price: process.env.STRIPE_PRICE_ID }],
+    trial_period_days: 30,
+    payment_settings: { save_default_payment_method: 'on_subscription' },
+    trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
   })
+
+  const trialEnd = subscription.trial_end
+    ? new Date(subscription.trial_end * 1000).toISOString()
+    : null
 
   await supabase
     .from('users')
-    .update({ stripe_customer_id: customer.id })
+    .update({
+      stripe_customer_id: customerId,
+      stripe_subscription_id: subscription.id,
+      subscription_status: subscription.status,
+      ...(trialEnd ? { trial_ends_at: trialEnd } : {}),
+    })
     .eq('id', user.id)
 
-  return NextResponse.json({ customer_id: customer.id })
+  return NextResponse.json({ subscription_id: subscription.id })
 }
