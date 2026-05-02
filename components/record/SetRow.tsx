@@ -49,6 +49,19 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
       )}
 
       <div className="flex items-center gap-2">
+        {/* 削除ボタン（左端：実施ボタンと離す） */}
+        {canDelete ? (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="p-1 text-zinc-300 dark:text-zinc-700 hover:text-red-400 transition-colors shrink-0"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+        ) : (
+          <span className="w-6 shrink-0" />
+        )}
+
         {/* セット番号 */}
         <span className="w-4 text-xs font-medium text-zinc-400 dark:text-zinc-500 text-center shrink-0">
           {setData.set_number}
@@ -58,11 +71,11 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
           showWeight ? (
             <>
               <input
-                type="number"
+                type="text"
                 inputMode="decimal"
                 value={setData.weight_kg === '0' ? '' : setData.weight_kg}
                 onFocus={e => e.target.select()}
-                onChange={e => handleWeightChange(e.target.value)}
+                onChange={e => handleWeightChange(e.target.value.replace(/[^0-9.]/g, ''))}
                 placeholder="0"
                 className="w-14 text-center py-2 px-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
               />
@@ -87,11 +100,11 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
         ) : (
           <>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
               value={setData.weight_kg}
               onFocus={e => e.target.select()}
-              onChange={e => handleWeightChange(e.target.value)}
+              onChange={e => handleWeightChange(e.target.value.replace(/[^0-9.]/g, ''))}
               placeholder="0"
               className="w-14 text-center py-2 px-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
             />
@@ -100,11 +113,11 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
         )}
 
         <input
-          type="number"
+          type="text"
           inputMode="numeric"
           value={setData.reps}
           onFocus={e => e.target.select()}
-          onChange={e => handleRepsChange(e.target.value)}
+          onChange={e => handleRepsChange(e.target.value.replace(/[^0-9]/g, ''))}
           placeholder="0"
           className="w-12 text-center py-2 px-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
         />
@@ -127,16 +140,6 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
         >
           {is_warmup ? 'W/UP' : 'W/UP'}
         </button>
-
-        {canDelete && (
-          <button
-            type="button"
-            onClick={onDelete}
-            className="p-1 text-zinc-300 dark:text-zinc-700 hover:text-red-400 transition-colors shrink-0"
-          >
-            <Minus className="w-4 h-4" />
-          </button>
-        )}
 
         {/* 実施フラグ（右端・右利きに配慮） */}
         <button
