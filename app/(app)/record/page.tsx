@@ -37,7 +37,19 @@ function RecordContent() {
     const load = async () => {
       const res = await fetch('/api/suggest')
       const data = await res.json()
-      const suggestions: Suggestion[] = data.suggestions ?? []
+      const allSuggestions: Suggestion[] = data.suggestions ?? []
+
+      // ホームでスワイプ削除した種目を非表示（exerciseId 未指定の全種目表示時のみ適用）
+      const suggestions = exerciseId ? allSuggestions : (() => {
+        try {
+          const stored = sessionStorage.getItem('calcul_hidden_today')
+          if (!stored) return allSuggestions
+          const { date, ids } = JSON.parse(stored) as { date: string; ids: string[] }
+          const today = new Date().toISOString().split('T')[0]
+          if (date !== today) return allSuggestions
+          return allSuggestions.filter(s => !ids.includes(s.exercise.id))
+        } catch { return allSuggestions }
+      })()
 
       if (exerciseId) {
         const matched = suggestions.find(s => s.exercise.id === exerciseId)

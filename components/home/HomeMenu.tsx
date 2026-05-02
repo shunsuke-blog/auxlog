@@ -7,6 +7,40 @@ import type { Suggestion, UserExercise } from '@/types'
 import { TARGET_MUSCLE_LABELS } from '@/types'
 import SwipeableExerciseCard from './SwipeableExerciseCard'
 
+const HIDDEN_KEY = 'calcul_hidden_today'
+
+type HiddenData = { date: string; ids: string[] }
+
+function getHiddenIds(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const stored = sessionStorage.getItem(HIDDEN_KEY)
+    if (!stored) return []
+    const data: HiddenData = JSON.parse(stored)
+    const today = new Date().toISOString().split('T')[0]
+    if (data.date !== today) { sessionStorage.removeItem(HIDDEN_KEY); return [] }
+    return data.ids
+  } catch { return [] }
+}
+
+function saveHiddenId(exerciseId: string) {
+  try {
+    const today = new Date().toISOString().split('T')[0]
+    const ids = getHiddenIds()
+    if (!ids.includes(exerciseId)) {
+      sessionStorage.setItem(HIDDEN_KEY, JSON.stringify({ date: today, ids: [...ids, exerciseId] }))
+    }
+  } catch { /* ignore */ }
+}
+
+function removeHiddenId(exerciseId: string) {
+  try {
+    const today = new Date().toISOString().split('T')[0]
+    const ids = getHiddenIds().filter(id => id !== exerciseId)
+    sessionStorage.setItem(HIDDEN_KEY, JSON.stringify({ date: today, ids }))
+  } catch { /* ignore */ }
+}
+
 type Props = {
   today: string
   initialSuggestions: Suggestion[]
@@ -14,7 +48,13 @@ type Props = {
 }
 
 export default function HomeMenu({ today, initialSuggestions, allExercises }: Props) {
-  const [suggestions, setSuggestions] = useState(initialSuggestions)
+  // 初期化時に sessionStorage の非表示リストを適用
+  const [suggestions, setSuggestions] = useState<Suggestion[]>(() => {
+    const hiddenIds = getHiddenIds()
+    return hiddenIds.length > 0
+      ? initialSuggestions.filter(s => !hiddenIds.includes(s.exercise.id))
+      : initialSuggestions
+  })
   const [showModal, setShowModal] = useState(false)
 
   const visibleIds = new Set(suggestions.map(s => s.exercise.id))
@@ -22,9 +62,11 @@ export default function HomeMenu({ today, initialSuggestions, allExercises }: Pr
 
   const removeExercise = (exerciseId: string) => {
     setSuggestions(prev => prev.filter(s => s.exercise.id !== exerciseId))
+    saveHiddenId(exerciseId)   // sessionStorage に保存
   }
 
   const addExercise = (exercise: UserExercise) => {
+    removeHiddenId(exercise.id)  // 再追加時は非表示リストから除去
     const defaultReps = exercise.default_reps
     const defaultSets = exercise.default_sets
     const suggestion: Suggestion = {

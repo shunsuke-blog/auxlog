@@ -112,11 +112,17 @@ export default function SwipeableExerciseCard({ suggestion, onDelete }: Props) {
 
   return (
     <div className="relative overflow-hidden rounded-2xl">
-      {/* 削除ボタン（スワイプで現れる） */}
-      <div className="absolute inset-y-0 right-0 w-[72px] flex flex-col items-center justify-center bg-red-500 rounded-r-2xl">
-        <button onClick={handleDelete} className="flex flex-col items-center gap-1 text-white w-full h-full justify-center">
-          <Trash2 className="w-4 h-4" />
-          <span className="text-[10px] font-semibold">削除</span>
+      {/* 削除ボタン（スワイプ量に応じて幅が変わる） */}
+      <div
+        className="absolute inset-y-0 right-0 flex flex-col items-center justify-center bg-red-500 rounded-r-2xl overflow-hidden"
+        style={{ width: Math.abs(translateX) }}
+      >
+        <button
+          onClick={handleDelete}
+          className="flex flex-col items-center gap-1 text-white w-full h-full justify-center"
+        >
+          {Math.abs(translateX) > 36 && <Trash2 className="w-4 h-4" />}
+          {Math.abs(translateX) > 52 && <span className="text-[10px] font-semibold">削除</span>}
         </button>
       </div>
 
