@@ -122,7 +122,9 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
         />
         <span className="text-xs text-zinc-400 shrink-0">回</span>
 
-        <RirToggle value={setData.rir} onChange={rir => onChange({ ...setData, rir })} />
+        {!is_warmup && (
+          <RirToggle value={setData.rir} onChange={rir => onChange({ ...setData, rir })} />
+        )}
 
         {/* ウォームアップトグル */}
         <button
