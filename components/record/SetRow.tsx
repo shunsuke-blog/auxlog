@@ -26,12 +26,19 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
   const [showWeight, setShowWeight] = useState(
     isBodyweight ? (setData.weight_kg !== '' && setData.weight_kg !== '0') : true
   )
+  // iOS では select() が信頼できないため、フォーカス時に表示値を一時的に空にする
+  const [weightDisplay, setWeightDisplay] = useState<string | null>(null)
+  const [repsDisplay, setRepsDisplay] = useState<string | null>(null)
 
   const handleWeightChange = (val: string) => {
-    onChange({ ...setData, weight_kg: val || '0', done: val !== '' ? true : setData.done })
+    const clean = val.replace(/[^0-9.]/g, '')
+    setWeightDisplay(clean)
+    onChange({ ...setData, weight_kg: clean || '0', done: clean !== '' ? true : setData.done })
   }
   const handleRepsChange = (val: string) => {
-    onChange({ ...setData, reps: val, done: val !== '' ? true : setData.done })
+    const clean = val.replace(/[^0-9]/g, '')
+    setRepsDisplay(clean)
+    onChange({ ...setData, reps: clean, done: clean !== '' ? true : setData.done })
   }
   const handleToggleWeight = () => {
     if (showWeight) onChange({ ...setData, weight_kg: '0' })
@@ -73,10 +80,11 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
               <input
                 type="text"
                 inputMode="decimal"
-                value={setData.weight_kg === '0' ? '' : setData.weight_kg}
-                onFocus={e => e.target.select()}
-                onChange={e => handleWeightChange(e.target.value.replace(/[^0-9.]/g, ''))}
-                placeholder="0"
+                value={weightDisplay ?? (setData.weight_kg === '0' ? '' : setData.weight_kg)}
+                onFocus={() => setWeightDisplay('')}
+                onBlur={() => setWeightDisplay(null)}
+                onChange={e => handleWeightChange(e.target.value)}
+                placeholder={setData.weight_kg === '0' ? '0' : setData.weight_kg}
                 className="w-14 text-center py-2 px-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
               />
               <button
@@ -102,10 +110,11 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
             <input
               type="text"
               inputMode="decimal"
-              value={setData.weight_kg}
-              onFocus={e => e.target.select()}
-              onChange={e => handleWeightChange(e.target.value.replace(/[^0-9.]/g, ''))}
-              placeholder="0"
+              value={weightDisplay ?? setData.weight_kg}
+              onFocus={() => setWeightDisplay('')}
+              onBlur={() => setWeightDisplay(null)}
+              onChange={e => handleWeightChange(e.target.value)}
+              placeholder={setData.weight_kg}
               className="w-14 text-center py-2 px-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
             />
             <span className="text-xs text-zinc-400 shrink-0">kg</span>
@@ -115,10 +124,11 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
         <input
           type="text"
           inputMode="numeric"
-          value={setData.reps}
-          onFocus={e => e.target.select()}
-          onChange={e => handleRepsChange(e.target.value.replace(/[^0-9]/g, ''))}
-          placeholder="0"
+          value={repsDisplay ?? setData.reps}
+          onFocus={() => setRepsDisplay('')}
+          onBlur={() => setRepsDisplay(null)}
+          onChange={e => handleRepsChange(e.target.value)}
+          placeholder={setData.reps}
           className="w-12 text-center py-2 px-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
         />
         <span className="text-xs text-zinc-400 shrink-0">回</span>
