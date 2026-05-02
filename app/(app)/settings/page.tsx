@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronRight, Dumbbell } from 'lucide-react'
 import LogoutButton from './LogoutButton'
+import PortalButton from './PortalButton'
 
 function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
@@ -70,6 +71,8 @@ export default async function SettingsPage() {
             <span className="text-sm text-black dark:text-white">¥480/月</span>
           </div>
         </div>
+
+        {status !== 'canceled' && <PortalButton status={status} />}
 
         <Link
           href="/exercises"

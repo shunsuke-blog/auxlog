@@ -39,15 +39,16 @@ export default function OnboardingPage() {
   const handleComplete = async () => {
     if (selected.size === 0) return
     setSaving(true)
-    await Promise.all(
-      Array.from(selected).map((exercise_master_id, i) =>
+    await Promise.all([
+      ...Array.from(selected).map((exercise_master_id, i) =>
         fetch('/api/exercises', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ exercise_master_id, sort_order: i }),
         })
-      )
-    )
+      ),
+      fetch('/api/stripe/create-subscription', { method: 'POST' }),
+    ])
     router.push('/')
   }
 
@@ -85,7 +86,7 @@ export default function OnboardingPage() {
                       }`}
                     >
                       <span className="text-sm font-medium">{ex.name}</span>
-                      {isSelected && <Check className="w-4 h-4 flex-shrink-0" />}
+                      {isSelected && <Check className="w-4 h-4 shrink-0" />}
                     </button>
                   )
                 })}
