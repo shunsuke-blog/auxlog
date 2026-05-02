@@ -13,22 +13,32 @@ export async function POST(request: Request) {
 
   const { data: userData } = await supabase
     .from('users')
-    .select('stripe_customer_id')
+    .select('stripe_customer_id, email')
     .eq('id', user.id)
     .single()
 
-  if (!userData?.stripe_customer_id) {
-    return NextResponse.json({ error: 'No Stripe customer found' }, { status: 400 })
-  }
-
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+
+  // stripe_customer_id がなければ Customer を新規作成して DB に保存
+  let customerId = userData?.stripe_customer_id ?? null
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      email: userData?.email ?? user.email ?? '',
+      metadata: { supabase_user_id: user.id },
+    })
+    customerId = customer.id
+    await supabase
+      .from('users')
+      .update({ stripe_customer_id: customerId })
+      .eq('id', user.id)
+  }
 
   const origin = request.headers.get('origin')
     ?? process.env.NEXT_PUBLIC_APP_URL
     ?? 'https://auxlog.app'
 
   const session = await stripe.billingPortal.sessions.create({
-    customer: userData.stripe_customer_id,
+    customer: customerId,
     return_url: `${origin}/settings`,
   })
 
