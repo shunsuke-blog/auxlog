@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { UpdateSessionSchema } from '@/lib/validation/schemas'
 
 export async function GET(
   _request: Request,
@@ -17,14 +18,14 @@ export async function GET(
       *,
       training_sets(
         *,
-        user_exercises(id, custom_name, exercise_master(name))
+        user_exercises(id, custom_name, is_bodyweight, exercise_master(name, is_bodyweight))
       )
     `)
     .eq('id', sessionId)
     .eq('user_id', user.id)
     .single()
 
-  if (error || !session) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (error || !session) return NextResponse.json({ error: 'セッションが見つかりません' }, { status: 404 })
 
   return NextResponse.json({ session })
 }
@@ -39,33 +40,28 @@ export async function PATCH(
 
   const { sessionId } = await params
   const body = await request.json()
-  const { trained_at, fatigue_level, memo, sets } = body
+  const parsed = UpdateSessionSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? '入力値が不正です' }, { status: 400 })
+  }
+  const { trained_at, fatigue_level, memo, sets } = parsed.data
 
-  // セッション本体を更新
   const { error: sessionError } = await supabase
     .from('training_sessions')
     .update({ trained_at, fatigue_level, memo: memo || null })
     .eq('id', sessionId)
     .eq('user_id', user.id)
 
-  if (sessionError) return NextResponse.json({ error: sessionError.message }, { status: 500 })
+  if (sessionError) return NextResponse.json({ error: 'セッションの更新に失敗しました' }, { status: 500 })
 
-  // セットを一括置き換え（削除→再挿入）
   const { error: deleteError } = await supabase
     .from('training_sets')
     .delete()
     .eq('session_id', sessionId)
 
-  if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
+  if (deleteError) return NextResponse.json({ error: 'セットの更新に失敗しました' }, { status: 500 })
 
-  const setsToInsert = sets.map((s: {
-    exercise_id: string
-    set_number: number
-    weight_kg: number
-    reps: number
-    rir: boolean
-    is_warmup: boolean
-  }) => ({
+  const setsToInsert = sets.map(s => ({
     session_id: sessionId,
     exercise_id: s.exercise_id,
     set_number: s.set_number,
@@ -79,7 +75,7 @@ export async function PATCH(
     .from('training_sets')
     .insert(setsToInsert)
 
-  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
+  if (insertError) return NextResponse.json({ error: 'セットの保存に失敗しました' }, { status: 500 })
 
   return NextResponse.json({ success: true })
 }
@@ -100,8 +96,7 @@ export async function DELETE(
     .eq('id', sessionId)
     .eq('user_id', user.id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'セッションの削除に失敗しました' }, { status: 500 })
 
   return NextResponse.json({ success: true })
 }
-

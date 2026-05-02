@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "/Users/y-syunsuke/calcul/app/api/sessions/[sessionId]"
+    ]
+  }
+}

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import type { TargetMuscle } from '@/types'
+import { normalizeExercises } from '@/lib/normalize/exercises'
+import { CreateExerciseSchema } from '@/lib/validation/schemas'
 
 export async function GET() {
   const supabase = await createClient()
@@ -9,37 +10,14 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('user_exercises')
-    .select(`
-      *,
-      exercise_master(name, target_muscle, is_bodyweight)
-    `)
+    .select('*, exercise_master(name, target_muscle, is_bodyweight)')
     .eq('user_id', user.id)
     .eq('is_active', true)
     .order('sort_order')
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: '種目の取得に失敗しました' }, { status: 500 })
 
-  const exercises = (data ?? []).map((e: {
-    id: string
-    user_id: string
-    exercise_master_id: string | null
-    custom_name: string | null
-    custom_target_muscle: string | null
-    default_sets: number
-    default_reps: number
-    sort_order: number
-    is_active: boolean
-    is_bodyweight: boolean
-    created_at: string
-    exercise_master: { name: string; target_muscle: string; is_bodyweight: boolean } | null
-  }) => ({
-    ...e,
-    name: e.custom_name ?? e.exercise_master?.name ?? '',
-    target_muscle: (e.custom_target_muscle ?? e.exercise_master?.target_muscle ?? '') as TargetMuscle,
-    is_bodyweight: e.custom_name ? (e.is_bodyweight ?? false) : (e.exercise_master?.is_bodyweight ?? false),
-  }))
-
-  return NextResponse.json({ exercises })
+  return NextResponse.json({ exercises: normalizeExercises(data ?? []) })
 }
 
 export async function POST(request: Request) {
@@ -48,9 +26,12 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { exercise_master_id, custom_name, custom_target_muscle, default_sets, default_reps } = body
+  const parsed = CreateExerciseSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? '入力値が不正です' }, { status: 400 })
+  }
+  const { exercise_master_id, custom_name, custom_target_muscle, default_sets, default_reps } = parsed.data
 
-  // 既存の最大sort_orderを取得
   const { data: existing } = await supabase
     .from('user_exercises')
     .select('sort_order')
@@ -74,7 +55,7 @@ export async function POST(request: Request) {
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: '種目の追加に失敗しました' }, { status: 500 })
 
   return NextResponse.json({ exercise: data })
 }

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { CreateSessionSchema } from '@/lib/validation/schemas'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -7,29 +8,21 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { trained_at, fatigue_level, memo, sets } = body
+  const parsed = CreateSessionSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? '入力値が不正です' }, { status: 400 })
+  }
+  const { trained_at, fatigue_level, memo, sets } = parsed.data
 
   const { data: session, error: sessionError } = await supabase
     .from('training_sessions')
-    .insert({
-      user_id: user.id,
-      trained_at,
-      fatigue_level,
-      memo: memo || null,
-    })
+    .insert({ user_id: user.id, trained_at, fatigue_level, memo: memo || null })
     .select()
     .single()
 
-  if (sessionError) return NextResponse.json({ error: sessionError.message }, { status: 500 })
+  if (sessionError) return NextResponse.json({ error: 'セッションの保存に失敗しました' }, { status: 500 })
 
-  const setsToInsert = sets.map((s: {
-    exercise_id: string
-    set_number: number
-    weight_kg: number
-    reps: number
-    rir: boolean
-    is_warmup: boolean
-  }) => ({
+  const setsToInsert = sets.map(s => ({
     session_id: session.id,
     exercise_id: s.exercise_id,
     set_number: s.set_number,
@@ -43,7 +36,7 @@ export async function POST(request: Request) {
     .from('training_sets')
     .insert(setsToInsert)
 
-  if (setsError) return NextResponse.json({ error: setsError.message }, { status: 500 })
+  if (setsError) return NextResponse.json({ error: 'セットの保存に失敗しました' }, { status: 500 })
 
   return NextResponse.json({ session_id: session.id, created_at: session.created_at })
 }
@@ -54,47 +47,25 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  const limit = parseInt(searchParams.get('limit') ?? '20')
-  const offset = parseInt(searchParams.get('offset') ?? '0')
+  const rawLimit = parseInt(searchParams.get('limit') ?? '20')
+  const rawOffset = parseInt(searchParams.get('offset') ?? '0')
+  // サーバー側で上限を強制
+  const limit = Math.min(Math.max(1, rawLimit), 100)
+  const offset = Math.max(0, rawOffset)
 
   const { data: sessions, error, count } = await supabase
     .from('training_sessions')
-    .select('*, training_sets(*)', { count: 'exact' })
+    .select('*, training_sets(id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup, created_at)', { count: 'exact' })
     .eq('user_id', user.id)
     .order('trained_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'セッションの取得に失敗しました' }, { status: 500 })
 
-  const sessionsWithVolume = (sessions ?? []).map((s: {
-    id: string
-    user_id: string
-    trained_at: string
-    fatigue_level: number
-    memo: string | null
-    created_at: string
-    training_sets: {
-      id: string
-      session_id: string
-      exercise_id: string
-      set_number: number
-      weight_kg: number
-      reps: number
-      rir: boolean
-      is_warmup: boolean
-      created_at: string
-    }[]
-  }) => {
+  const sessionsWithVolume = (sessions ?? []).map(s => {
     const sets = s.training_sets ?? []
-    const totalVolume = sets.reduce(
-      (acc, set) => acc + set.weight_kg * set.reps,
-      0
-    )
-    return {
-      ...s,
-      sets,
-      total_volume: Math.round(totalVolume),
-    }
+    const totalVolume = (sets as Array<{ weight_kg: number; reps: number }>).reduce((acc, set) => acc + set.weight_kg * set.reps, 0)
+    return { ...s, sets, total_volume: Math.round(totalVolume) }
   })
 
   return NextResponse.json({ sessions: sessionsWithVolume, total: count ?? 0 })

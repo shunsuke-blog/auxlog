@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import HistoryClient from '@/components/history/HistoryClient'
-import type { TargetMuscle } from '@/types'
+import { normalizeExercises } from '@/lib/normalize/exercises'
 
 export default async function HistoryPage() {
   const supabase = await createClient()
@@ -10,67 +10,27 @@ export default async function HistoryPage() {
   const [{ data: sessionsData }, { data: exercisesData }] = await Promise.all([
     supabase
       .from('training_sessions')
-      .select('*, training_sets(*)')
+      .select('*, training_sets(id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup, created_at)')
       .eq('user_id', user.id)
       .order('trained_at', { ascending: false })
       .limit(60),
     supabase
       .from('user_exercises')
-      .select('*, exercise_master(name, target_muscle)')
+      .select('*, exercise_master(name, target_muscle, is_bodyweight)')
       .eq('user_id', user.id)
       .eq('is_active', true)
       .order('sort_order'),
   ])
 
-  const exercises = (exercisesData ?? []).map((e: {
-    id: string
-    user_id: string
-    exercise_master_id: string | null
-    custom_name: string | null
-    custom_target_muscle: string | null
-    default_sets: number
-    default_reps: number
-    sort_order: number
-    is_active: boolean
-    is_bodyweight: boolean
-    created_at: string
-    exercise_master: { name: string; target_muscle: string; is_bodyweight: boolean } | null
-  }) => ({
-    ...e,
-    custom_target_muscle: e.custom_target_muscle as TargetMuscle | null,
-    name: e.custom_name ?? e.exercise_master?.name ?? '',
-    target_muscle: (e.custom_target_muscle ?? e.exercise_master?.target_muscle ?? '') as TargetMuscle,
-  }))
+  const exercises = normalizeExercises(exercisesData ?? [])
 
-  const sessions = (sessionsData ?? []).map((s: {
-    id: string
-    user_id: string
-    trained_at: string
-    fatigue_level: number
-    memo: string | null
-    created_at: string
-    training_sets: {
-      id: string
-      session_id: string
-      exercise_id: string
-      set_number: number
-      weight_kg: number
-      reps: number
-      rir: boolean
-      is_warmup: boolean
-      created_at: string
-    }[]
-  }) => {
+  const sessions = (sessionsData ?? []).map(s => {
     const sets = s.training_sets ?? []
-    const totalVolume = sets.reduce(
+    const totalVolume = (sets as Array<{ weight_kg: number; reps: number }>).reduce(
       (acc, set) => acc + set.weight_kg * set.reps,
       0
     )
-    return {
-      ...s,
-      sets,
-      total_volume: Math.round(totalVolume),
-    }
+    return { ...s, sets, total_volume: Math.round(totalVolume) }
   })
 
   return <HistoryClient sessions={sessions} exercises={exercises} />
