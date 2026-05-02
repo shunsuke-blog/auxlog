@@ -50,7 +50,7 @@ function RecordContent() {
               set_number: t.set_number,
               weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
               reps: String(t.reps),
-              rir: true,
+              rir: false,
               is_warmup: t.is_warmup,
             })),
           }])
@@ -69,7 +69,7 @@ function RecordContent() {
                 set_number: i + 1,
                 weight_kg: '',
                 reps: String(Math.max(1, ex.default_reps - i)),
-                rir: true,
+                rir: false,
                 is_warmup: false,
               })),
             }])
@@ -85,7 +85,7 @@ function RecordContent() {
               set_number: t.set_number,
               weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
               reps: String(t.reps),
-              rir: true,
+              rir: false,
               is_warmup: t.is_warmup,
             })),
           }))
@@ -102,7 +102,7 @@ function RecordContent() {
               set_number: i + 1,
               weight_kg: '',
               reps: String(Math.max(1, ex.default_reps - i)),
-              rir: true,
+              rir: false,
               is_warmup: false,
             })),
           }))
@@ -136,7 +136,7 @@ function RecordContent() {
             set_number: next[exIdx].sets.length + 1,
             weight_kg: lastSet.weight_kg,
             reps: lastSet.reps,
-            rir: true,
+            rir: false,
             is_warmup: false,
           }),
         ],

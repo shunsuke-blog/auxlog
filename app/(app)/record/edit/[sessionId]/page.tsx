@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import FatigueSelector from '@/components/record/FatigueSelector'
 import SetRow, { type SetData } from '@/components/record/SetRow'
-import { Plus, ChevronLeft } from 'lucide-react'
+import { Plus, ChevronLeft, Trash2 } from 'lucide-react'
 
 type ExerciseSets = {
   exerciseId: string
@@ -22,6 +22,7 @@ function EditContent() {
   const [memo, setMemo] = useState('')
   const [exerciseSets, setExerciseSets] = useState<ExerciseSets[]>([])
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -92,7 +93,7 @@ function EditContent() {
             set_number: next[exIdx].sets.length + 1,
             weight_kg: lastSet.weight_kg,
             reps: lastSet.reps,
-            rir: true,
+            rir: false,
             is_warmup: false,
             done: true,
           },
@@ -144,6 +145,18 @@ function EditContent() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!confirm('この記録を削除しますか？')) return
+    setDeleting(true)
+    const res = await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' })
+    if (res.ok) {
+      router.push('/history')
+    } else {
+      setToast('削除に失敗しました')
+      setDeleting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white dark:bg-black px-6 pt-14 space-y-4">
@@ -173,6 +186,13 @@ function EditContent() {
           onChange={e => setTrainedAt(e.target.value)}
           className="text-sm text-zinc-500 dark:text-zinc-400 bg-transparent shrink-0 outline-none cursor-pointer"
         />
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="p-1.5 text-zinc-400 hover:text-red-500 transition-colors shrink-0 disabled:opacity-40"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
 
       <div className="px-6 py-6 space-y-6 pb-40">
