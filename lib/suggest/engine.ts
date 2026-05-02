@@ -56,12 +56,14 @@ function generateWorkingSetTargets(
   repsDelta: number,
   startSetNumber: number,
 ): SetTarget[] {
-  const sorted = [...prevWorkingSets]
+  // is_warmup フラグまたは最大重量の80%未満のセットをウォームアップとして除外
+  const heavySets = [...prevWorkingSets]
+    .filter(s => !s.is_warmup && (topWeight === 0 || s.weight_kg >= topWeight * 0.8))
     .sort((a, b) => a.set_number - b.set_number)
     .slice(0, setsCount)
 
-  if (sorted.length === setsCount) {
-    return sorted.map((s, i) => ({
+  if (heavySets.length === setsCount) {
+    return heavySets.map((s, i) => ({
       set_number: startSetNumber + i,
       weight_kg: s.weight_kg,
       reps: Math.max(1, s.reps + repsDelta),

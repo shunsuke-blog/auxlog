@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import RirToggle from './RirToggle'
-import { Minus, Plus } from 'lucide-react'
+import { Minus, Plus, Check } from 'lucide-react'
 
 export type SetData = {
   set_number: number
@@ -10,6 +10,7 @@ export type SetData = {
   reps: string
   rir: boolean
   is_warmup: boolean
+  done: boolean
 }
 
 type Props = {
@@ -21,17 +22,21 @@ type Props = {
 }
 
 export default function SetRow({ setData, canDelete, isBodyweight = false, onChange, onDelete }: Props) {
-  const { is_warmup } = setData
-  // 加重がある場合は最初から表示
+  const { is_warmup, done } = setData
   const [showWeight, setShowWeight] = useState(
     isBodyweight ? (setData.weight_kg !== '' && setData.weight_kg !== '0') : true
   )
 
+  // 値を入力したら自動的に実施フラグをオン
+  const handleWeightChange = (val: string) => {
+    onChange({ ...setData, weight_kg: val || '0', done: val !== '' ? true : setData.done })
+  }
+  const handleRepsChange = (val: string) => {
+    onChange({ ...setData, reps: val, done: val !== '' ? true : setData.done })
+  }
+
   const handleToggleWeight = () => {
-    if (showWeight) {
-      // 加重を非表示にするとき重量をリセット
-      onChange({ ...setData, weight_kg: '0' })
-    }
+    if (showWeight) onChange({ ...setData, weight_kg: '0' })
     setShowWeight(v => !v)
   }
 
@@ -46,27 +51,39 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
       )}
 
       <div className="flex items-center gap-2">
+        {/* 実施フラグ */}
+        <button
+          type="button"
+          onClick={() => onChange({ ...setData, done: !done })}
+          className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-colors border-2 ${
+            done
+              ? 'bg-emerald-500 border-emerald-500 text-white'
+              : 'border-zinc-300 dark:border-zinc-600 text-transparent'
+          }`}
+        >
+          <Check className="w-3 h-3" strokeWidth={3} />
+        </button>
+
         {/* セット番号 */}
-        <span className="w-5 text-xs font-medium text-zinc-400 dark:text-zinc-500 text-center shrink-0">
+        <span className="w-4 text-xs font-medium text-zinc-400 dark:text-zinc-500 text-center shrink-0">
           {setData.set_number}
         </span>
 
         {isBodyweight ? (
-          /* 自重種目: 加重はオプション */
           showWeight ? (
             <>
               <input
                 type="number"
                 inputMode="decimal"
                 value={setData.weight_kg === '0' ? '' : setData.weight_kg}
-                onChange={e => onChange({ ...setData, weight_kg: e.target.value || '0' })}
+                onChange={e => handleWeightChange(e.target.value)}
                 placeholder="0"
-                className="w-16 text-center py-2 px-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
+                className="w-14 text-center py-2 px-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
               />
               <button
                 type="button"
                 onClick={handleToggleWeight}
-                className="text-[10px] text-zinc-400 dark:text-zinc-500 shrink-0 hover:text-red-400 transition-colors"
+                className="text-[10px] text-zinc-400 shrink-0 hover:text-red-400 transition-colors"
               >
                 加重kg ✕
               </button>
@@ -75,42 +92,37 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
             <button
               type="button"
               onClick={handleToggleWeight}
-              className="flex items-center gap-0.5 text-[10px] text-zinc-400 dark:text-zinc-500 border border-dashed border-zinc-300 dark:border-zinc-700 px-2 py-1.5 rounded-lg hover:border-zinc-400 hover:text-zinc-500 transition-colors shrink-0"
+              className="flex items-center gap-0.5 text-[10px] text-zinc-400 dark:text-zinc-500 border border-dashed border-zinc-300 dark:border-zinc-700 px-2 py-1.5 rounded-lg hover:border-zinc-400 transition-colors shrink-0"
             >
               <Plus className="w-2.5 h-2.5" />
               加重
             </button>
           )
         ) : (
-          /* 通常種目: 重量必須 */
           <>
             <input
               type="number"
               inputMode="decimal"
               value={setData.weight_kg}
-              onChange={e => onChange({ ...setData, weight_kg: e.target.value })}
+              onChange={e => handleWeightChange(e.target.value)}
               placeholder="0"
-              className="w-16 text-center py-2 px-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
+              className="w-14 text-center py-2 px-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
             />
             <span className="text-xs text-zinc-400 shrink-0">kg</span>
           </>
         )}
 
-        {/* 回数 */}
         <input
           type="number"
           inputMode="numeric"
           value={setData.reps}
-          onChange={e => onChange({ ...setData, reps: e.target.value })}
+          onChange={e => handleRepsChange(e.target.value)}
           placeholder="0"
-          className="w-14 text-center py-2 px-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
+          className="w-12 text-center py-2 px-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
         />
         <span className="text-xs text-zinc-400 shrink-0">回</span>
 
-        <RirToggle
-          value={setData.rir}
-          onChange={rir => onChange({ ...setData, rir })}
-        />
+        <RirToggle value={setData.rir} onChange={rir => onChange({ ...setData, rir })} />
 
         {/* ウォームアップトグル */}
         <button

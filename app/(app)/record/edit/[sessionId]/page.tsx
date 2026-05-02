@@ -54,6 +54,7 @@ function EditContent() {
           reps: String(set.reps),
           rir: set.rir,
           is_warmup: set.is_warmup ?? false,
+          done: true,
         })
       }
 
@@ -93,6 +94,7 @@ function EditContent() {
             reps: lastSet.reps,
             rir: true,
             is_warmup: false,
+            done: true,
           },
         ],
       }

@@ -11,13 +11,18 @@ import type { UserExercise, Suggestion } from '@/types'
 type ExerciseSets = {
   exercise: UserExercise
   sets: SetData[]
-  enabled: boolean
+  enabled: boolean  // 記録タブからの全種目表示時のみ使用
 }
+
+// `done: false` 付きでセットを初期化するヘルパー
+const makeSet = (partial: Omit<SetData, 'done'>): SetData => ({ ...partial, done: false })
 
 function RecordContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const exerciseId = searchParams.get('exerciseId')
+  // ホームカードから来た場合は exerciseId あり → CircleCheck 不要
+  const fromHome = exerciseId !== null
 
   const [fatigueLevel, setFatigueLevel] = useState(3)
   const [memo, setMemo] = useState('')
@@ -34,19 +39,49 @@ function RecordContent() {
       const data = await res.json()
       const suggestions: Suggestion[] = data.suggestions ?? []
 
-      if (suggestions.length > 0) {
-        // exerciseId が指定されている場合はその1種目だけ表示
-        const filtered = exerciseId
-          ? suggestions.filter(s => s.exercise.id === exerciseId)
-          : suggestions
+      if (exerciseId) {
+        const matched = suggestions.find(s => s.exercise.id === exerciseId)
 
-        const target = filtered.length > 0 ? filtered : suggestions
-
+        if (matched) {
+          setExerciseSets([{
+            exercise: matched.exercise,
+            enabled: true,
+            sets: matched.proposed_set_targets.map(t => makeSet({
+              set_number: t.set_number,
+              weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
+              reps: String(t.reps),
+              rir: true,
+              is_warmup: t.is_warmup,
+            })),
+          }])
+          setExerciseName(matched.exercise.name)
+        } else {
+          const exRes = await fetch('/api/exercises')
+          const exData = await exRes.json()
+          const ex: UserExercise | undefined = (exData.exercises ?? []).find(
+            (e: UserExercise) => e.id === exerciseId
+          )
+          if (ex) {
+            setExerciseSets([{
+              exercise: ex,
+              enabled: true,
+              sets: Array.from({ length: ex.default_sets }, (_, i) => makeSet({
+                set_number: i + 1,
+                weight_kg: '',
+                reps: String(Math.max(1, ex.default_reps - i)),
+                rir: true,
+                is_warmup: false,
+              })),
+            }])
+            setExerciseName(ex.name)
+          }
+        }
+      } else if (suggestions.length > 0) {
         setExerciseSets(
-          target.map(s => ({
+          suggestions.map(s => ({
             exercise: s.exercise,
             enabled: true,
-            sets: s.proposed_set_targets.map(t => ({
+            sets: s.proposed_set_targets.map(t => makeSet({
               set_number: t.set_number,
               weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
               reps: String(t.reps),
@@ -55,27 +90,23 @@ function RecordContent() {
             })),
           }))
         )
-        if (exerciseId && filtered.length > 0) {
-          setExerciseName(filtered[0].exercise.name)
-        }
       } else {
         const exRes = await fetch('/api/exercises')
         const exData = await exRes.json()
         const allExercises: UserExercise[] = exData.exercises ?? []
-        const filtered = exerciseId
-          ? allExercises.filter(ex => ex.id === exerciseId)
-          : allExercises
-
         setExerciseSets(
-          filtered.map(ex => ({
+          allExercises.map(ex => ({
             exercise: ex,
             enabled: true,
-            sets: [{ set_number: 1, weight_kg: '', reps: String(ex.default_reps), rir: true, is_warmup: false }],
+            sets: Array.from({ length: ex.default_sets }, (_, i) => makeSet({
+              set_number: i + 1,
+              weight_kg: '',
+              reps: String(Math.max(1, ex.default_reps - i)),
+              rir: true,
+              is_warmup: false,
+            })),
           }))
         )
-        if (exerciseId && filtered.length > 0) {
-          setExerciseName(filtered[0].name)
-        }
       }
       setLoading(false)
     }
@@ -101,13 +132,13 @@ function RecordContent() {
         ...next[exIdx],
         sets: [
           ...next[exIdx].sets,
-          {
+          makeSet({
             set_number: next[exIdx].sets.length + 1,
             weight_kg: lastSet.weight_kg,
             reps: lastSet.reps,
             rir: true,
             is_warmup: false,
-          },
+          }),
         ],
       }
       return next
@@ -137,10 +168,10 @@ function RecordContent() {
     setSaving(true)
 
     const sets = exerciseSets
-      .filter(ex => ex.enabled)
+      .filter(ex => fromHome || ex.enabled)   // ホームから: 常に含む / タブから: enabled のみ
       .flatMap(ex =>
         ex.sets
-          .filter(s => s.reps !== '' && (ex.exercise.is_bodyweight || s.weight_kg !== ''))
+          .filter(s => s.done)                // 実施フラグが立っているセットのみ保存
           .map(s => ({
             exercise_id: ex.exercise.id,
             set_number: s.set_number,
@@ -152,6 +183,7 @@ function RecordContent() {
       )
 
     if (sets.length === 0) {
+      setToast('実施済みのセットがありません')
       setSaving(false)
       return
     }
@@ -212,43 +244,50 @@ function RecordContent() {
           <FatigueSelector value={fatigueLevel} onChange={setFatigueLevel} />
         </div>
 
-        {exerciseSets.map((ex, exIdx) => (
-          <div key={ex.exercise.id} className={`space-y-3 transition-opacity ${ex.enabled ? 'opacity-100' : 'opacity-30'}`}>
-            <div className="flex items-center gap-3">
-              <CircleCheck
-                checked={ex.enabled}
-                onChange={v => toggleEnabled(exIdx, v)}
-              />
-              <h2 className="text-base font-semibold text-black dark:text-white">
-                {ex.exercise.name}
-              </h2>
+        {exerciseSets.map((ex, exIdx) => {
+          const showCircle = !fromHome   // ホームから来た場合は CircleCheck 不要
+          const isVisible = fromHome || ex.enabled
+
+          return (
+            <div key={ex.exercise.id} className={`space-y-3 transition-opacity ${isVisible ? 'opacity-100' : 'opacity-30'}`}>
+              <div className="flex items-center gap-3">
+                {showCircle && (
+                  <CircleCheck
+                    checked={ex.enabled}
+                    onChange={v => toggleEnabled(exIdx, v)}
+                  />
+                )}
+                <h2 className="text-base font-semibold text-black dark:text-white">
+                  {ex.exercise.name}
+                </h2>
+              </div>
+              {isVisible && (
+                <>
+                  <div className="space-y-2.5">
+                    {ex.sets.map((set, setIdx) => (
+                      <SetRow
+                        key={setIdx}
+                        setData={set}
+                        canDelete={ex.sets.length > 1}
+                        isBodyweight={ex.exercise.is_bodyweight}
+                        onChange={data => updateSet(exIdx, setIdx, data)}
+                        onDelete={() => deleteSet(exIdx, setIdx)}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addSet(exIdx)}
+                    className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 hover:text-black dark:hover:text-white transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    セット追加
+                  </button>
+                </>
+              )}
             </div>
-            {ex.enabled && (
-              <>
-                <div className="space-y-2.5">
-                  {ex.sets.map((set, setIdx) => (
-                    <SetRow
-                      key={setIdx}
-                      setData={set}
-                      canDelete={ex.sets.length > 1}
-                      isBodyweight={ex.exercise.is_bodyweight}
-                      onChange={data => updateSet(exIdx, setIdx, data)}
-                      onDelete={() => deleteSet(exIdx, setIdx)}
-                    />
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => addSet(exIdx)}
-                  className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 hover:text-black dark:hover:text-white transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  セット追加
-                </button>
-              </>
-            )}
-          </div>
-        ))}
+          )
+        })}
 
         <div>
           <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
