@@ -6,7 +6,8 @@ import FatigueSelector from '@/components/record/FatigueSelector'
 import SetRow, { type SetData } from '@/components/record/SetRow'
 import CircleCheck from '@/components/ui/CircleCheck'
 import { Plus, ChevronLeft } from 'lucide-react'
-import type { UserExercise, Suggestion } from '@/types'
+import type { UserExercise, Suggestion, TargetMuscle } from '@/types'
+import { TARGET_MUSCLE_LABELS } from '@/types'
 import { todayLocalDate } from '@/lib/utils/date'
 import { useToast } from '@/hooks/useToast'
 import Toast from '@/components/ui/Toast'
@@ -262,7 +263,32 @@ function RecordContent() {
           <FatigueSelector value={fatigueLevel} onChange={setFatigueLevel} />
         </div>
 
-        {exerciseSets.map((ex, exIdx) => {
+        {(() => {
+          // 部位ごとにグループ化して表示（ホームからの単一種目表示時はグループなし）
+          const muscleOrder: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arms']
+          const showGroupHeader = !fromHome && exerciseSets.length > 1
+
+          // 部位グループを生成
+          const groups = showGroupHeader
+            ? muscleOrder
+                .map(muscle => ({
+                  muscle,
+                  items: exerciseSets
+                    .map((ex, idx) => ({ ex, idx }))
+                    .filter(({ ex }) => ex.exercise.target_muscle === muscle),
+                }))
+                .filter(g => g.items.length > 0)
+            : [{ muscle: null, items: exerciseSets.map((ex, idx) => ({ ex, idx })) }]
+
+          return groups.map(({ muscle, items }) => (
+            <div key={muscle ?? 'all'}>
+              {muscle && (
+                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3 mt-2">
+                  {TARGET_MUSCLE_LABELS[muscle]}
+                </h3>
+              )}
+              <div className="space-y-6">
+                {items.map(({ ex, idx: exIdx }) => {
           const showCircle = !fromHome
           const isVisible = fromHome || ex.enabled
           const workingSets = ex.sets.filter(s => !s.is_warmup)
@@ -313,6 +339,10 @@ function RecordContent() {
             </div>
           )
         })}
+              </div>
+            </div>
+          ))
+        })()}
 
         <div>
           <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">

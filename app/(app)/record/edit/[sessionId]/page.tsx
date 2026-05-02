@@ -51,7 +51,11 @@ function EditContent() {
           ?? set.user_exercises?.exercise_master?.name
           ?? '不明な種目'
 
-        const isBodyweight = set.user_exercises?.is_bodyweight ?? false
+        // user_exercises.is_bodyweight か exercise_master.is_bodyweight のどちらかが true なら自重
+        const isBodyweight =
+          set.user_exercises?.is_bodyweight ||
+          set.user_exercises?.exercise_master?.is_bodyweight ||
+          false
 
         if (!grouped.has(exId)) {
           grouped.set(exId, { exerciseId: exId, exerciseName: exName, isBodyweight, sets: [] })

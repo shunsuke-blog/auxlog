@@ -27,14 +27,12 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
     isBodyweight ? (setData.weight_kg !== '' && setData.weight_kg !== '0') : true
   )
 
-  // 値を入力したら自動的に実施フラグをオン
   const handleWeightChange = (val: string) => {
     onChange({ ...setData, weight_kg: val || '0', done: val !== '' ? true : setData.done })
   }
   const handleRepsChange = (val: string) => {
     onChange({ ...setData, reps: val, done: val !== '' ? true : setData.done })
   }
-
   const handleToggleWeight = () => {
     if (showWeight) onChange({ ...setData, weight_kg: '0' })
     setShowWeight(v => !v)
@@ -51,19 +49,6 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
       )}
 
       <div className="flex items-center gap-2">
-        {/* 実施フラグ */}
-        <button
-          type="button"
-          onClick={() => onChange({ ...setData, done: !done })}
-          className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-colors border-2 ${
-            done
-              ? 'bg-emerald-500 border-emerald-500 text-white'
-              : 'border-zinc-300 dark:border-zinc-600 text-transparent'
-          }`}
-        >
-          <Check className="w-3 h-3" strokeWidth={3} />
-        </button>
-
         {/* セット番号 */}
         <span className="w-4 text-xs font-medium text-zinc-400 dark:text-zinc-500 text-center shrink-0">
           {setData.set_number}
@@ -76,6 +61,7 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
                 type="number"
                 inputMode="decimal"
                 value={setData.weight_kg === '0' ? '' : setData.weight_kg}
+                onFocus={e => e.target.select()}
                 onChange={e => handleWeightChange(e.target.value)}
                 placeholder="0"
                 className="w-14 text-center py-2 px-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
@@ -104,6 +90,7 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
               type="number"
               inputMode="decimal"
               value={setData.weight_kg}
+              onFocus={e => e.target.select()}
               onChange={e => handleWeightChange(e.target.value)}
               placeholder="0"
               className="w-14 text-center py-2 px-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
@@ -116,6 +103,7 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
           type="number"
           inputMode="numeric"
           value={setData.reps}
+          onFocus={e => e.target.select()}
           onChange={e => handleRepsChange(e.target.value)}
           placeholder="0"
           className="w-12 text-center py-2 px-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-black dark:text-white text-sm font-medium outline-none focus:border-black dark:focus:border-white transition-colors"
@@ -126,9 +114,10 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
           <RirToggle value={setData.rir} onChange={rir => onChange({ ...setData, rir })} />
         )}
 
-        {/* ウォームアップトグル */}
+        {/* ウォームアップトグル（右側・より説明的なラベル） */}
         <button
           type="button"
+          title="ウォームアップセットとしてマーク"
           onClick={() => onChange({ ...setData, is_warmup: !is_warmup })}
           className={`shrink-0 px-2 py-1 rounded-full text-[10px] font-semibold border transition-colors ${
             is_warmup
@@ -136,7 +125,7 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
               : 'border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-600 hover:border-amber-300 hover:text-amber-400'
           }`}
         >
-          W
+          {is_warmup ? 'W/UP' : 'W/UP'}
         </button>
 
         {canDelete && (
@@ -148,6 +137,19 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
             <Minus className="w-4 h-4" />
           </button>
         )}
+
+        {/* 実施フラグ（右端・右利きに配慮） */}
+        <button
+          type="button"
+          onClick={() => onChange({ ...setData, done: !done })}
+          className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors border-2 ${
+            done
+              ? 'bg-emerald-500 border-emerald-500 text-white'
+              : 'border-zinc-300 dark:border-zinc-600 text-transparent'
+          }`}
+        >
+          <Check className="w-3.5 h-3.5" strokeWidth={3} />
+        </button>
       </div>
     </div>
   )

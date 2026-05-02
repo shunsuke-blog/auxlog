@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import HistoryClient from '@/components/history/HistoryClient'
 import { normalizeExercises } from '@/lib/normalize/exercises'
+import type { TrainingSet } from '@/types'
 
 export default async function HistoryPage() {
   const supabase = await createClient()
@@ -24,13 +25,33 @@ export default async function HistoryPage() {
 
   const exercises = normalizeExercises(exercisesData ?? [])
 
-  const sessions = (sessionsData ?? []).map(s => {
-    const sets = s.training_sets ?? []
-    const totalVolume = (sets as Array<{ weight_kg: number; reps: number }>).reduce(
-      (acc, set) => acc + set.weight_kg * set.reps,
-      0
-    )
+  const rawSessions = (sessionsData ?? []).map(s => {
+    const sets = (s.training_sets ?? []) as TrainingSet[]
+    const totalVolume = sets.reduce((acc, set) => acc + set.weight_kg * set.reps, 0)
     return { ...s, sets, total_volume: Math.round(totalVolume) }
+  })
+
+  // 同じ日付のセッションを1枚にまとめる
+  const sessionsByDate = new Map<string, typeof rawSessions>()
+  for (const session of rawSessions) {
+    const date = session.trained_at
+    if (!sessionsByDate.has(date)) sessionsByDate.set(date, [])
+    sessionsByDate.get(date)!.push(session)
+  }
+
+  const sessions = Array.from(sessionsByDate.entries()).map(([date, group]) => {
+    if (group.length === 1) return group[0]
+    // 複数セッションをマージ: 疲労度は最大値、メモは結合、セットは全て含む
+    return {
+      id: group[0].id,            // 代表ID（セッションレベル編集用）
+      user_id: group[0].user_id,
+      trained_at: date,
+      fatigue_level: Math.max(...group.map(s => s.fatigue_level)),
+      memo: group.map(s => s.memo).filter(Boolean).join(' / ') || null,
+      created_at: group[0].created_at,
+      sets: group.flatMap(s => s.sets),
+      total_volume: group.reduce((sum, s) => sum + s.total_volume, 0),
+    }
   })
 
   return <HistoryClient sessions={sessions} exercises={exercises} />

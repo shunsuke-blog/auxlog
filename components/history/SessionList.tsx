@@ -133,9 +133,9 @@ export default function SessionList({ sessions, exercises }: Props) {
                           />
                         </div>
                       </button>
-                      {/* 種目ごとの編集ボタン */}
+                      {/* 種目ごとの編集ボタン（実際のsession_idをセットから取得） */}
                       <Link
-                        href={`/record/edit/${session.id}?exerciseId=${exId}`}
+                        href={`/record/edit/${exSets[0]?.session_id ?? session.id}?exerciseId=${exId}`}
                         className="px-3 py-3 text-zinc-300 dark:text-zinc-700 hover:text-black dark:hover:text-white transition-colors shrink-0"
                         onClick={e => e.stopPropagation()}
                       >
