@@ -55,7 +55,7 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-white dark:bg-black pb-32">
       <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
         <h1 className="text-xl font-semibold text-black dark:text-white">
-          やる種目を選んでください
+          あなたが行っている種目を選択してください
         </h1>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           後から変更できます
