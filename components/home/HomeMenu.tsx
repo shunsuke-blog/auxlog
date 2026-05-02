@@ -66,26 +66,33 @@ export default function HomeMenu({ today, initialSuggestions, allExercises }: Pr
   }
 
   const addExercise = (exercise: UserExercise) => {
-    removeHiddenId(exercise.id)  // 再追加時は非表示リストから除去
-    const defaultReps = exercise.default_reps
-    const defaultSets = exercise.default_sets
-    const suggestion: Suggestion = {
-      exercise,
-      proposed_weight_kg: 0,
-      proposed_sets: defaultSets,
-      proposed_reps: defaultReps,
-      proposed_set_targets: Array.from({ length: defaultSets }, (_, i) => ({
-        set_number: i + 1,
-        weight_kg: 0,
-        reps: Math.max(1, defaultReps - i),
-        is_warmup: false,
-      })),
-      reason: '手動で追加',
-      days_since_last: 0,
-      weekly_volume_sets: 0,
-      volume_status: 'low',
+    removeHiddenId(exercise.id)
+
+    // 元の提案データがあれば復元、なければデフォルト値で生成
+    const original = initialSuggestions.find(s => s.exercise.id === exercise.id)
+    if (original) {
+      setSuggestions(prev => [...prev, original])
+    } else {
+      const defaultReps = exercise.default_reps
+      const defaultSets = exercise.default_sets
+      const suggestion: Suggestion = {
+        exercise,
+        proposed_weight_kg: 0,
+        proposed_sets: defaultSets,
+        proposed_reps: defaultReps,
+        proposed_set_targets: Array.from({ length: defaultSets }, (_, i) => ({
+          set_number: i + 1,
+          weight_kg: 0,
+          reps: Math.max(1, defaultReps - i),
+          is_warmup: false,
+        })),
+        reason: '手動で追加',
+        days_since_last: 0,
+        weekly_volume_sets: 0,
+        volume_status: 'low',
+      }
+      setSuggestions(prev => [...prev, suggestion])
     }
-    setSuggestions(prev => [...prev, suggestion])
     setShowModal(false)
   }
 
@@ -124,13 +131,15 @@ export default function HomeMenu({ today, initialSuggestions, allExercises }: Pr
             </Link>
           </div>
         ) : suggestions.length === 0 ? (
-          <div className="text-center py-16 text-sm text-zinc-400 dark:text-zinc-600">
-            <p>すべての種目を削除しました</p>
+          <div className="text-center py-20 space-y-3">
+            <p className="text-4xl">💪</p>
+            <p className="text-lg font-semibold text-black dark:text-white">今日のメニュー完了！</p>
+            <p className="text-sm text-zinc-400 dark:text-zinc-500">お疲れさまでした。よく頑張りました。</p>
             <button
               onClick={() => setShowModal(true)}
-              className="mt-3 text-black dark:text-white font-medium underline underline-offset-2"
+              className="mt-2 text-xs text-zinc-400 dark:text-zinc-600 underline underline-offset-2"
             >
-              追加する
+              種目を追加する
             </button>
           </div>
         ) : (
