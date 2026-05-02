@@ -40,10 +40,11 @@ export default async function HistoryPage() {
   }
 
   const sessions = Array.from(sessionsByDate.entries()).map(([date, group]) => {
-    if (group.length === 1) return group[0]
+    if (group.length === 1) return { ...group[0], allIds: [group[0].id] }
     // 複数セッションをマージ: 疲労度は最大値、メモは結合、セットは全て含む
     return {
-      id: group[0].id,            // 代表ID（セッションレベル編集用）
+      id: group[0].id,
+      allIds: group.map(s => s.id),  // 全セッションIDを保持（編集時に使用）
       user_id: group[0].user_id,
       trained_at: date,
       fatigue_level: Math.max(...group.map(s => s.fatigue_level)),

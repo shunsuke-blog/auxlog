@@ -7,6 +7,7 @@ import type { UserExercise, TrainingSet } from '@/types'
 
 type Session = {
   id: string
+  allIds: string[]
   trained_at: string
   fatigue_level: number
   memo: string | null
@@ -85,7 +86,7 @@ export default function SessionList({ sessions, exercises }: Props) {
                   </span>
                 )}
                 <Link
-                  href={`/record/edit/${session.id}`}
+                  href={`/record/edit/${session.id}${session.allIds.length > 1 ? `?merge=${session.allIds.slice(1).join(',')}` : ''}`}
                   className="p-1.5 text-zinc-300 dark:text-zinc-700 hover:text-black dark:hover:text-white transition-colors"
                 >
                   <Pencil className="w-3.5 h-3.5" />

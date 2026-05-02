@@ -30,6 +30,7 @@ function EditContent() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const searchParams = useSearchParams()
   const filterExerciseId = searchParams.get('exerciseId')
+  const mergeIds = searchParams.get('merge')?.split(',').filter(Boolean) ?? []
   const isFullEdit = !filterExerciseId
 
   const [trainedAt, setTrainedAt] = useState('')
@@ -42,24 +43,37 @@ function EditContent() {
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [allExercises, setAllExercises] = useState<UserExercise[]>([])
+  const [extraSessionIds, setExtraSessionIds] = useState<string[]>([])
   const { toast, showToast } = useToast()
 
   useEffect(() => {
     const load = async () => {
-      const [sessionRes, exercisesRes] = await Promise.all([
+      const fetchIds = [sessionId, ...mergeIds]
+      const [sessionRes, exercisesRes, ...extraRes] = await Promise.all([
         fetch(`/api/sessions/${sessionId}`),
         fetch('/api/exercises'),
+        ...mergeIds.map(id => fetch(`/api/sessions/${id}`)),
       ])
       if (!sessionRes.ok) { router.back(); return }
 
       const { session } = await sessionRes.json()
       const { exercises } = await exercisesRes.json()
       setAllExercises(exercises ?? [])
+      setExtraSessionIds(mergeIds)
       setTrainedAt(session.trained_at)
       setFatigueLevel(session.fatigue_level)
       setMemo(session.memo ?? '')
 
-      const allSets: typeof session.training_sets = session.training_sets ?? []
+      // 追加セッションのセットを結合
+      const extraSets = (
+        await Promise.all(extraRes.map(r => r.ok ? r.json() : Promise.resolve({ session: null })))
+      ).flatMap(d => d.session?.training_sets ?? [])
+
+      const allSets: typeof session.training_sets = [
+        ...(session.training_sets ?? []),
+        ...extraSets,
+      ]
+      void fetchIds // suppress unused warning
 
       // 個別編集: 対象外の種目のセットを preserved として保持
       if (filterExerciseId) {
@@ -199,6 +213,12 @@ function EditContent() {
     })
 
     if (res.ok) {
+      // 複数セッションを1つに統合した場合、不要なセッションを削除
+      await Promise.all(
+        extraSessionIds.map(id =>
+          fetch(`/api/sessions/${id}`, { method: 'DELETE' })
+        )
+      )
       showToast('保存しました')
       setTimeout(() => router.push('/history'), 800)
     } else {

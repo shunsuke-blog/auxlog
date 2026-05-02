@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import FatigueSelector from '@/components/record/FatigueSelector'
 import SetRow, { type SetData } from '@/components/record/SetRow'
 import CircleCheck from '@/components/ui/CircleCheck'
-import { Plus, ChevronLeft } from 'lucide-react'
+import { Plus, ChevronLeft, X } from 'lucide-react'
 import type { UserExercise, Suggestion, TargetMuscle } from '@/types'
 import { TARGET_MUSCLE_LABELS } from '@/types'
 import { todayLocalDate } from '@/lib/utils/date'
@@ -37,11 +37,18 @@ function RecordContent() {
   const [loading, setLoading] = useState(true)
   const [exerciseName, setExerciseName] = useState('')
   const [trainedAt, setTrainedAt] = useState(() => todayLocalDate())
+  const [allAvailableExercises, setAllAvailableExercises] = useState<UserExercise[]>([])
+  const [showAddModal, setShowAddModal] = useState(false)
 
   useEffect(() => {
     const load = async () => {
-      const res = await fetch('/api/suggest')
-      const data = await res.json()
+      const [suggestRes, exercisesRes] = await Promise.all([
+        fetch('/api/suggest'),
+        fetch('/api/exercises'),
+      ])
+      const data = await suggestRes.json()
+      const { exercises: fetchedExercises } = await exercisesRes.json()
+      setAllAvailableExercises(fetchedExercises ?? [])
       const allSuggestions: Suggestion[] = data.suggestions ?? []
 
       // ホームでスワイプ削除した種目を非表示（exerciseId 未指定の全種目表示時のみ適用）
@@ -168,6 +175,21 @@ function RecordContent() {
       next[exIdx] = { ...next[exIdx], enabled: value }
       return next
     })
+  }
+
+  const addExercise = (exercise: UserExercise) => {
+    setExerciseSets(prev => [...prev, {
+      exercise,
+      enabled: true,
+      sets: [makeSet({
+        set_number: 1,
+        weight_kg: '',
+        reps: String(exercise.default_reps),
+        rir: false,
+        is_warmup: false,
+      })],
+    }])
+    setShowAddModal(false)
   }
 
   const deleteSet = (exIdx: number, setIdx: number) => {
@@ -344,6 +366,17 @@ function RecordContent() {
           ))
         })()}
 
+        {/* タブから開いた全体記録時のみ種目追加ボタンを表示 */}
+        {!fromHome && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 text-sm text-zinc-400 dark:text-zinc-500 hover:border-black dark:hover:border-white hover:text-black dark:hover:text-white transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            種目を追加
+          </button>
+        )}
+
         <div>
           <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
             メモ（任意）
@@ -372,6 +405,43 @@ function RecordContent() {
           <p className="text-center text-xs text-red-500 mt-2">{errorMessage}</p>
         )}
       </div>
+
+      {/* 種目追加モーダル */}
+      {showAddModal && (() => {
+        const addable = allAvailableExercises.filter(
+          ex => !exerciseSets.some(es => es.exercise.id === ex.id)
+        )
+        return (
+          <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
+            <div className="absolute inset-0 bg-black/40" onClick={() => setShowAddModal(false)} />
+            <div className="relative w-full max-w-lg bg-white dark:bg-zinc-950 rounded-t-2xl max-h-[70vh] flex flex-col">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-900">
+                <h2 className="text-base font-semibold text-black dark:text-white">種目を追加</h2>
+                <button onClick={() => setShowAddModal(false)}>
+                  <X className="w-5 h-5 text-zinc-400" />
+                </button>
+              </div>
+              <div className="overflow-y-auto flex-1 px-6 py-4">
+                {addable.length === 0 ? (
+                  <p className="text-center py-10 text-sm text-zinc-400">追加できる種目がありません</p>
+                ) : (
+                  <div className="space-y-2">
+                    {addable.map(ex => (
+                      <button
+                        key={ex.id}
+                        onClick={() => addExercise(ex)}
+                        className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
+                      >
+                        <span className="text-sm font-medium text-black dark:text-white">{ex.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       <Toast message={toast} />
     </div>

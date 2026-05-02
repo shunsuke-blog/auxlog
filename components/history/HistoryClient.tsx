@@ -13,6 +13,7 @@ const VolumeChart = dynamic(() => import('./VolumeChart'), { ssr: false })
 
 type Session = {
   id: string
+  allIds: string[]
   trained_at: string
   fatigue_level: number
   memo: string | null
