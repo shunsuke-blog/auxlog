@@ -4,9 +4,10 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import FatigueSelector from '@/components/record/FatigueSelector'
 import SetRow, { type SetData } from '@/components/record/SetRow'
-import { Plus, ChevronLeft, Trash2 } from 'lucide-react'
+import { Plus, ChevronLeft, Trash2, X } from 'lucide-react'
 import { useToast } from '@/hooks/useToast'
 import Toast from '@/components/ui/Toast'
+import type { UserExercise } from '@/types'
 
 type ExerciseSets = {
   exerciseId: string
@@ -15,43 +16,80 @@ type ExerciseSets = {
   sets: SetData[]
 }
 
+type PreservedSet = {
+  exercise_id: string
+  set_number: number
+  weight_kg: number
+  reps: number
+  rir: boolean
+  is_warmup: boolean
+}
+
 function EditContent() {
   const router = useRouter()
   const { sessionId } = useParams<{ sessionId: string }>()
   const searchParams = useSearchParams()
-  const filterExerciseId = searchParams.get('exerciseId') // 種目絞り込み
+  const filterExerciseId = searchParams.get('exerciseId')
+  const isFullEdit = !filterExerciseId
 
   const [trainedAt, setTrainedAt] = useState('')
   const [fatigueLevel, setFatigueLevel] = useState(3)
   const [memo, setMemo] = useState('')
   const [exerciseSets, setExerciseSets] = useState<ExerciseSets[]>([])
+  const [preservedSets, setPreservedSets] = useState<PreservedSet[]>([])
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [allExercises, setAllExercises] = useState<UserExercise[]>([])
   const { toast, showToast } = useToast()
 
   useEffect(() => {
     const load = async () => {
-      const res = await fetch(`/api/sessions/${sessionId}`)
-      if (!res.ok) { router.back(); return }
+      const [sessionRes, exercisesRes] = await Promise.all([
+        fetch(`/api/sessions/${sessionId}`),
+        fetch('/api/exercises'),
+      ])
+      if (!sessionRes.ok) { router.back(); return }
 
-      const { session } = await res.json()
+      const { session } = await sessionRes.json()
+      const { exercises } = await exercisesRes.json()
+      setAllExercises(exercises ?? [])
       setTrainedAt(session.trained_at)
       setFatigueLevel(session.fatigue_level)
       setMemo(session.memo ?? '')
 
-      // sets を exercise_id でグループ化
+      const allSets: typeof session.training_sets = session.training_sets ?? []
+
+      // 個別編集: 対象外の種目のセットを preserved として保持
+      if (filterExerciseId) {
+        const others = allSets
+          .filter((s: { exercise_id: string }) => s.exercise_id !== filterExerciseId)
+          .map((s: {
+            exercise_id: string; set_number: number; weight_kg: number
+            reps: number; rir: boolean; is_warmup: boolean
+          }) => ({
+            exercise_id: s.exercise_id,
+            set_number: s.set_number,
+            weight_kg: s.weight_kg,
+            reps: s.reps,
+            rir: s.rir,
+            is_warmup: s.is_warmup ?? false,
+          }))
+        setPreservedSets(others)
+      }
+
+      // 表示対象のセットをグループ化
+      const targetSets = filterExerciseId
+        ? allSets.filter((s: { exercise_id: string }) => s.exercise_id === filterExerciseId)
+        : allSets
+
       const grouped = new Map<string, ExerciseSets>()
-      const allSets = (session.training_sets ?? []).filter(
-        (s: { exercise_id: string }) => !filterExerciseId || s.exercise_id === filterExerciseId
-      )
-      for (const set of allSets) {
+      for (const set of targetSets) {
         const exId = set.exercise_id
         const exName = set.user_exercises?.custom_name
           ?? set.user_exercises?.exercise_master?.name
           ?? '不明な種目'
-
-        // user_exercises.is_bodyweight か exercise_master.is_bodyweight のどちらかが true なら自重
         const isBodyweight =
           set.user_exercises?.is_bodyweight ||
           set.user_exercises?.exercise_master?.is_bodyweight ||
@@ -70,7 +108,6 @@ function EditContent() {
         })
       }
 
-      // set_number でソート
       const result = Array.from(grouped.values()).map(ex => ({
         ...ex,
         sets: ex.sets.sort((a, b) => a.set_number - b.set_number),
@@ -79,15 +116,12 @@ function EditContent() {
       setLoading(false)
     }
     load()
-  }, [sessionId, router])
+  }, [sessionId, filterExerciseId, router])
 
   const updateSet = (exIdx: number, setIdx: number, data: SetData) => {
     setExerciseSets(prev => {
       const next = [...prev]
-      next[exIdx] = {
-        ...next[exIdx],
-        sets: next[exIdx].sets.map((s, i) => (i === setIdx ? data : s)),
-      }
+      next[exIdx] = { ...next[exIdx], sets: next[exIdx].sets.map((s, i) => (i === setIdx ? data : s)) }
       return next
     })
   }
@@ -98,17 +132,14 @@ function EditContent() {
       const lastSet = next[exIdx].sets[next[exIdx].sets.length - 1]
       next[exIdx] = {
         ...next[exIdx],
-        sets: [
-          ...next[exIdx].sets,
-          {
-            set_number: next[exIdx].sets.length + 1,
-            weight_kg: lastSet.weight_kg,
-            reps: lastSet.reps,
-            rir: false,
-            is_warmup: false,
-            done: true,
-          },
-        ],
+        sets: [...next[exIdx].sets, {
+          set_number: next[exIdx].sets.length + 1,
+          weight_kg: lastSet.weight_kg,
+          reps: lastSet.reps,
+          rir: false,
+          is_warmup: false,
+          done: true,
+        }],
       }
       return next
     })
@@ -125,10 +156,27 @@ function EditContent() {
     })
   }
 
+  const addExercise = (exercise: UserExercise) => {
+    setExerciseSets(prev => [...prev, {
+      exerciseId: exercise.id,
+      exerciseName: exercise.name,
+      isBodyweight: exercise.is_bodyweight,
+      sets: [{
+        set_number: 1,
+        weight_kg: '',
+        reps: String(exercise.default_reps),
+        rir: false,
+        is_warmup: false,
+        done: true,
+      }],
+    }])
+    setShowAddModal(false)
+  }
+
   const handleSave = async () => {
     setSaving(true)
 
-    const sets = exerciseSets.flatMap(ex =>
+    const editedSets = exerciseSets.flatMap(ex =>
       ex.sets
         .filter(s => s.weight_kg !== '' && s.reps !== '')
         .map(s => ({
@@ -140,6 +188,9 @@ function EditContent() {
           is_warmup: s.is_warmup,
         }))
     )
+
+    // 個別編集時: 編集対象外の種目のセットを合わせて送る
+    const sets = [...editedSets, ...preservedSets]
 
     const res = await fetch(`/api/sessions/${sessionId}`, {
       method: 'PATCH',
@@ -168,6 +219,10 @@ function EditContent() {
     }
   }
 
+  const addableExercises = allExercises.filter(
+    ex => !exerciseSets.some(es => es.exerciseId === ex.id)
+  )
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white dark:bg-black px-6 pt-14 space-y-4">
@@ -189,7 +244,7 @@ function EditContent() {
         </button>
         <div className="flex-1 min-w-0">
           <h1 className="text-base font-semibold text-black dark:text-white truncate">
-            {filterExerciseId && exerciseSets[0] ? exerciseSets[0].exerciseName : '記録を編集'}
+            {!isFullEdit && exerciseSets[0] ? exerciseSets[0].exerciseName : '記録を編集'}
           </h1>
         </div>
         <input
@@ -210,17 +265,13 @@ function EditContent() {
 
       <div className="px-6 py-6 space-y-6 pb-40">
         <div>
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-            疲労度
-          </h2>
+          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">疲労度</h2>
           <FatigueSelector value={fatigueLevel} onChange={setFatigueLevel} />
         </div>
 
         {exerciseSets.map((ex, exIdx) => (
           <div key={ex.exerciseId} className="space-y-3">
-            <h2 className="text-base font-semibold text-black dark:text-white">
-              {ex.exerciseName}
-            </h2>
+            <h2 className="text-base font-semibold text-black dark:text-white">{ex.exerciseName}</h2>
             <div className="space-y-2.5">
               {ex.sets.map((set, setIdx) => (
                 <SetRow
@@ -244,10 +295,19 @@ function EditContent() {
           </div>
         ))}
 
+        {/* 全体編集時のみ種目追加ボタンを表示 */}
+        {isFullEdit && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 text-sm text-zinc-400 dark:text-zinc-500 hover:border-black dark:hover:border-white hover:text-black dark:hover:text-white transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            種目を追加
+          </button>
+        )}
+
         <div>
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
-            メモ（任意）
-          </h2>
+          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">メモ（任意）</h2>
           <textarea
             value={memo}
             onChange={e => setMemo(e.target.value)}
@@ -257,8 +317,10 @@ function EditContent() {
         </div>
       </div>
 
-      <div className="fixed left-0 right-0 px-6 pb-4 bg-gradient-to-t from-white dark:from-black to-transparent pt-8"
-        style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
+      <div
+        className="fixed left-0 right-0 px-6 pb-4 bg-linear-to-t from-white dark:from-black to-transparent pt-8"
+        style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
+      >
         <button
           onClick={handleSave}
           disabled={saving}
@@ -267,6 +329,38 @@ function EditContent() {
           {saving ? '保存中...' : '保存する'}
         </button>
       </div>
+
+      {/* 種目追加モーダル */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowAddModal(false)} />
+          <div className="relative w-full max-w-lg bg-white dark:bg-zinc-950 rounded-t-2xl max-h-[70vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-900">
+              <h2 className="text-base font-semibold text-black dark:text-white">種目を追加</h2>
+              <button onClick={() => setShowAddModal(false)}>
+                <X className="w-5 h-5 text-zinc-400" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-6 py-4">
+              {addableExercises.length === 0 ? (
+                <p className="text-center py-10 text-sm text-zinc-400">追加できる種目がありません</p>
+              ) : (
+                <div className="space-y-2">
+                  {addableExercises.map(ex => (
+                    <button
+                      key={ex.id}
+                      onClick={() => addExercise(ex)}
+                      className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
+                    >
+                      <span className="text-sm font-medium text-black dark:text-white">{ex.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <Toast message={toast} />
     </div>

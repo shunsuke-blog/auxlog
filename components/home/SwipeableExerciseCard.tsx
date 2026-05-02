@@ -186,7 +186,7 @@ export default function SwipeableExerciseCard({ suggestion, onDelete }: Props) {
               <span className="text-base font-medium text-zinc-400 dark:text-zinc-500">kg</span>
             )}
             <span className="text-sm text-zinc-400 dark:text-zinc-500 ml-1">
-              {proposed_sets}セット × {proposed_reps}回
+              {proposed_sets}セット
             </span>
           </div>
           <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-2 leading-relaxed">
