@@ -48,9 +48,9 @@ export default function MonthCalendar({ sessionDates, selectedDate, onSelectDate
   const nextMonth = () => setViewDate(new Date(year, month + 1, 1))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-white dark:bg-zinc-950 rounded-t-2xl pb-8">
+      <div className="relative w-full max-w-lg bg-white dark:bg-zinc-950 rounded-2xl pb-4 shadow-xl">
         {/* ヘッダー */}
         <div className="flex items-center px-4 py-4 border-b border-zinc-100 dark:border-zinc-900">
           <button onClick={prevMonth} className="p-1.5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors">
