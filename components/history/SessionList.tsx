@@ -108,6 +108,7 @@ export default function SessionList({ sessions, exercises }: Props) {
                 // 自重種目はウォームアップ除いた合計回数を表示
                 const workingSets = exSets.filter(s => !s.is_warmup)
                 const totalReps = workingSets.reduce((sum, s) => sum + s.reps, 0)
+                const totalWorkingSets = workingSets.length
                 const expandKey = `${session.id}-${exId}`
                 const isExpanded = expanded.has(expandKey)
 
@@ -118,20 +119,13 @@ export default function SessionList({ sessions, exercises }: Props) {
                         onClick={() => toggleExpand(expandKey)}
                         className="flex-1 flex items-center justify-between px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors text-left min-w-0"
                       >
-                        <span className="text-sm text-zinc-700 dark:text-zinc-300 truncate min-w-0">
+                        {/* 折り畳み時は種目名のみ表示（省略なし） */}
+                        <span className="text-sm text-zinc-700 dark:text-zinc-300 flex-1 min-w-0">
                           {name}
                         </span>
-                        <div className="flex items-center gap-2 shrink-0 ml-2">
-                          <span className="text-xs text-zinc-400">
-                            {isBodyweight
-                              ? `セット数：${workingSets.length}`
-                              : `最高重量：${maxWeight}kg　セット数：${exSets.length}`
-                            }
-                          </span>
-                          <ChevronDown
-                            className={`w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                          />
-                        </div>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600 transition-transform shrink-0 ml-2 ${isExpanded ? 'rotate-180' : ''}`}
+                        />
                       </button>
                       {/* 種目ごとの編集ボタン（実際のsession_idをセットから取得） */}
                       <Link
@@ -145,7 +139,25 @@ export default function SessionList({ sessions, exercises }: Props) {
 
                     {isExpanded && (
                       <div className="px-5 pb-3 space-y-1.5 bg-zinc-50 dark:bg-zinc-900/50">
-                        <div className="grid grid-cols-4 gap-2 pt-2 pb-1">
+                        {/* 詳細ヘッダー: 最高重量 or 合計回数を目立たせる */}
+                        <div className="flex items-baseline gap-3 pt-3 pb-1">
+                          {isBodyweight ? (
+                            <>
+                              <span className="text-base font-bold text-black dark:text-white">
+                                {totalReps}<span className="text-xs font-normal text-zinc-400 ml-0.5">回</span>
+                              </span>
+                              <span className="text-xs text-zinc-400">{totalWorkingSets}セット</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-base font-bold text-black dark:text-white">
+                                {maxWeight}<span className="text-xs font-normal text-zinc-400 ml-0.5">kg</span>
+                              </span>
+                              <span className="text-xs text-zinc-400">{exSets.length}セット</span>
+                            </>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-4 gap-2 pb-1">
                           <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">セット</span>
                           <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider text-right">重量</span>
                           <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider text-right">回数</span>
