@@ -73,15 +73,5 @@ export default async function HistoryPage() {
     }
   })
 
-  return (
-    <div className="min-h-screen bg-white dark:bg-black">
-      <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
-        <h1 className="text-xl font-semibold text-black dark:text-white">履歴</h1>
-      </div>
-
-      <div className="px-6 py-6">
-        <HistoryClient sessions={sessions} exercises={exercises} />
-      </div>
-    </div>
-  )
+  return <HistoryClient sessions={sessions} exercises={exercises} />
 }

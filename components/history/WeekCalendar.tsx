@@ -4,9 +4,10 @@ import { useState, useRef, useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 type Props = {
-  sessionDates: Set<string>   // セッションがある日付 (YYYY-MM-DD)
+  sessionDates: Set<string>
   selectedDate: string | null
   onSelectDate: (date: string | null) => void
+  focusDate?: string | null  // 月カレンダーから日付が選ばれた時にその週へジャンプ
 }
 
 const DAY_LABELS = ['月', '火', '水', '木', '金', '土', '日']
@@ -28,11 +29,39 @@ function getMondayOfWeek(offset: number): Date {
   return monday
 }
 
-export default function WeekCalendar({ sessionDates, selectedDate, onSelectDate }: Props) {
+function getWeekOffsetForDate(dateStr: string): number {
+  const target = new Date(dateStr)
+  target.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  // 今週の月曜
+  const todayDow = today.getDay()
+  const todayMonday = new Date(today)
+  todayMonday.setDate(today.getDate() - (todayDow === 0 ? 6 : todayDow - 1))
+
+  // 対象日の月曜
+  const targetDow = target.getDay()
+  const targetMonday = new Date(target)
+  targetMonday.setDate(target.getDate() - (targetDow === 0 ? 6 : targetDow - 1))
+
+  return Math.round((targetMonday.getTime() - todayMonday.getTime()) / (7 * 24 * 60 * 60 * 1000))
+}
+
+export default function WeekCalendar({ sessionDates, selectedDate, onSelectDate, focusDate }: Props) {
   const [weekOffset, setWeekOffset] = useState(0)
   const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null)
   const startX = useRef(0)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const prevFocusDate = useRef<string | null | undefined>(undefined)
+
+  // 月カレンダーで日付が選ばれたらその週にジャンプ
+  useEffect(() => {
+    if (focusDate && focusDate !== prevFocusDate.current) {
+      prevFocusDate.current = focusDate
+      setWeekOffset(getWeekOffsetForDate(focusDate))
+    }
+  }, [focusDate])
 
   const monday = getMondayOfWeek(weekOffset)
   const days = Array.from({ length: 7 }, (_, i) => {
