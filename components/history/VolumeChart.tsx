@@ -30,22 +30,17 @@ export default function VolumeChart({ sessions, exercises }: Props) {
       .filter(s => s.sets.some(set => set.exercise_id === selectedExerciseId))
       .map(s => {
         const exSets = s.sets.filter(set => set.exercise_id === selectedExerciseId && !set.is_warmup)
+        if (exSets.length === 0) return null
+        const date = new Date(s.trained_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })
         if (isBodyweight) {
-          // 自重種目: ワーキングセットの合計回数をグラフ化
           const totalReps = exSets.reduce((sum, set) => sum + set.reps, 0)
-          return {
-            date: new Date(s.trained_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }),
-            value: totalReps,
-          }
+          return { date, value: totalReps }
         } else {
-          // 有酸素種目: 最大重量をグラフ化
           const maxWeight = Math.max(...exSets.map(set => set.weight_kg))
-          return {
-            date: new Date(s.trained_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }),
-            value: maxWeight,
-          }
+          return { date, value: maxWeight }
         }
       })
+      .filter(Boolean)
       .reverse()
   }, [sessions, selectedExerciseId, isBodyweight])
 
