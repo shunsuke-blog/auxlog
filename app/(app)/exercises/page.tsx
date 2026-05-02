@@ -120,7 +120,7 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center pb-16">
+    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ paddingBottom: "calc(4rem + env(safe-area-inset-bottom))" }}>
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-lg bg-white dark:bg-zinc-950 rounded-t-2xl max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-900">

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Pencil, ChevronDown } from 'lucide-react'
+import { Pencil, ChevronDown, PenLine } from 'lucide-react'
 import type { UserExercise, TrainingSet } from '@/types'
 
 type Session = {
@@ -113,25 +113,35 @@ export default function SessionList({ sessions, exercises }: Props) {
 
                 return (
                   <div key={exId}>
-                    <button
-                      onClick={() => toggleExpand(expandKey)}
-                      className="w-full flex items-center justify-between px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors text-left"
-                    >
-                      <span className="text-sm text-zinc-700 dark:text-zinc-300 truncate min-w-0">
-                        {name}
-                      </span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-zinc-400">
-                          {isBodyweight
-                            ? `セット数：${workingSets.length}`
-                            : `最高重量：${maxWeight}kg　セット数：${exSets.length}`
-                          }
+                    <div className="flex items-center w-full">
+                      <button
+                        onClick={() => toggleExpand(expandKey)}
+                        className="flex-1 flex items-center justify-between px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors text-left min-w-0"
+                      >
+                        <span className="text-sm text-zinc-700 dark:text-zinc-300 truncate min-w-0">
+                          {name}
                         </span>
-                        <ChevronDown
-                          className={`w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                        />
-                      </div>
-                    </button>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <span className="text-xs text-zinc-400">
+                            {isBodyweight
+                              ? `セット数：${workingSets.length}`
+                              : `最高重量：${maxWeight}kg　セット数：${exSets.length}`
+                            }
+                          </span>
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                          />
+                        </div>
+                      </button>
+                      {/* 種目ごとの編集ボタン */}
+                      <Link
+                        href={`/record/edit/${session.id}?exerciseId=${exId}`}
+                        className="px-3 py-3 text-zinc-300 dark:text-zinc-700 hover:text-black dark:hover:text-white transition-colors shrink-0"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <PenLine className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
 
                     {isExpanded && (
                       <div className="px-5 pb-3 space-y-1.5 bg-zinc-50 dark:bg-zinc-900/50">

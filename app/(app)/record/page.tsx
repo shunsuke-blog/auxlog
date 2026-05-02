@@ -31,6 +31,7 @@ function RecordContent() {
   const [memo, setMemo] = useState('')
   const [exerciseSets, setExerciseSets] = useState<ExerciseSets[]>([])
   const [saving, setSaving] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const { toast, showToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [exerciseName, setExerciseName] = useState('')
@@ -197,8 +198,10 @@ function RecordContent() {
           }))
       )
 
+    setErrorMessage(null)
+
     if (sets.length === 0) {
-      showToast('実施済みのセットがありません')
+      setErrorMessage('実施済みのセットがありません')
       setSaving(false)
       return
     }
@@ -213,7 +216,7 @@ function RecordContent() {
       showToast('保存しました')
       setTimeout(() => router.push('/'), 800)
     } else {
-      showToast('保存に失敗しました。再試行してください')
+      setErrorMessage('保存に失敗しました。再試行してください')
       setSaving(false)
     }
   }
@@ -325,7 +328,9 @@ function RecordContent() {
         </div>
       </div>
 
-      <div className="fixed bottom-16 left-0 right-0 px-6 pb-4 bg-gradient-to-t from-white dark:from-black to-transparent pt-8">
+      <div className="fixed bottom-16 left-0 right-0 px-6 pb-4 bg-gradient-to-t from-white dark:from-black to-transparent pt-8"
+        style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
+      >
         <button
           onClick={handleSave}
           disabled={saving}
@@ -333,6 +338,9 @@ function RecordContent() {
         >
           {saving ? '保存中...' : '保存する'}
         </button>
+        {errorMessage && (
+          <p className="text-center text-xs text-red-500 mt-2">{errorMessage}</p>
+        )}
       </div>
 
       <Toast message={toast} />

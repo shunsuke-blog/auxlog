@@ -95,7 +95,8 @@ export default function OnboardingPage() {
         })}
       </div>
 
-      <div className="fixed bottom-16 left-0 right-0 p-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900">
+      <div className="fixed left-0 right-0 p-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900"
+        style={{ bottom: 'env(safe-area-inset-bottom)' }}>
         <button
           onClick={handleComplete}
           disabled={selected.size === 0 || saving}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import FatigueSelector from '@/components/record/FatigueSelector'
 import SetRow, { type SetData } from '@/components/record/SetRow'
 import { Plus, ChevronLeft, Trash2 } from 'lucide-react'
@@ -18,6 +18,8 @@ type ExerciseSets = {
 function EditContent() {
   const router = useRouter()
   const { sessionId } = useParams<{ sessionId: string }>()
+  const searchParams = useSearchParams()
+  const filterExerciseId = searchParams.get('exerciseId') // 種目絞り込み
 
   const [trainedAt, setTrainedAt] = useState('')
   const [fatigueLevel, setFatigueLevel] = useState(3)
@@ -40,7 +42,10 @@ function EditContent() {
 
       // sets を exercise_id でグループ化
       const grouped = new Map<string, ExerciseSets>()
-      for (const set of session.training_sets ?? []) {
+      const allSets = (session.training_sets ?? []).filter(
+        (s: { exercise_id: string }) => !filterExerciseId || s.exercise_id === filterExerciseId
+      )
+      for (const set of allSets) {
         const exId = set.exercise_id
         const exName = set.user_exercises?.custom_name
           ?? set.user_exercises?.exercise_master?.name
@@ -179,7 +184,9 @@ function EditContent() {
           <ChevronLeft className="w-5 h-5" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-semibold text-black dark:text-white">記録を編集</h1>
+          <h1 className="text-base font-semibold text-black dark:text-white truncate">
+            {filterExerciseId && exerciseSets[0] ? exerciseSets[0].exerciseName : '記録を編集'}
+          </h1>
         </div>
         <input
           type="date"
@@ -246,7 +253,8 @@ function EditContent() {
         </div>
       </div>
 
-      <div className="fixed bottom-16 left-0 right-0 px-6 pb-4 bg-gradient-to-t from-white dark:from-black to-transparent pt-8">
+      <div className="fixed left-0 right-0 px-6 pb-4 bg-gradient-to-t from-white dark:from-black to-transparent pt-8"
+        style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
         <button
           onClick={handleSave}
           disabled={saving}
