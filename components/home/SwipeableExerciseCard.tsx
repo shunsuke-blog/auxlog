@@ -5,10 +5,9 @@ import { useRouter } from 'next/navigation'
 import type { Suggestion } from '@/types'
 import { TARGET_MUSCLE_LABELS } from '@/types'
 import { AlertTriangle, TrendingDown, ChevronRight, Trash2 } from 'lucide-react'
+import { SWIPE } from '@/lib/constants/swipe'
 
-const REVEAL_WIDTH = 72    // 削除ボタンの幅
-const SNAP_THRESHOLD = 36  // この距離以上でスナップして表示
-const DELETE_THRESHOLD = 140 // この距離以上でそのまま削除
+const { REVEAL_WIDTH, SNAP_THRESHOLD, DELETE_THRESHOLD } = SWIPE
 
 type Props = {
   suggestion: Suggestion

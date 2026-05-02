@@ -21,6 +21,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Plus, X } from 'lucide-react'
 import type { UserExercise, ExerciseMaster, TargetMuscle } from '@/types'
 import { TARGET_MUSCLE_LABELS } from '@/types'
+import { useToast } from '@/hooks/useToast'
+import Toast from '@/components/ui/Toast'
 
 type SortableItemProps = {
   exercise: UserExercise
@@ -218,7 +220,7 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
 export default function ExercisesPage() {
   const [exercises, setExercises] = useState<UserExercise[]>([])
   const [showModal, setShowModal] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
+  const { toast, showToast } = useToast()
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -256,8 +258,7 @@ export default function ExercisesPage() {
   const handleDelete = async (id: string) => {
     setExercises(prev => prev.filter(e => e.id !== id))
     await fetch(`/api/exercises/${id}`, { method: 'DELETE' })
-    setToast('種目を削除しました')
-    setTimeout(() => setToast(null), 3000)
+    showToast('種目を削除しました')
   }
 
   return (
@@ -305,11 +306,7 @@ export default function ExercisesPage() {
         />
       )}
 
-      {toast && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black text-sm rounded-full shadow-lg z-50">
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} />
     </div>
   )
 }

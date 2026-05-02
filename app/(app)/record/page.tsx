@@ -8,6 +8,8 @@ import CircleCheck from '@/components/ui/CircleCheck'
 import { Plus, ChevronLeft } from 'lucide-react'
 import type { UserExercise, Suggestion } from '@/types'
 import { todayLocalDate } from '@/lib/utils/date'
+import { useToast } from '@/hooks/useToast'
+import Toast from '@/components/ui/Toast'
 
 type ExerciseSets = {
   exercise: UserExercise
@@ -29,7 +31,7 @@ function RecordContent() {
   const [memo, setMemo] = useState('')
   const [exerciseSets, setExerciseSets] = useState<ExerciseSets[]>([])
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
+  const { toast, showToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [exerciseName, setExerciseName] = useState('')
   const [trainedAt, setTrainedAt] = useState(() => todayLocalDate())
@@ -196,7 +198,7 @@ function RecordContent() {
       )
 
     if (sets.length === 0) {
-      setToast('実施済みのセットがありません')
+      showToast('実施済みのセットがありません')
       setSaving(false)
       return
     }
@@ -208,10 +210,10 @@ function RecordContent() {
     })
 
     if (res.ok) {
-      setToast('保存しました')
+      showToast('保存しました')
       setTimeout(() => router.push('/'), 800)
     } else {
-      setToast('保存に失敗しました。再試行してください')
+      showToast('保存に失敗しました。再試行してください')
       setSaving(false)
     }
   }
@@ -333,11 +335,7 @@ function RecordContent() {
         </button>
       </div>
 
-      {toast && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black text-sm rounded-full shadow-lg z-50">
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} />
     </div>
   )
 }

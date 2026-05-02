@@ -1,4 +1,5 @@
 import type { UserExercise, TrainingSet, SessionWithSets, Suggestion, SetTarget, VolumeStatus } from '@/types'
+import { TRAINING } from '@/lib/constants/training'
 
 type SuggestInput = {
   exercises: UserExercise[]
@@ -54,7 +55,7 @@ function generateWorkingSetTargets(
   startSetNumber: number,
 ): SetTarget[] {
   const heavySets = [...prevWorkingSets]
-    .filter(s => !s.is_warmup && (topWeight === 0 || s.weight_kg >= topWeight * 0.8))
+    .filter(s => !s.is_warmup && (topWeight === 0 || s.weight_kg >= topWeight * TRAINING.WARMUP_WEIGHT_RATIO))
     .sort((a, b) => a.set_number - b.set_number)
     .slice(0, setsCount)
 
@@ -101,7 +102,7 @@ export function suggestMenu(input: SuggestInput): Suggestion[] {
       const lastSession = getLastSessionForExercise(exercise.id, recentSessions)
       const daysSinceLast = lastSession
         ? diffDays(todayDate, new Date(lastSession.trained_at))
-        : 999
+        : TRAINING.DAYS_SINCE_LAST_NEVER
       const weeklyVolumeSets = calcWeeklyVolumeSets(exercise, recentSessions, todayDate)
       const lastSets = lastSession?.sets.filter(s => s.exercise_id === exercise.id) ?? []
       const isStagnant = checkStagnation(exercise.id, recentSessions)
@@ -122,7 +123,7 @@ export function suggestMenu(input: SuggestInput): Suggestion[] {
         volume_status: getVolumeStatus(weeklyVolumeSets),
       }
     })
-    .filter(s => s.days_since_last >= 2)     // 48時間未満は回復中のため除外
+    .filter(s => s.days_since_last >= TRAINING.MIN_DAYS_BETWEEN_SESSIONS)     // 48時間未満は回復中のため除外
     .sort((a, b) => b.days_since_last - a.days_since_last)
 }
 
@@ -157,14 +158,14 @@ function proposeNextSet(
   // ── 疲労度高 → 回復セッション ────────────────────────────────
   if (isHighFatigue(lastFatigue)) {
     if (lastWeight(effectiveSets) === 0) {
-      const reps = Math.max(1, Math.round(bestTopReps * 0.8))
+      const reps = Math.max(1, Math.round(bestTopReps * TRAINING.FATIGUE_REPS_REDUCTION))
       return {
         weight: 0, sets: warmupCount + lastSetsCount, reps,
         reason: '前回の疲労度が高いため回数を20%減',
         setTargets: combine(generateWorkingSetTargets(lastSetsCount, 0, reps, [], 0, workingStart)),
       }
     }
-    const weight = Math.round((topWeight * 0.95) / 2.5) * 2.5
+    const weight = Math.round((topWeight * TRAINING.FATIGUE_WEIGHT_REDUCTION) / 2.5) * 2.5
     return {
       weight, sets: warmupCount + lastSetsCount, reps: bestTopReps,
       reason: '前回の疲労度が高いため重量を5%減',
@@ -185,14 +186,14 @@ function proposeNextSet(
   // ── 全余裕あり → 負荷UP ──────────────────────────────────────
   if (allTopSetsHadRoom) {
     if (topWeight === 0) {
-      const reps = bestTopReps + 2
+      const reps = bestTopReps + TRAINING.BODYWEIGHT_REPS_INCREMENT
       return {
         weight: 0, sets: warmupCount + lastSetsCount, reps,
         reason: `前回${bestTopReps}回余裕ありのため目標回数+2`,
         setTargets: combine(generateWorkingSetTargets(lastSetsCount, 0, reps, effectiveSets, +2, workingStart)),
       }
     }
-    const weight = topWeight + 2.5
+    const weight = topWeight + TRAINING.WEIGHT_INCREMENT_KG
     const reps = exercise.default_reps
     return {
       weight, sets: warmupCount + lastSetsCount, reps,
@@ -257,7 +258,7 @@ function calcWeeklyVolumeSets(exercise: UserExercise, sessions: SessionWithSets[
 function checkStagnation(exerciseId: string, sessions: SessionWithSets[]): boolean {
   const exerciseSessions = sessions
     .filter(s => s.sets.some(set => set.exercise_id === exerciseId && !set.is_warmup))
-    .slice(0, 3)
+    .slice(0, TRAINING.STAGNATION_SESSION_COUNT)
 
   if (exerciseSessions.length < 3) return false
 
@@ -270,7 +271,7 @@ function checkStagnation(exerciseId: string, sessions: SessionWithSets[]): boole
 }
 
 function getVolumeStatus(weeklySets: number): VolumeStatus {
-  if (weeklySets < 10) return 'low'
-  if (weeklySets <= 20) return 'optimal'
+  if (weeklySets < TRAINING.WEEKLY_VOLUME_LOW) return 'low'
+  if (weeklySets <= TRAINING.WEEKLY_VOLUME_HIGH) return 'optimal'
   return 'high'
 }

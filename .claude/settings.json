@@ -1,7 +1,8 @@
 {
   "permissions": {
     "additionalDirectories": [
-      "/Users/y-syunsuke/calcul/app/api/sessions/[sessionId]"
+      "/Users/y-syunsuke/calcul/app/api/sessions/[sessionId]",
+      "/Users/y-syunsuke/calcul/app/(app)/record/edit/[sessionId]"
     ]
   }
 }

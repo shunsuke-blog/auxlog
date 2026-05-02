@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation'
 import FatigueSelector from '@/components/record/FatigueSelector'
 import SetRow, { type SetData } from '@/components/record/SetRow'
 import { Plus, ChevronLeft, Trash2 } from 'lucide-react'
+import { useToast } from '@/hooks/useToast'
+import Toast from '@/components/ui/Toast'
 
 type ExerciseSets = {
   exerciseId: string
@@ -24,7 +26,7 @@ function EditContent() {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState<string | null>(null)
+  const { toast, showToast } = useToast()
 
   useEffect(() => {
     const load = async () => {
@@ -137,10 +139,10 @@ function EditContent() {
     })
 
     if (res.ok) {
-      setToast('保存しました')
+      showToast('保存しました')
       setTimeout(() => router.push('/history'), 800)
     } else {
-      setToast('保存に失敗しました。再試行してください')
+      showToast('保存に失敗しました。再試行してください')
       setSaving(false)
     }
   }
@@ -152,7 +154,7 @@ function EditContent() {
     if (res.ok) {
       router.push('/history')
     } else {
-      setToast('削除に失敗しました')
+      showToast('削除に失敗しました')
       setDeleting(false)
     }
   }
@@ -254,11 +256,7 @@ function EditContent() {
         </button>
       </div>
 
-      {toast && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black text-sm rounded-full shadow-lg z-50">
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} />
     </div>
   )
 }
