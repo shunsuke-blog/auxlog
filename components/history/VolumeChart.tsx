@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
@@ -21,6 +21,15 @@ export default function VolumeChart({ sessions, exercises }: Props) {
   const [selectedExerciseId, setSelectedExerciseId] = useState<string>(
     exercises[0]?.id ?? ''
   )
+
+  const [isDark, setIsDark] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    setIsDark(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
 
   const selectedExercise = exercises.find(e => e.id === selectedExerciseId)
   const isBodyweight = selectedExercise?.is_bodyweight ?? false
@@ -72,15 +81,21 @@ export default function VolumeChart({ sessions, exercises }: Props) {
       ) : (
         <ResponsiveContainer width="100%" height={160}>
           <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" />
+            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#27272a' : '#f4f4f5'} />
             <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 10, fill: '#a1a1aa' }} axisLine={false} tickLine={false} width={30} />
             <Tooltip
-              contentStyle={{ fontSize: 12, border: '1px solid #f4f4f5', borderRadius: 8, backgroundColor: '#fff' }}
+              contentStyle={{
+                fontSize: 12,
+                border: `1px solid ${isDark ? '#27272a' : '#f4f4f5'}`,
+                borderRadius: 8,
+                backgroundColor: isDark ? '#09090b' : '#fff',
+                color: isDark ? '#fff' : '#000',
+              }}
               formatter={(value) => [`${value}${unit}`, yLabel]}
             />
-            <Line type="monotone" dataKey="value" stroke="#000" strokeWidth={2}
-              dot={{ fill: '#000', r: 3 }} activeDot={{ r: 4 }} />
+            <Line type="monotone" dataKey="value" stroke={isDark ? '#fff' : '#000'} strokeWidth={2}
+              dot={{ fill: isDark ? '#fff' : '#000', r: 3 }} activeDot={{ r: 4 }} />
           </LineChart>
         </ResponsiveContainer>
       )}
