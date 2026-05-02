@@ -6,6 +6,7 @@ import { CalendarDays } from 'lucide-react'
 import WeekCalendar from './WeekCalendar'
 import MonthCalendar from './MonthCalendar'
 import SessionList from './SessionList'
+import { todayLocalDate } from '@/lib/utils/date'
 import type { UserExercise, TrainingSet } from '@/types'
 
 const VolumeChart = dynamic(() => import('./VolumeChart'), { ssr: false })
@@ -25,9 +26,7 @@ type Props = {
 }
 
 export default function HistoryClient({ sessions, exercises }: Props) {
-  const today = new Date()
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  const [selectedDate, setSelectedDate] = useState<string | null>(todayStr)
+  const [selectedDate, setSelectedDate] = useState<string | null>(todayLocalDate())
   const [showMonthCalendar, setShowMonthCalendar] = useState(false)
   const [focusDate, setFocusDate] = useState<string | null>(null)
 

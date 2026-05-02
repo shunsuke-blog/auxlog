@@ -7,6 +7,7 @@ import SetRow, { type SetData } from '@/components/record/SetRow'
 import CircleCheck from '@/components/ui/CircleCheck'
 import { Plus, ChevronLeft } from 'lucide-react'
 import type { UserExercise, Suggestion } from '@/types'
+import { todayLocalDate } from '@/lib/utils/date'
 
 type ExerciseSets = {
   exercise: UserExercise
@@ -31,7 +32,7 @@ function RecordContent() {
   const [toast, setToast] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [exerciseName, setExerciseName] = useState('')
-  const [trainedAt, setTrainedAt] = useState(() => new Date().toISOString().split('T')[0])
+  const [trainedAt, setTrainedAt] = useState(() => todayLocalDate())
 
   useEffect(() => {
     const load = async () => {
@@ -45,7 +46,7 @@ function RecordContent() {
           const stored = sessionStorage.getItem('calcul_hidden_today')
           if (!stored) return allSuggestions
           const { date, ids } = JSON.parse(stored) as { date: string; ids: string[] }
-          const today = new Date().toISOString().split('T')[0]
+          const today = todayLocalDate()
           if (date !== today) return allSuggestions
           return allSuggestions.filter(s => !ids.includes(s.exercise.id))
         } catch { return allSuggestions }
@@ -242,7 +243,7 @@ function RecordContent() {
         <input
           type="date"
           value={trainedAt}
-          max={new Date().toISOString().split('T')[0]}
+          max={todayLocalDate()}
           onChange={e => setTrainedAt(e.target.value)}
           className="text-sm text-zinc-500 dark:text-zinc-400 bg-transparent shrink-0 outline-none cursor-pointer"
         />

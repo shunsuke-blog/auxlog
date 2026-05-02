@@ -6,6 +6,7 @@ import { Plus, X } from 'lucide-react'
 import type { Suggestion, UserExercise } from '@/types'
 import { TARGET_MUSCLE_LABELS } from '@/types'
 import SwipeableExerciseCard from './SwipeableExerciseCard'
+import { todayLocalDate } from '@/lib/utils/date'
 
 const HIDDEN_KEY = 'calcul_hidden_today'
 
@@ -17,7 +18,7 @@ function getHiddenIds(): string[] {
     const stored = sessionStorage.getItem(HIDDEN_KEY)
     if (!stored) return []
     const data: HiddenData = JSON.parse(stored)
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayLocalDate()
     if (data.date !== today) { sessionStorage.removeItem(HIDDEN_KEY); return [] }
     return data.ids
   } catch { return [] }
@@ -25,7 +26,7 @@ function getHiddenIds(): string[] {
 
 function saveHiddenId(exerciseId: string) {
   try {
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayLocalDate()
     const ids = getHiddenIds()
     if (!ids.includes(exerciseId)) {
       sessionStorage.setItem(HIDDEN_KEY, JSON.stringify({ date: today, ids: [...ids, exerciseId] }))
@@ -35,7 +36,7 @@ function saveHiddenId(exerciseId: string) {
 
 function removeHiddenId(exerciseId: string) {
   try {
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayLocalDate()
     const ids = getHiddenIds().filter(id => id !== exerciseId)
     sessionStorage.setItem(HIDDEN_KEY, JSON.stringify({ date: today, ids }))
   } catch { /* ignore */ }

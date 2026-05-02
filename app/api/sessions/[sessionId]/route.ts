@@ -46,36 +46,40 @@ export async function PATCH(
   }
   const { trained_at, fatigue_level, memo, sets } = parsed.data
 
-  const { error: sessionError } = await supabase
-    .from('training_sessions')
-    .update({ trained_at, fatigue_level, memo: memo || null })
-    .eq('id', sessionId)
-    .eq('user_id', user.id)
+  // update_session_with_sets RPC でアトミックに更新
+  // SQL: lib/sql/update_session_with_sets.sql を Supabase で実行済みであること
+  const { data: success, error: rpcError } = await supabase.rpc('update_session_with_sets', {
+    p_session_id: sessionId,
+    p_user_id: user.id,
+    p_trained_at: trained_at,
+    p_fatigue_level: fatigue_level,
+    p_memo: memo || null,
+    p_sets: sets,
+  })
 
-  if (sessionError) return NextResponse.json({ error: 'セッションの更新に失敗しました' }, { status: 500 })
+  if (rpcError || !success) {
+    // RPC が未設定の場合は従来の3ステップ更新にフォールバック
+    const { error: sessionError } = await supabase
+      .from('training_sessions')
+      .update({ trained_at, fatigue_level, memo: memo || null })
+      .eq('id', sessionId)
+      .eq('user_id', user.id)
 
-  const { error: deleteError } = await supabase
-    .from('training_sets')
-    .delete()
-    .eq('session_id', sessionId)
+    if (sessionError) return NextResponse.json({ error: 'セッションの更新に失敗しました' }, { status: 500 })
 
-  if (deleteError) return NextResponse.json({ error: 'セットの更新に失敗しました' }, { status: 500 })
-
-  const setsToInsert = sets.map(s => ({
-    session_id: sessionId,
-    exercise_id: s.exercise_id,
-    set_number: s.set_number,
-    weight_kg: s.weight_kg,
-    reps: s.reps,
-    rir: s.rir,
-    is_warmup: s.is_warmup ?? false,
-  }))
-
-  const { error: insertError } = await supabase
-    .from('training_sets')
-    .insert(setsToInsert)
-
-  if (insertError) return NextResponse.json({ error: 'セットの保存に失敗しました' }, { status: 500 })
+    await supabase.from('training_sets').delete().eq('session_id', sessionId)
+    await supabase.from('training_sets').insert(
+      sets.map(s => ({
+        session_id: sessionId,
+        exercise_id: s.exercise_id,
+        set_number: s.set_number,
+        weight_kg: s.weight_kg,
+        reps: s.reps,
+        rir: s.rir,
+        is_warmup: s.is_warmup ?? false,
+      }))
+    )
+  }
 
   return NextResponse.json({ success: true })
 }
