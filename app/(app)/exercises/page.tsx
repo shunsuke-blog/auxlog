@@ -43,7 +43,7 @@ function SortableItem({ exercise, onDelete }: SortableItemProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-3 px-4 py-3.5 bg-white dark:bg-zinc-950 rounded-xl border border-zinc-100 dark:border-zinc-900"
+      className="flex items-center gap-3 px-4 py-3.5 bg-white dark:bg-zinc-900 rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] dark:shadow-none dark:border dark:border-zinc-800"
     >
       <button
         className="text-zinc-300 dark:text-zinc-700 touch-none"

@@ -99,18 +99,18 @@ export default function HomeMenu({ today, initialSuggestions, allExercises }: Pr
 
   return (
     <>
-      {/* ヘッダー */}
-      <div className="px-6 pt-14 pb-5 flex items-end justify-between">
+      {/* ヘッダー（固定） */}
+      <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-4 flex items-center justify-between">
         <div>
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium tracking-wide">{today}</p>
-          <h1 className="text-3xl font-black text-black dark:text-white mt-0.5 tracking-tight">
+          <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium tracking-wide">{today}</p>
+          <h1 className="text-xl font-black text-black dark:text-white tracking-tight leading-tight">
             今日のメニュー
           </h1>
         </div>
         {allExercises.length > 0 && (
           <button
             onClick={() => setShowModal(true)}
-            className="w-10 h-10 rounded-full bg-black dark:bg-white flex items-center justify-center shadow-md"
+            className="w-9 h-9 rounded-full bg-black dark:bg-white flex items-center justify-center shadow-md"
           >
             <Plus className="w-5 h-5 text-white dark:text-black" />
           </button>

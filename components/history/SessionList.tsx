@@ -63,7 +63,7 @@ export default function SessionList({ sessions, exercises }: Props) {
         return (
           <div
             key={session.id}
-            className="bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 overflow-hidden"
+            className="bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] dark:shadow-none dark:border dark:border-zinc-800 overflow-hidden"
           >
             {/* セッションヘッダー */}
             <div className="flex items-center justify-between px-5 pt-4 pb-3">
