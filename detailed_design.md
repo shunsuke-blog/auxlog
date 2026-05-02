@@ -5,7 +5,7 @@
 ```
 ┌─────────────────────────────────────────┐
 │             クライアント（ブラウザ）          │
-│         Next.js 14 App Router            │
+│         Next.js 16 App Router            │
 └───────────────┬─────────────────────────┘
                 │ HTTPS
 ┌───────────────▼─────────────────────────┐
@@ -26,57 +26,92 @@
 ## 2. ディレクトリ構成
 
 ```
-src/
+/
 ├── app/
 │   ├── (auth)/
 │   │   └── login/
 │   │       └── page.tsx          # ログイン画面
 │   ├── (app)/
 │   │   ├── layout.tsx            # 認証済みレイアウト（BottomNav含む）
-│   │   ├── page.tsx              # ホーム（メニュー提案画面）
+│   │   ├── page.tsx              # ホーム（メニュー提案画面）サーバーコンポーネント
+│   │   ├── loading.tsx           # ホームスケルトン
 │   │   ├── record/
-│   │   │   └── page.tsx          # 記録入力画面
+│   │   │   ├── page.tsx          # 記録入力画面（クライアントコンポーネント）
+│   │   │   └── edit/
+│   │   │       └── [sessionId]/
+│   │   │           └── page.tsx  # 記録編集画面（クライアントコンポーネント）
 │   │   ├── history/
-│   │   │   └── page.tsx          # 履歴画面
+│   │   │   └── page.tsx          # 履歴画面（サーバーコンポーネント → HistoryClient）
 │   │   ├── exercises/
 │   │   │   └── page.tsx          # 種目管理画面
 │   │   └── settings/
-│   │       └── page.tsx          # 設定画面
+│   │       ├── page.tsx          # 設定画面
+│   │       └── LogoutButton.tsx  # ログアウトボタン
 │   ├── api/
 │   │   ├── suggest/
-│   │   │   └── route.ts          # メニュー提案API
+│   │   │   └── route.ts          # メニュー提案API（GET）
 │   │   ├── sessions/
-│   │   │   └── route.ts          # セッション記録API
-│   │   └── exercises/
-│   │       └── route.ts          # 種目管理API
+│   │   │   ├── route.ts          # セッション記録API（GET/POST）
+│   │   │   └── [sessionId]/
+│   │   │       └── route.ts      # セッション個別API（GET/PATCH/DELETE）
+│   │   ├── exercises/
+│   │   │   ├── route.ts          # 種目管理API（GET/POST）
+│   │   │   ├── [id]/
+│   │   │   │   └── route.ts      # 種目個別API（PATCH/DELETE）
+│   │   │   └── master/
+│   │   │       └── route.ts      # 種目マスタ一覧API（GET）
+│   │   ├── stripe/
+│   │   │   └── create-subscription/
+│   │   │       └── route.ts      # Stripeサブスク作成API
+│   │   └── webhooks/
+│   │       └── stripe/
+│   │           └── route.ts      # Stripe Webhookエンドポイント
+│   ├── auth/
+│   │   └── callback/
+│   │       └── route.ts          # OAuth認証コールバック
+│   ├── onboarding/
+│   │   └── page.tsx              # 初回種目選択画面
 │   └── layout.tsx                # ルートレイアウト
 ├── components/
 │   ├── ui/                       # 汎用UIコンポーネント
-│   │   ├── Button.tsx
-│   │   ├── Card.tsx
-│   │   ├── Input.tsx
-│   │   └── BottomNav.tsx
+│   │   ├── BottomNav.tsx         # ボトムナビゲーション
+│   │   ├── CircleCheck.tsx       # 円形チェックボックス
+│   │   └── Toast.tsx             # トースト通知
 │   ├── home/
-│   │   ├── TodayMenu.tsx         # 今日のメニュー表示
-│   │   └── ExerciseCard.tsx      # 種目カード
+│   │   ├── HomeMenu.tsx          # ホーム画面クライアントコンポーネント（スワイプ・追加モーダル）
+│   │   ├── ExerciseCard.tsx      # 種目提案カード
+│   │   └── SwipeableExerciseCard.tsx  # スワイプ削除対応カード
 │   ├── record/
-│   │   ├── RecordForm.tsx        # 記録入力フォーム
-│   │   ├── SetRow.tsx            # セット行
+│   │   ├── SetRow.tsx            # セット行（done/is_warmup/RIRトグル含む）
+│   │   ├── RirToggle.tsx         # RIRトグル
 │   │   └── FatigueSelector.tsx   # 疲労度選択
 │   └── history/
-│       ├── VolumeChart.tsx       # ボリューム推移グラフ
-│       └── SessionList.tsx       # セッション一覧
+│       ├── HistoryClient.tsx     # 履歴クライアントコンポーネント
+│       ├── WeekCalendar.tsx      # 週次カレンダー
+│       ├── MonthCalendar.tsx     # 月次カレンダーモーダル
+│       ├── SessionList.tsx       # セッション一覧
+│       └── VolumeChart.tsx       # 重量推移グラフ
 ├── lib/
 │   ├── supabase/
 │   │   ├── client.ts             # クライアントサイドSupabase
 │   │   └── server.ts             # サーバーサイドSupabase
 │   ├── suggest/
 │   │   └── engine.ts             # メニュー提案ロジック
-│   └── utils.ts                  # 汎用ユーティリティ
+│   ├── normalize/
+│   │   └── exercises.ts          # 種目データ正規化ユーティリティ
+│   ├── validation/
+│   │   └── schemas.ts            # zodバリデーションスキーマ
+│   ├── constants/
+│   │   ├── training.ts           # トレーニング定数
+│   │   └── swipe.ts              # スワイプUI定数
+│   ├── utils/
+│   │   └── date.ts               # ローカル日付ユーティリティ
+│   ├── subscription.ts           # サブスクリプション状態チェック
+│   └── sql/
+│       ├── update_session_with_sets.sql  # セッション更新RPC関数
+│       └── verify_rls.sql               # RLS検証クエリ
 ├── hooks/
-│   ├── useExercises.ts           # 種目データフック
-│   ├── useSessions.ts            # セッションデータフック
-│   └── useSuggest.ts             # 提案データフック
+│   └── useToast.ts               # Toastフック
 └── types/
     └── index.ts                  # 型定義
 ```
@@ -109,25 +144,9 @@ CREATE TABLE exercise_master (
   target_muscle TEXT NOT NULL,
   -- chest / back / legs / shoulders / arms
   sort_order INTEGER NOT NULL DEFAULT 0,
+  is_bodyweight BOOLEAN DEFAULT false,  -- 自重種目フラグ
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
--- 初期データ
-INSERT INTO exercise_master (name, target_muscle, sort_order) VALUES
-  ('ベンチプレス', 'chest', 1),
-  ('インクラインベンチプレス', 'chest', 2),
-  ('ダンベルフライ', 'chest', 3),
-  ('スクワット', 'legs', 4),
-  ('レッグプレス', 'legs', 5),
-  ('ルーマニアンデッドリフト', 'legs', 6),
-  ('デッドリフト', 'back', 7),
-  ('チンアップ', 'back', 8),
-  ('ラットプルダウン', 'back', 9),
-  ('ベントオーバーロウ', 'back', 10),
-  ('オーバーヘッドプレス', 'shoulders', 11),
-  ('サイドレイズ', 'shoulders', 12),
-  ('バーベルカール', 'arms', 13),
-  ('トライセプスプレスダウン', 'arms', 14);
 ```
 
 #### user_exercises（ユーザーが選んだ種目）
@@ -138,13 +157,12 @@ CREATE TABLE user_exercises (
   exercise_master_id UUID REFERENCES exercise_master(id),
   -- NULLの場合は独自種目
   custom_name TEXT,
-  -- exercise_master_idがNULLの場合に使用
   custom_target_muscle TEXT,
-  -- exercise_master_idがNULLの場合に使用
   default_sets INTEGER NOT NULL DEFAULT 3,
   default_reps INTEGER NOT NULL DEFAULT 8,
   sort_order INTEGER NOT NULL DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT true,
+  is_bodyweight BOOLEAN DEFAULT false,  -- 独自種目の自重フラグ
   created_at TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT exercise_name_check CHECK (
     exercise_master_id IS NOT NULL OR custom_name IS NOT NULL
@@ -173,56 +191,92 @@ CREATE TABLE training_sets (
   set_number INTEGER NOT NULL,
   weight_kg DECIMAL(5,2) NOT NULL,
   reps INTEGER NOT NULL,
-  rir BOOLEAN NOT NULL DEFAULT true,
+  rir BOOLEAN NOT NULL DEFAULT false,
   -- true: 余裕あり（RIR2以上） / false: 限界（RIR0〜1）
+  is_warmup BOOLEAN NOT NULL DEFAULT false,
+  -- true: ウォームアップセット / false: ワーキングセット
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
-### 3.2 RLSポリシー
+### 3.2 RPC関数
+
+#### update_session_with_sets（セッションとセットのアトミック更新）
+```sql
+CREATE OR REPLACE FUNCTION update_session_with_sets(
+  p_session_id UUID,
+  p_user_id UUID,
+  p_trained_at DATE,
+  p_fatigue_level INTEGER,
+  p_memo TEXT,
+  p_sets JSONB
+) RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  -- 所有権確認（RLSのバックアップ）
+  IF NOT EXISTS (
+    SELECT 1 FROM training_sessions WHERE id = p_session_id AND user_id = p_user_id
+  ) THEN RETURN FALSE; END IF;
+
+  UPDATE training_sessions
+  SET trained_at = p_trained_at, fatigue_level = p_fatigue_level, memo = p_memo
+  WHERE id = p_session_id AND user_id = p_user_id;
+
+  DELETE FROM training_sets WHERE session_id = p_session_id;
+
+  INSERT INTO training_sets (session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup)
+  SELECT
+    p_session_id,
+    (s->>'exercise_id')::UUID,
+    (s->>'set_number')::INTEGER,
+    (s->>'weight_kg')::DECIMAL,
+    (s->>'reps')::INTEGER,
+    (s->>'rir')::BOOLEAN,
+    COALESCE((s->>'is_warmup')::BOOLEAN, FALSE)
+  FROM jsonb_array_elements(p_sets) s;
+
+  RETURN TRUE;
+END; $$;
+```
+
+APIはRPCを優先し、未設定の場合は3ステップ更新にフォールバックする。
+
+### 3.3 RLSポリシー
 
 ```sql
 -- exercise_master（全ユーザーが読み取り可能）
 ALTER TABLE exercise_master ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "exercise_master is readable by all"
-  ON exercise_master FOR SELECT
-  USING (true);
+  ON exercise_master FOR SELECT USING (true);
 
 -- user_exercises
 ALTER TABLE user_exercises ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "users can only access own exercises"
-  ON user_exercises FOR ALL
-  USING (auth.uid() = user_id);
+  ON user_exercises FOR ALL USING (auth.uid() = user_id);
 
 -- training_sessions
 ALTER TABLE training_sessions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "users can only access own sessions"
-  ON training_sessions FOR ALL
-  USING (auth.uid() = user_id);
+  ON training_sessions FOR ALL USING (auth.uid() = user_id);
 
 -- training_sets
 ALTER TABLE training_sets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "users can only access own sets"
-  ON training_sets FOR ALL
-  USING (
+  ON training_sets FOR ALL USING (
     session_id IN (
       SELECT id FROM training_sessions WHERE user_id = auth.uid()
     )
   );
 ```
 
-### 3.3 インデックス
+### 3.4 インデックス
 
 ```sql
 CREATE INDEX idx_training_sessions_user_trained
   ON training_sessions(user_id, trained_at DESC);
-
 CREATE INDEX idx_training_sets_session
   ON training_sets(session_id);
-
 CREATE INDEX idx_training_sets_exercise
   ON training_sets(exercise_id);
-
 CREATE INDEX idx_user_exercises_user
   ON user_exercises(user_id, sort_order);
 ```
@@ -242,41 +296,39 @@ CREATE INDEX idx_user_exercises_user
 {
   suggestions: [
     {
-      exercise: {
-        id: string;
-        name: string;
-        target_muscle: string;
-      };
+      exercise: UserExercise;
       proposed_sets: number;
       proposed_reps: number;
       proposed_weight_kg: number;
-      reason: string; // 提案理由（例：「前回から5日経過」「前回全セットRIR4以上」）
+      proposed_set_targets: SetTarget[];  // セットごとの詳細目標
+      reason: string;
       days_since_last: number;
-      weekly_volume_sets: number; // 今週の当該筋群セット数
-      volume_status: 'low' | 'optimal' | 'high'; // 週ボリューム状態
+      weekly_volume_sets: number;
+      volume_status: 'low' | 'optimal' | 'high';
     }
   ];
-  warnings: string[]; // オーバートレーニング警告など
+  warnings: string[];
 }
 ```
 
 ### 4.2 セッション記録API
 
-**POST /api/sessions**
+**POST /api/sessions**（zodバリデーションあり）
 
 リクエスト：
 ```typescript
 {
-  trained_at: string; // YYYY-MM-DD
-  fatigue_level: number; // 1-5
-  memo?: string;
+  trained_at: string;       // YYYY-MM-DD
+  fatigue_level: number;    // 1-5
+  memo?: string | null;
   sets: [
     {
       exercise_id: string;
       set_number: number;
       weight_kg: number;
       reps: number;
-      rir: boolean; // true: 余裕あり / false: 限界
+      rir: boolean;         // true: 余裕あり / false: 限界
+      is_warmup?: boolean;  // デフォルトfalse
     }
   ];
 }
@@ -293,7 +345,7 @@ CREATE INDEX idx_user_exercises_user
 **GET /api/sessions**
 
 クエリパラメータ：
-- `limit`: 取得件数（デフォルト20）
+- `limit`: 取得件数（デフォルト20、サーバー側で最大100に強制）
 - `offset`: オフセット
 
 レスポンス：
@@ -305,94 +357,166 @@ CREATE INDEX idx_user_exercises_user
       trained_at: string;
       fatigue_level: number;
       memo: string | null;
-      total_volume: number; // 重量×レップ×セットの合計
-      sets: TrainingSet[];
+      total_volume: number;
+      sets: TrainingSet[];  // is_warmupフィールド含む
     }
   ];
   total: number;
 }
 ```
 
+**GET /api/sessions/[sessionId]**
+
+レスポンス：
+```typescript
+{
+  session: {
+    ...TrainingSession,
+    training_sets: (TrainingSet & {
+      user_exercises: {
+        id: string;
+        custom_name: string | null;
+        is_bodyweight: boolean;
+        exercise_master: { name: string; is_bodyweight: boolean } | null;
+      }
+    })[]
+  }
+}
+```
+
+**PATCH /api/sessions/[sessionId]**（zodバリデーションあり）
+
+リクエスト：POST /api/sessions と同形式
+
+**DELETE /api/sessions/[sessionId]**
+
+レスポンス：`{ success: true }`
+
 ### 4.3 種目管理API
 
 **GET /api/exercises** - 種目一覧取得
 
-**POST /api/exercises** - 種目登録
+**POST /api/exercises**（zodバリデーションあり）
 ```typescript
 {
-  name: string;
-  target_muscle: string;
-  default_sets: number;
-  default_reps: number;
+  exercise_master_id?: string | null;
+  custom_name?: string | null;
+  custom_target_muscle?: TargetMuscle | null;
+  default_sets?: number;
+  default_reps?: number;
 }
 ```
 
-**PATCH /api/exercises/[id]** - 種目更新
+**PATCH /api/exercises/[id]**（zodバリデーションあり）
+```typescript
+{
+  default_sets?: number;
+  default_reps?: number;
+  sort_order?: number;
+}
+```
 
-**DELETE /api/exercises/[id]** - 種目削除（論理削除：is_active=false）
+**DELETE /api/exercises/[id]** - 論理削除（`is_active=false`）
+
+**GET /api/exercises/master** - システム種目マスタ一覧
 
 ---
 
 ## 5. メニュー提案ロジック詳細（engine.ts）
 
-### 5.1 設計方針（実装を通じて確立）
+### 5.1 設計方針
 
-初期設計から実際の使用を経て以下の問題が判明し、ロジックを修正した。
-
-**修正の背景**
-- ピラミッド・逆ピラミッドセット：先頭セットの重量を基準にすると、ウォームアップ重量が提案に反映されてしまう
-- バックオフセット：高重量のトップセット後に軽い重量で行うセットが判定を汚染する
-- 自重種目（チンアップ等）：0kg×18回実績に対し「8回」を提案するなど、default_repsを基準にすると実態と乖離する
-
-**確立した方針**
 | 項目 | 方針 |
 |---|---|
-| 基準重量 | 全セット中の最大重量（ウォームアップを除外） |
-| セット数カウント | 最大重量の80%以上のセットのみ（ウォームアップ除外） |
+| 基準重量 | 全ワーキングセット中の最大重量（ウォームアップを除外） |
+| セット数カウント | 最大重量の80%以上のセット（`TRAINING.WARMUP_WEIGHT_RATIO = 0.8`） |
 | RIR・レップ判定 | トップセット（最大重量のセット）のみ |
-| 提案回数の基準 | `exercise.default_reps` ではなく前回実績（`bestTopReps`） |
+| 提案回数の基準 | 前回実績の最高回数（`bestTopReps`） |
 | ストール判定 | レップ達成済みの場合のみ適用 |
+| 48時間未満の種目 | 提案リストから除外（`MIN_DAYS_BETWEEN_SESSIONS = 2`） |
+| セット重量パターン | 前回のパターンを引き継ぐ（ピラミッド対応） |
+| 疲労モデル | セット数が変わる場合: 1セットごとに1回減少 |
 
-### 5.2 判定フロー
+### 5.2 定数（lib/constants/training.ts）
+
+```typescript
+export const TRAINING = {
+  DAYS_SINCE_LAST_NEVER: 999,        // 記録なし時の経過日数（初回扱い）
+  MIN_DAYS_BETWEEN_SESSIONS: 2,      // 48時間未満は除外
+  WEEKLY_VOLUME_LOW: 10,             // 週ボリューム最低ライン
+  WEEKLY_VOLUME_HIGH: 20,            // 週ボリューム上限ライン
+  STAGNATION_SESSION_COUNT: 3,       // ストール判定に使う直近セッション数
+  WARMUP_WEIGHT_RATIO: 0.8,          // ウォームアップ判定閾値
+  FATIGUE_WEIGHT_REDUCTION: 0.95,    // 疲労時の重量削減率
+  FATIGUE_REPS_REDUCTION: 0.8,       // 自重・疲労時の回数削減率
+  WEIGHT_INCREMENT_KG: 2.5,          // 有酸素種目の重量増加量(kg)
+  BODYWEIGHT_REPS_INCREMENT: 2,      // 自重種目の余裕あり時回数増加量
+}
+```
+
+### 5.3 判定フロー
 
 ```
 入力: lastSets（前回セット一覧）, exercise, lastFatigue, isStagnant
 
-1. lastSets が空 → 初回提案（default_sets × default_reps）
+1. lastSets が空 → 初回提案（default_sets × default_reps の疲労モデル付き直線セット）
 
-2. 基礎値を算出
-   lastWeight    = max(全セットの重量)
-   workingSets   = lastWeight × 80%以上のセット
-   lastSetsCount = workingSets.length
-   topSets       = lastWeight と同じ重量のセット
-   bestTopReps   = max(topSetsの回数)
-   reachedTarget = bestTopReps >= default_reps
+2. ウォームアップ/ワーキング分離（is_warmup フラグで分類）
+   effectiveSets = workingSets が存在する場合は workingSets、ない場合は全セット
 
-3. 疲労度 >= 4
-   → 有酸素: weight × 0.95（2.5kg丸め）, reps = bestTopReps
-   → 自重:   reps = bestTopReps × 0.8（20%減）
+3. 基礎値を算出
+   topWeight        = max(effectiveSets の重量)
+   topSets          = topWeight と同じ重量のセット
+   bestTopReps      = max(topSets の回数)
+   allTopSetsHadRoom = topSets.every(rir === true)
+   reachedTarget    = bestTopReps >= default_reps
 
-4. reachedTarget = false（レップ未達）
+4. 疲労度 >= 4（isHighFatigue）
+   → 自重: reps = bestTopReps × 0.8（20%減）
+   → 有酸素: weight = topWeight × 0.95（2.5kg丸め）, reps = bestTopReps
+
+5. reachedTarget = false（レップ未達）
    → weight 維持, reps = min(bestTopReps + 1, default_reps)
    ※ ストール判定は適用しない
 
-5. allTopSetsHadRoom = true（全トップセット余裕あり）
+6. allTopSetsHadRoom = true（全トップセット余裕あり）かつ reachedTarget
+   → 自重: reps = bestTopReps + 2
    → 有酸素: weight + 2.5kg, reps = default_reps（新重量でリセット）
-   → 自重:   reps = bestTopReps + 2
 
-6. isStagnant = true（3セッション重量変化なし）
+7. isStagnant = true（直近3セッション重量変化なし・レップ達成時のみ）
    → weight 維持, sets + 1, reps = bestTopReps
 
-7. ギリギリ達成（余裕なし・レップ達成）
+8. ギリギリ達成（余裕なし・レップ達成）
    → weight 維持, sets 維持, reps = bestTopReps
 ```
 
-### 5.3 ストール（停滞）判定
+### 5.4 ヘルパー関数
+
+| 関数 | 役割 |
+|---|---|
+| `isHighFatigue(fatigue)` | 疲労度 >= 4 の判定 |
+| `separateSets(sets)` | ウォームアップとワーキングセットを分離 |
+| `getTopSetMetrics(workingSets)` | トップセットの重量・回数・RIRを算出 |
+| `generateWorkingSetTargets(...)` | ワーキングセットの目標を生成（前回パターン引き継ぎ or 疲労モデル） |
+| `buildWarmupTargets(warmupSets)` | ウォームアップセットは前回の重量・回数を維持 |
+
+### 5.5 SetTarget 型（提案セット詳細）
+
+```typescript
+export type SetTarget = {
+  set_number: number;
+  weight_kg: number;
+  reps: number;
+  is_warmup: boolean;
+}
+```
+
+### 5.6 ストール（停滞）判定
 
 直近3セッションのトップセット最大重量がすべて同一の場合に `isStagnant = true` とする。
-ただし `proposeNextSet` 内でレップ未達の場合は適用しない（未達は停滞ではなく漸進中）。
+ただし `proposeNextSet` 内でレップ未達の場合は適用しない（未達は漸進中のため）。
 
-### 5.4 週ボリューム状態
+### 5.7 週ボリューム状態
 
 | 状態 | 条件 | 表示 |
 |---|---|---|
@@ -400,150 +524,88 @@ CREATE INDEX idx_user_exercises_user
 | `optimal` | 10 ≤ 週セット数 ≤ 20 | 表示なし |
 | `high` | 週セット数 > 20 | オーバートレーニング注意インジケーター |
 
-### 5.5 直線セット提案について
-
-現在の実装は**直線セット（Straight Sets）**を提案する。すなわち「Xkg × Y回 × Zセット」はすべてのセットで同一の重量・回数を指定する。
-
-**根拠**
-- 直線セットはプログレッシブオーバーロードの基本形であり、多くのエビデンスベースプログラムで採用されている
-- 筋肥大においてはセット間で多少回数が減っても総ボリュームが担保されれば効果的（Schoenfeld et al. 2021）
-
-**限界**
-- 実際には疲労によりセットを重ねるごとに回数は自然に減少する
-- ユーザーは記録入力時にセットごとの実績値（重量・回数・RIR）を個別入力することで乖離を吸収する設計としている
+ウォームアップセットは週ボリューム集計から除外する。
 
 ---
 
-## 6. 画面設計
+## 6. コンポーネント設計
 
-### 6.1 ホーム画面（メニュー提案）
+### 6.1 ホーム画面
 
-```
-┌─────────────────────────────┐
-│  今日のメニュー    2025/1/15  │
-├─────────────────────────────┤
-│ ┌─────────────────────────┐ │
-│ │ ベンチプレス     5日ぶり  │ │
-│ │ 80kg × 8rep × 3set     │ │
-│ │ 理由：前回余裕あり+2.5kg │ │
-│ └─────────────────────────┘ │
-│ ┌─────────────────────────┐ │
-│ │ スクワット       3日ぶり  │ │
-│ │ 100kg × 5rep × 3set    │ │
-│ │ 理由：前回レップ未達維持  │ │
-│ └─────────────────────────┘ │
-│ ┌─────────────────────────┐ │
-│ │ デッドリフト     7日ぶり  │ │
-│ │ 120kg × 5rep × 3set    │ │
-│ │ 理由：初回のため初期値    │ │
-│ └─────────────────────────┘ │
-│                              │
-│ [  記録を入力する  ]          │
-├─────────────────────────────┤
-│ 🏠ホーム 📝記録 📊履歴 ⚙設定 │
-└─────────────────────────────┘
-```
+**app/(app)/page.tsx**（サーバーコンポーネント）
+- SSRで提案データを取得
+- `normalizeExercises` で種目データを正規化
+- 種目未登録時は `/onboarding` にリダイレクト
+- `HomeMenu` クライアントコンポーネントに渡す
 
-**設計ポイント**
-- 画面を開いた瞬間に提案が表示される（ローディング中はスケルトン表示）
-- 種目カードは経過日数順に並ぶ
-- 「理由」を表示することで根拠が見える
-- ボタンは1つだけ
+**HomeMenu.tsx**（クライアントコンポーネント）
+- スワイプ削除状態を sessionStorage で管理（当日のみ有効）
+- 「+」ボタンで非表示種目や全種目から追加モーダルを表示
+- `SwipeableExerciseCard` を種目ごとにレンダリング
 
-### 6.2 記録入力画面
+**SwipeableExerciseCard.tsx**
+- スワイプ左で削除ボタンを表示（`SWIPE.REVEAL_WIDTH = 72px`）
+- `SWIPE.DELETE_THRESHOLD = 140px` 以上で即時削除
+- `SWIPE.SNAP_THRESHOLD = 36px` 以上でスナップ表示
 
-```
-┌─────────────────────────────┐
-│ ← 記録入力        2025/1/15 │
-├─────────────────────────────┤
-│ 疲労度                       │
-│ ① ② ③ ④ ⑤               │
-│ 限界     普通    余裕         │
-├─────────────────────────────┤
-│ ベンチプレス                  │
-│ セット  重量   回数   余裕度   │
-│  1    [80]kg  [8]回  [🟢余裕] │
-│  2    [80]kg  [8]回  [🟢余裕] │
-│  3    [80]kg  [7]回  [🔴限界] │
-│  [+ セット追加]               │
-├─────────────────────────────┤
-│ スクワット                    │
-│ セット  重量   回数   余裕度   │
-│  1   [100]kg  [5]回  [🟢余裕] │
-│  ...                         │
-├─────────────────────────────┤
-│ メモ（任意）                  │
-│ [                    ]       │
-│                              │
-│ [      保存する      ]       │
-└─────────────────────────────┘
+### 6.2 記録入力画面（app/(app)/record/page.tsx）
+
+- クライアントコンポーネント（`Suspense` ラップ）
+- URLパラメータ `?exerciseId=[id]` で特定種目のみ表示
+- `todayLocalDate()` でローカル日付を初期値とした日付変更UI
+- `done: boolean` フラグで実施済みセットのみ保存
+- 自重種目は `isBodyweight` フラグで加重をオプション表示
+
+**SetRow の SetData 型**
+```typescript
+export type SetData = {
+  set_number: number;
+  weight_kg: string;     // 文字列（入力フォーム用）
+  reps: string;          // 文字列（入力フォーム用）
+  rir: boolean;          // true: 余裕あり / false: 限界
+  is_warmup: boolean;    // ウォームアップフラグ
+  done: boolean;         // 実施フラグ（ONのセットのみ保存）
+}
 ```
 
-**設計ポイント**
-- 提案値が初期値として入力済み → 変更なければタップ不要
-- 余裕度はタップで即選択（数字入力不要）
-- 重量・回数はテンキー入力
+### 6.3 記録編集画面（app/(app)/record/edit/[sessionId]/page.tsx）
 
-### 6.3 履歴画面
+- `?exerciseId=[id]` クエリで種目を絞り込み表示
+- セッション削除ボタン（Trash2アイコン）
+- `PATCH /api/sessions/[sessionId]` で保存（RPC優先）
+- `DELETE /api/sessions/[sessionId]` で削除
 
-```
-┌─────────────────────────────┐
-│ 履歴                         │
-├─────────────────────────────┤
-│ 総ボリューム推移               │
-│ ┌─────────────────────────┐ │
-│ │     📈                  │ │
-│ │   /                     │ │
-│ │  /                      │ │
-│ └─────────────────────────┘ │
-│  [種目を選択 ▼]              │
-├─────────────────────────────┤
-│ 2025/1/15  疲労度:③          │
-│ ベンチプレス 80kg×8×3        │
-│ スクワット  100kg×5×3        │
-│                              │
-│ 2025/1/10  疲労度:②          │
-│ ベンチプレス 77.5kg×8×3      │
-│ ...                          │
-└─────────────────────────────┘
-```
+### 6.4 履歴画面
 
-### 6.4 種目管理画面
+**app/(app)/history/page.tsx**（サーバーコンポーネント）
+- SSRでセッション60件・種目を並行取得
+- `normalizeExercises` で正規化後に `HistoryClient` に渡す
 
-```
-┌─────────────────────────────┐
-│ 種目管理              [+ 追加] │
-├─────────────────────────────┤
-│ ≡ ベンチプレス    胸   [編集] │
-│ ≡ スクワット      脚   [編集] │
-│ ≡ デッドリフト    背中  [編集] │
-│ ≡ オーバーヘッドプレス 肩 [編集]│
-│ ≡ チンアップ      背中  [編集] │
-└─────────────────────────────┘
-```
+**HistoryClient.tsx**（クライアントコンポーネント）
+- `selectedDate` で表示セッションを絞り込み（初期値: 今日）
+- `WeekCalendar` で週内の日付を選択
+- `MonthCalendar` モーダルで遠い日付に移動
+- `VolumeChart` は `dynamic` で遅延ロード（SSR無効）
 
-**設計ポイント**
-- ドラッグで並び替え可能（sort_order更新）
-- 削除は論理削除（データは残す）
+**SessionList.tsx**
+- 種目ごとに展開/折り畳み（`ChevronDown` トグル）
+- 編集ボタン（Pencil）→ セッション全体編集
+- 種目ごとの編集ボタン（PenLine）→ `?exerciseId=[id]` クエリ付きで遷移
+- 自重種目の表示: ウォームアップ除外の合計回数
+- 有酸素種目: ボリューム（重量×回数）を kg で表示
 
 ---
 
 ## 7. 型定義（types/index.ts）
 
 ```typescript
-export type TargetMuscle =
-  | 'chest'
-  | 'back'
-  | 'legs'
-  | 'shoulders'
-  | 'arms';
+export type TargetMuscle = 'chest' | 'back' | 'legs' | 'shoulders' | 'arms';
 
-export type SubscriptionStatus =
-  | 'trialing'
-  | 'active'
-  | 'canceled'
-  | 'past_due';
+export const TARGET_MUSCLE_LABELS: Record<TargetMuscle, string> = {
+  chest: '胸', back: '背中', legs: '脚', shoulders: '肩', arms: '腕',
+};
 
+export type SubscriptionStatus = 'trialing' | 'active' | 'canceled' | 'past_due';
 export type VolumeStatus = 'low' | 'optimal' | 'high';
 
 export type ExerciseMaster = {
@@ -551,6 +613,7 @@ export type ExerciseMaster = {
   name: string;
   target_muscle: TargetMuscle;
   sort_order: number;
+  is_bodyweight: boolean;
   created_at: string;
 };
 
@@ -564,10 +627,10 @@ export type UserExercise = {
   default_reps: number;
   sort_order: number;
   is_active: boolean;
+  is_bodyweight: boolean;
   created_at: string;
-  // JOINして取得する表示用フィールド
-  name: string;
-  target_muscle: TargetMuscle;
+  name: string;            // JOINして正規化
+  target_muscle: TargetMuscle;  // JOINして正規化
 };
 
 export type TrainingSet = {
@@ -577,7 +640,8 @@ export type TrainingSet = {
   set_number: number;
   weight_kg: number;
   reps: number;
-  rir: number;
+  rir: boolean;            // true: 余裕あり / false: 限界
+  is_warmup: boolean;      // true: ウォームアップ
   created_at: string;
 };
 
@@ -594,11 +658,19 @@ export type SessionWithSets = TrainingSession & {
   sets: TrainingSet[];
 };
 
+export type SetTarget = {
+  set_number: number;
+  weight_kg: number;
+  reps: number;
+  is_warmup: boolean;
+};
+
 export type Suggestion = {
-  exercise: Exercise;
+  exercise: UserExercise;
   proposed_sets: number;
-  proposed_reps: number;
+  proposed_reps: number;          // トップセット（1セット目）の目標回数
   proposed_weight_kg: number;
+  proposed_set_targets: SetTarget[];  // セットごとの目標（疲労考慮済み）
   reason: string;
   days_since_last: number;
   weekly_volume_sets: number;
@@ -608,7 +680,65 @@ export type Suggestion = {
 
 ---
 
-## 8. 環境変数
+## 8. バリデーション設計（lib/validation/schemas.ts）
+
+zod を使用して全APIのリクエストボディを検証する。
+
+```typescript
+// セット共通スキーマ
+SetSchema = {
+  exercise_id: uuid,
+  set_number: int(1-50),
+  weight_kg: number(0-999),
+  reps: int(0-999),
+  rir: boolean,
+  is_warmup: boolean (デフォルトfalse),
+}
+
+CreateSessionSchema = {
+  trained_at: "YYYY-MM-DD" 形式,
+  fatigue_level: int(1-5),
+  memo: string(max500) | null | optional,
+  sets: SetSchema[] (min1),
+}
+
+UpdateSessionSchema = CreateSessionSchema と同形式
+
+CreateExerciseSchema = {
+  exercise_master_id: uuid | null | optional,
+  custom_name: string(1-100) | null | optional,
+  custom_target_muscle: TargetMuscle | null | optional,
+  default_sets: int(1-20) | optional,
+  default_reps: int(1-100) | optional,
+  // refinement: exercise_master_id OR custom_name が必須
+}
+
+UpdateExerciseSchema = {
+  default_sets: int(1-20) | optional,
+  default_reps: int(1-100) | optional,
+  sort_order: int(0+) | optional,
+}
+```
+
+---
+
+## 9. 種目正規化（lib/normalize/exercises.ts）
+
+Supabase の JOIN クエリ結果を `UserExercise` 型に変換する処理を一元化。
+4箇所に散在していた正規化ロジックをこのモジュールに集約。
+
+```typescript
+export function normalizeExercise(e: RawUserExercise): UserExercise
+export function normalizeExercises(rows: RawUserExercise[]): UserExercise[]
+```
+
+- `custom_name` があればカスタム種目、なければ `exercise_master` から取得
+- `is_bodyweight` はカスタム種目なら `user_exercises` から、マスタ種目なら `exercise_master` から取得
+- 不正な筋群値は `'chest'` にフォールバック（DB不整合対策）
+
+---
+
+## 10. 環境変数
 
 ```bash
 # .env.local
@@ -623,21 +753,21 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ---
 
-## 9. Stripe連携設計
+## 11. Stripe連携設計
 
-### 9.1 トライアル開始フロー
+### 11.1 トライアル開始フロー
 1. Google認証でサインアップ
-2. `users`テーブルにレコード作成（`subscription_status: 'trialing'`）
-3. Stripe Customerを作成、`stripe_customer_id`を保存
+2. `users` テーブルにレコード作成（`subscription_status: 'trialing'`）
+3. Stripe Customerを作成、`stripe_customer_id` を保存
 4. Stripe Subscriptionをトライアル付きで作成
 5. トライアル期間中は全機能利用可能
 
-### 9.2 トライアル終了後
-- Stripeのwebhookで`customer.subscription.updated`を受信
-- `subscription_status`を`active`または`canceled`に更新
-- `canceled`の場合：記録閲覧のみ可能、新規記録・提案は停止
+### 11.2 トライアル終了後
+- Stripeのwebhookで`customer.subscription.updated` を受信
+- `subscription_status` を `active` または `canceled` に更新
+- `canceled` の場合：記録閲覧のみ可能
 
-### 9.3 Webhookエンドポイント
+### 11.3 Webhookエンドポイント
 **POST /api/webhooks/stripe**
 - `customer.subscription.updated`
 - `customer.subscription.deleted`
@@ -645,21 +775,25 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ---
 
-## 10. エラーハンドリング方針
+## 12. エラーハンドリング方針
 
 | エラー種別 | 対応 |
 |-----------|------|
 | 認証エラー | ログイン画面にリダイレクト |
-| APIエラー（5xx） | トースト通知「保存に失敗しました。再試行してください」 |
-| バリデーションエラー | フィールド下にインラインエラー表示 |
-| 提案データなし | 「まずは種目を登録してください」の案内表示 |
-| オフライン | 「インターネット接続を確認してください」のトースト |
+| APIエラー（5xx） | Toastで「保存に失敗しました。再試行してください」|
+| zodバリデーションエラー | 400を返し、最初のエラーメッセージを `{ error: string }` で返却 |
+| 種目未登録 | 「まずは種目を登録してください」の案内表示 |
+| セッション保存: 実施セット0件 | 「実施済みのセットがありません」をインラインで表示 |
+
+APIのエラーメッセージは汎用化し、内部情報（DBエラー詳細等）を漏洩しない。
 
 ---
 
-## 11. パフォーマンス方針
+## 13. パフォーマンス方針
 
 - ホーム画面の提案データはサーバーコンポーネントでSSR（初回表示を高速化）
-- 記録入力・履歴はクライアントコンポーネント
+- 履歴画面もサーバーコンポーネントで初期データ取得、インタラクションはクライアント
+- `VolumeChart` は `dynamic` で遅延ロード（グラフライブラリのバンドルサイズ対策）
 - グラフはrecharts使用
 - 画像なし（アイコンはlucide-react）
+- PWA対応: `viewport-fit: cover`、`env(safe-area-inset-bottom)` でiOSノッチ対応

@@ -1,873 +1,218 @@
-# Claude Code 実装指示書 - 筋トレメニュー自動提案アプリ
+# 実装状況まとめ - 筋トレメニュー自動提案アプリ
 
-## この指示書の使い方
-この指示書はClaude Codeに渡すための実装指示書だ。
-上から順番に実装していくこと。各STEPが完了したら次のSTEPに進む。
-各STEPの最後に動作確認を行い、問題がなければ次に進むこと。
+## このドキュメントの位置づけ
+フェーズ1（MVP）の実装が完了した状態を記録したドキュメント。
+次フェーズの開発者（または Claude Code）が現状を正確に把握できるよう、
+実装済みの仕様と今後の課題を整理している。
 
 ---
 
-## 前提条件・制約
+## 前提条件・技術スタック
 
-- **フレームワーク**: Next.js 14（App Router）
-- **DB・認証**: Supabase
+- **フレームワーク**: Next.js 16（App Router）
+- **DB・認証**: Supabase（PostgreSQL + Auth）
 - **ホスティング**: Vercel
-- **決済**: Stripe
+- **決済**: Stripe（コード実装済み、本番設定は手動作業待ち）
 - **言語**: TypeScript（strictモード）
-- **スタイリング**: Tailwind CSS（`darkMode: 'media'`でシステム設定に従う）
-- **アイコン**: lucide-react で統一
+- **スタイリング**: Tailwind CSS（`darkMode: 'media'`）
+- **アイコン**: lucide-react
 - **グラフ**: recharts
-- **UIの世界観**: シンプル・スタイリッシュ・洗練。余白を広く取り、情報密度を下げる。「Appleの純正アプリと並べて恥ずかしくないか」を基準にする
-- **カラーパレット**: 3色以内（メイン・背景・アクセント）
-- **フォント**: 1〜2種類まで
-- **アニメーション**: 最小限（画面遷移・保存完了フィードバックのみ）
+- **DnD**: @dnd-kit/core, @dnd-kit/sortable
+- **バリデーション**: zod
+- **実装禁止事項**:
+  - HTMLのformタグを使わない（Reactのイベントハンドラで処理）
+  - localStorageを使わない（状態管理はReact StateとSupabase）
+  - any型を極力使わない
+  - インラインスタイルを使わない（例外: `env(safe-area-inset-bottom)` の動的計算）
+  - コメントは日本語で書く
 
 ---
 
-## STEP 1: プロジェクト初期設定
+## フェーズ1 実装済み機能一覧
 
-### 1-1. Next.jsプロジェクト作成
-```bash
-npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*"
-```
+### STEP 1〜2: プロジェクト初期設定・Supabase
 
-### 1-2. 必要パッケージのインストール
-```bash
-npm install @supabase/supabase-js @supabase/ssr
-npm install stripe @stripe/stripe-js
-npm install lucide-react
-npm install recharts
-npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
-```
+**完了**
+- [x] Next.js 16 App Router プロジェクト
+- [x] Supabase クライアント（`lib/supabase/client.ts`, `lib/supabase/server.ts`）
+- [x] 全テーブル作成（users, exercise_master, user_exercises, training_sessions, training_sets）
+- [x] `exercise_master` に `is_bodyweight` カラム追加（マスタ種目の自重フラグ）
+- [x] `user_exercises` に `is_bodyweight` カラム追加（独自種目の自重フラグ）
+- [x] `training_sets` に `is_warmup` カラム追加（ウォームアップフラグ）
+- [x] RLSポリシー設定
+- [x] インデックス作成
+- [x] `update_session_with_sets` RPC関数（`lib/sql/update_session_with_sets.sql`）
 
-### 1-3. tailwind.config.tsの設定
-```typescript
-import type { Config } from 'tailwindcss'
-
-const config: Config = {
-  darkMode: 'media', // システム設定に従う
-  content: [
-    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
-  ],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-}
-export default config
-```
-
-### 1-4. 環境変数ファイルの作成
-`.env.local` を作成し、以下の変数を定義する（値は後で入力）:
-```bash
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-### 1-5. ディレクトリ構造の作成
-以下のディレクトリを作成する:
-```
-src/
-├── app/
-│   ├── (auth)/login/
-│   ├── (app)/record/
-│   ├── (app)/history/
-│   ├── (app)/exercises/
-│   ├── (app)/settings/
-│   └── api/suggest/
-│   └── api/sessions/
-│   └── api/exercises/
-│   └── api/webhooks/stripe/
-├── components/ui/
-├── components/home/
-├── components/record/
-├── components/history/
-├── lib/supabase/
-├── lib/suggest/
-├── hooks/
-└── types/
-```
-
-### 1-6. 型定義ファイルの作成
-`src/types/index.ts` を以下の内容で作成する:
-
-```typescript
-export type TargetMuscle =
-  | 'chest'
-  | 'back'
-  | 'legs'
-  | 'shoulders'
-  | 'arms';
-
-export const TARGET_MUSCLE_LABELS: Record<TargetMuscle, string> = {
-  chest: '胸',
-  back: '背中',
-  legs: '脚',
-  shoulders: '肩',
-  arms: '腕',
-};
-
-export type SubscriptionStatus =
-  | 'trialing'
-  | 'active'
-  | 'canceled'
-  | 'past_due';
-
-export type VolumeStatus = 'low' | 'optimal' | 'high';
-
-export type ExerciseMaster = {
-  id: string;
-  name: string;
-  target_muscle: TargetMuscle;
-  sort_order: number;
-  created_at: string;
-};
-
-export type UserExercise = {
-  id: string;
-  user_id: string;
-  exercise_master_id: string | null;
-  custom_name: string | null;
-  custom_target_muscle: TargetMuscle | null;
-  default_sets: number;
-  default_reps: number;
-  sort_order: number;
-  is_active: boolean;
-  created_at: string;
-  // JOINして取得する表示用フィールド
-  name: string;
-  target_muscle: TargetMuscle;
-};
-
-export type TrainingSet = {
-  id: string;
-  session_id: string;
-  exercise_id: string;
-  set_number: number;
-  weight_kg: number;
-  reps: number;
-  rir: boolean; // true: 余裕あり / false: 限界
-  created_at: string;
-};
-
-export type TrainingSession = {
-  id: string;
-  user_id: string;
-  trained_at: string;
-  fatigue_level: number;
-  memo: string | null;
-  created_at: string;
-};
-
-export type SessionWithSets = TrainingSession & {
-  sets: TrainingSet[];
-};
-
-export type Suggestion = {
-  exercise: UserExercise;
-  proposed_sets: number;
-  proposed_reps: number;
-  proposed_weight_kg: number;
-  reason: string;
-  days_since_last: number;
-  weekly_volume_sets: number;
-  volume_status: VolumeStatus;
-};
-```
-
-**✅ STEP 1 完了確認**: `npm run dev` でエラーなく起動することを確認する。
-
----
-
-## STEP 2: Supabaseセットアップ
-
-### 2-1. Supabaseプロジェクト作成
-Supabase（https://supabase.com）でプロジェクトを作成し、URLとAPIキーを `.env.local` に設定する。
-
-### 2-2. Supabaseクライアントの作成
-
-`src/lib/supabase/client.ts`:
-```typescript
-import { createBrowserClient } from '@supabase/ssr'
-
-export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-}
-```
-
-`src/lib/supabase/server.ts`:
-```typescript
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-
-export async function createClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {
-            // Server Componentから呼ばれた場合は無視
-          }
-        },
-      },
-    }
-  )
-}
-```
-
-### 2-3. データベーステーブルの作成
-Supabaseのダッシュボード → SQL Editorで以下を実行する:
-
+**DB変更点（原設計からの差分）**
 ```sql
--- usersテーブル
-CREATE TABLE users (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT NOT NULL,
-  stripe_customer_id TEXT,
-  stripe_subscription_id TEXT,
-  subscription_status TEXT DEFAULT 'trialing',
-  trial_ends_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days'),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- exercise_masterに追加
+ALTER TABLE exercise_master ADD COLUMN is_bodyweight BOOLEAN DEFAULT false;
 
--- exercise_masterテーブル（システム共通）
-CREATE TABLE exercise_master (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  target_muscle TEXT NOT NULL,
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- user_exercisesに追加
+ALTER TABLE user_exercises ADD COLUMN is_bodyweight BOOLEAN DEFAULT false;
 
--- 種目マスタ初期データ
-INSERT INTO exercise_master (name, target_muscle, sort_order) VALUES
-  ('ベンチプレス', 'chest', 1),
-  ('インクラインベンチプレス', 'chest', 2),
-  ('ダンベルフライ', 'chest', 3),
-  ('スクワット', 'legs', 4),
-  ('レッグプレス', 'legs', 5),
-  ('ルーマニアンデッドリフト', 'legs', 6),
-  ('デッドリフト', 'back', 7),
-  ('チンアップ', 'back', 8),
-  ('ラットプルダウン', 'back', 9),
-  ('ベントオーバーロウ', 'back', 10),
-  ('オーバーヘッドプレス', 'shoulders', 11),
-  ('サイドレイズ', 'shoulders', 12),
-  ('バーベルカール', 'arms', 13),
-  ('トライセプスプレスダウン', 'arms', 14);
-
--- user_exercisesテーブル
-CREATE TABLE user_exercises (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  exercise_master_id UUID REFERENCES exercise_master(id),
-  custom_name TEXT,
-  custom_target_muscle TEXT,
-  default_sets INTEGER NOT NULL DEFAULT 3,
-  default_reps INTEGER NOT NULL DEFAULT 8,
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  is_active BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  CONSTRAINT exercise_name_check CHECK (
-    exercise_master_id IS NOT NULL OR custom_name IS NOT NULL
-  )
-);
-
--- training_sessionsテーブル
-CREATE TABLE training_sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  trained_at DATE NOT NULL,
-  fatigue_level INTEGER NOT NULL CHECK (fatigue_level BETWEEN 1 AND 5),
-  memo TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- training_setsテーブル
-CREATE TABLE training_sets (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id UUID NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
-  exercise_id UUID NOT NULL REFERENCES user_exercises(id),
-  set_number INTEGER NOT NULL,
-  weight_kg DECIMAL(5,2) NOT NULL,
-  reps INTEGER NOT NULL,
-  rir BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- RLSポリシー
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users can only access own data" ON users FOR ALL USING (auth.uid() = id);
-
-ALTER TABLE exercise_master ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "exercise_master is readable by all" ON exercise_master FOR SELECT USING (true);
-
-ALTER TABLE user_exercises ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users can only access own exercises" ON user_exercises FOR ALL USING (auth.uid() = user_id);
-
-ALTER TABLE training_sessions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users can only access own sessions" ON training_sessions FOR ALL USING (auth.uid() = user_id);
-
-ALTER TABLE training_sets ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users can only access own sets" ON training_sets FOR ALL
-  USING (session_id IN (SELECT id FROM training_sessions WHERE user_id = auth.uid()));
-
--- インデックス
-CREATE INDEX idx_training_sessions_user_trained ON training_sessions(user_id, trained_at DESC);
-CREATE INDEX idx_training_sets_session ON training_sets(session_id);
-CREATE INDEX idx_training_sets_exercise ON training_sets(exercise_id);
-CREATE INDEX idx_user_exercises_user ON user_exercises(user_id, sort_order);
-
--- 新規ユーザー登録時にusersテーブルにレコードを自動作成するトリガー
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
-BEGIN
-  INSERT INTO public.users (id, email)
-  VALUES (new.id, new.email);
-  RETURN new;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+-- training_setsに追加
+ALTER TABLE training_sets ADD COLUMN is_warmup BOOLEAN NOT NULL DEFAULT false;
+-- rir のデフォルトを false（限界）に変更
+ALTER TABLE training_sets ALTER COLUMN rir SET DEFAULT false;
 ```
 
-### 2-4. Google認証の設定
-1. Supabase ダッシュボード → Authentication → Providers → Google を有効化
-2. Google Cloud Console でOAuthクライアントIDを作成
-3. 承認済みリダイレクトURIに以下を追加:
-   - `http://localhost:3000/auth/callback`
-   - `https://[本番ドメイン]/auth/callback`
-4. クライアントIDとシークレットをSupabaseに設定
+### STEP 3〜4: 認証・レイアウト
 
-### 2-5. 認証コールバックルートの作成
-`src/app/auth/callback/route.ts`:
+**完了**
+- [x] ログイン画面（`app/(auth)/login/page.tsx`）
+- [x] 認証コールバック（`app/auth/callback/route.ts`）
+- [x] 認証済みレイアウト（`app/(app)/layout.tsx`）
+- [x] BottomNav（4タブ: ホーム/記録/履歴/設定）
+
+**注意**: middleware.ts は削除済み。認証チェックは各サーバーコンポーネントとAPIルートで行う。
+
+### STEP 5: 種目管理機能
+
+**完了**
+- [x] 種目管理API（`app/api/exercises/route.ts`, `app/api/exercises/[id]/route.ts`）
+- [x] 種目マスタAPI（`app/api/exercises/master/route.ts`）
+- [x] 種目管理画面（`app/(app)/exercises/page.tsx`）
+  - ドラッグ&ドロップ並び替え（@dnd-kit）
+  - マスタ種目選択モーダル（部位グループ化）
+  - カスタム種目追加タブ
+  - 論理削除
+- [x] オンボーディング画面（`app/onboarding/page.tsx`）
+  - 種目0件のユーザーをリダイレクト
+  - 複数種目の一括選択・登録
+
+### STEP 6: メニュー提案ロジック
+
+**完了**
+- [x] 提案エンジン（`lib/suggest/engine.ts`）
+- [x] トレーニング定数（`lib/constants/training.ts`）
+- [x] 提案API（`app/api/suggest/route.ts`）
+
+**実装仕様（原設計からの変更点）**
+
+| 項目 | 原設計 | 現在の実装 |
+|---|---|---|
+| 基準重量 | 先頭セット | 最大重量（ウォームアップ除外） |
+| セット数カウント | 全セット | 最大重量の80%以上のセット |
+| RIR・レップ判定 | 全セット | トップセット（最大重量）のみ |
+| 提案回数基準 | default_reps | bestTopReps（前回実績最高） |
+| ストール判定 | 常時 | レップ達成時のみ |
+| セット重量パターン | 直線セット | 前回パターン引き継ぎ（ピラミッド対応） |
+| 48時間制限 | - | MIN_DAYS_BETWEEN_SESSIONS = 2 で除外 |
+| SetTarget | proposed_sets/reps のみ | proposed_set_targets: SetTarget[] を追加 |
+
+**ヘルパー関数**
+- `isHighFatigue()` - 疲労度 >= 4 の判定
+- `separateSets()` - ウォームアップ/ワーキング分離
+- `getTopSetMetrics()` - トップセットのメトリクス算出
+- `generateWorkingSetTargets()` - ワーキングセット目標生成（疲労モデル付き）
+- `buildWarmupTargets()` - ウォームアップセット目標生成
+
+### STEP 7: ホーム画面
+
+**完了**
+- [x] ホームページ（`app/(app)/page.tsx`）- サーバーコンポーネント
+- [x] `HomeMenu` クライアントコンポーネント（スワイプ・追加モーダル）
+- [x] `SwipeableExerciseCard` - スワイプ削除対応カード
+- [x] スワイプ定数（`lib/constants/swipe.ts`）
+- [x] 非表示状態の sessionStorage 管理（当日のみ有効）
+- [x] 7日以上経過の種目: アンバーボーダーで強調表示
+
+**原設計からの追加機能**
+- スワイプ削除（今日はやらない）
+- 種目の手動追加モーダル
+- 全種目完了時のメッセージ表示
+
+### STEP 8: 記録入力画面
+
+**完了**
+- [x] 記録入力画面（`app/(app)/record/page.tsx`）
+- [x] SetRow コンポーネント（`done`, `is_warmup`, 自重対応）
+- [x] RirToggle コンポーネント（デフォルトは「限界」= false）
+- [x] FatigueSelector コンポーネント
+- [x] CircleCheck コンポーネント（記録タブ用・全種目表示時の有効化チェック）
+- [x] Toast / useToast（`components/ui/Toast.tsx`, `hooks/useToast.ts`）
+- [x] セッションAPI（`app/api/sessions/route.ts`）- zodバリデーション付き
+- [x] 日付変更 UI（`todayLocalDate()` でローカル日付初期化）
+- [x] PWA safe-area 対応（固定ボタンが iOSノッチに隠れない）
+
+**原設計からの変更点**
+- `SetData` に `done: boolean`、`is_warmup: boolean` 追加
+- `done === true` のセットのみ保存（実施済みフラグ）
+- RIRのデフォルトを `false`（限界）に変更（原設計は `true`）
+- 自重種目は加重入力をオプション表示（`isBodyweight` フラグで切替）
+- ウォームアップ（W）フラグ付きセットはRIRトグルを非表示
+- 記録タブからの全種目表示時は CircleCheck で有効/無効を切替可能
+
+**limit 上限の強制（GET /api/sessions）**
 ```typescript
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
-
-export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/'
-
-  if (code) {
-    const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
-    }
-  }
-
-  return NextResponse.redirect(`${origin}/login?error=auth`)
-}
+const limit = Math.min(Math.max(1, rawLimit), 100)  // サーバー側で最大100件に強制
 ```
 
-**✅ STEP 2 完了確認**: Supabaseダッシュボードでテーブルが作成されていることを確認する。
+### STEP 9: 履歴画面
+
+**完了**
+- [x] 履歴画面（`app/(app)/history/page.tsx`）- サーバーコンポーネント
+- [x] HistoryClient クライアントコンポーネント
+- [x] WeekCalendar - 週次カレンダー（常時表示）
+- [x] MonthCalendar - 月次カレンダーモーダル（カレンダーアイコンで開く）
+- [x] SessionList - 展開/折り畳み付きセッション一覧
+- [x] VolumeChart - recharts での重量推移グラフ（動的ロード）
+- [x] 記録編集画面（`app/(app)/record/edit/[sessionId]/page.tsx`）
+- [x] 個別セッションAPI（`app/api/sessions/[sessionId]/route.ts`）- GET/PATCH/DELETE
+
+**原設計からの変更点**
+- グラフ上部に週次カレンダーを配置（日付選択でセッションを絞り込み）
+- 月次カレンダーモーダルで遠い日付に移動可能
+- 種目ごとの編集ボタン（`?exerciseId=[id]` クエリで特定種目のみ編集）
+- セッション削除機能
+- 自重種目のボリュームは回数表示、有酸素種目はkg表示
+
+### STEP 10: Stripe連携
+
+**コード実装済み・本番設定待ち**
+- [x] `app/api/stripe/create-subscription/route.ts`
+- [x] `app/api/webhooks/stripe/route.ts`
+- [x] `lib/subscription.ts` - サブスクリプション状態チェック
+- [x] 設定画面（`app/(app)/settings/page.tsx`）
+- [ ] Google OAuth 本番設定（Supabase + Google Cloud Console）
+- [ ] Stripe 本番商品・価格の設定
+- [ ] 課金状態によるアクセス制御の有効化
+
+### セキュリティ・品質改善（フェーズ1追加実装）
+
+- [x] zod による全API入力バリデーション（`lib/validation/schemas.ts`）
+- [x] APIエラーメッセージの汎用化（内部情報漏洩防止）
+- [x] 種目正規化の一元化（`lib/normalize/exercises.ts`）
+  - 4箇所に散在していたロジックを1モジュールに集約
+  - 不正な筋群値のフォールバック処理
 
 ---
 
-## STEP 3: 認証画面の実装
-
-### 3-1. ミドルウェアの作成
-`src/middleware.ts`:
-```typescript
-import { createServerClient } from '@supabase/ssr'
-import { NextResponse, type NextRequest } from 'next/server'
-
-export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // 未認証ユーザーをログイン画面にリダイレクト
-  if (!user && !request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.pathname.startsWith('/auth')) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-
-  // 認証済みユーザーがログイン画面にアクセスしたらホームにリダイレクト
-  if (user && request.nextUrl.pathname.startsWith('/login')) {
-    return NextResponse.redirect(new URL('/', request.url))
-  }
-
-  return supabaseResponse
-}
-
-export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/webhooks).*)'],
-}
-```
-
-### 3-2. ログイン画面の作成
-`src/app/(auth)/login/page.tsx`:
-
-以下の仕様でログイン画面を実装する:
-- 中央寄せのカードレイアウト
-- アプリ名（未定のため「Calcul」）とキャッチコピー「今日のメニューを、30秒で。」を表示
-- 「Googleでログイン」ボタン（lucide-reactのLogoは使わず、Googleのロゴテキストのみでよい）
-- ダーク/ライトモード両対応
-- シンプル・洗練されたデザイン
-
-Googleログインの処理:
-```typescript
-const supabase = createClient()
-await supabase.auth.signInWithOAuth({
-  provider: 'google',
-  options: {
-    redirectTo: `${window.location.origin}/auth/callback`,
-  },
-})
-```
-
-**✅ STEP 3 完了確認**: ブラウザでログイン画面が表示され、Googleログインが動作することを確認する。
-
----
-
-## STEP 4: 認証済みレイアウトとボトムナビの実装
-
-### 4-1. BottomNavコンポーネントの作成
-`src/components/ui/BottomNav.tsx`:
-
-以下の仕様で実装する:
-- 4タブ構成: ホーム（Home）、記録（PenLine）、履歴（BarChart2）、設定（Settings）
-- アイコンはlucide-reactを使用
-- 現在のパスに応じてアクティブタブを強調表示
-- スマートフォンの下部に固定表示
-- ダーク/ライトモード両対応
-- シンプルで洗練されたデザイン
-
-### 4-2. 認証済みレイアウトの作成
-`src/app/(app)/layout.tsx`:
-
-```typescript
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import BottomNav from '@/components/ui/BottomNav'
-
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) redirect('/login')
-
-  return (
-    <div className="min-h-screen pb-16">
-      <main>{children}</main>
-      <BottomNav />
-    </div>
-  )
-}
-```
-
-**✅ STEP 4 完了確認**: ログイン後にボトムナビが表示されることを確認する。
-
----
-
-## STEP 5: 種目管理機能の実装
-
-### 5-1. 種目管理APIの作成
-
-`src/app/api/exercises/route.ts`:
-- **GET**: ユーザーの種目一覧を取得（`user_exercises` と `exercise_master` をJOIN）
-- **POST**: 種目を追加（マスタ選択 or カスタム）
-
-`src/app/api/exercises/[id]/route.ts`:
-- **PATCH**: 種目のdefault_sets、default_reps、sort_orderを更新
-- **DELETE**: 論理削除（`is_active = false`）
-
-`src/app/api/exercises/master/route.ts`:
-- **GET**: `exercise_master` の全件を取得（種目選択画面用）
-
-### 5-2. 種目管理画面の実装
-`src/app/(app)/exercises/page.tsx`:
-
-以下の仕様で実装する:
-
-**画面構成**
-1. ヘッダー: 「種目管理」タイトル + 「+ 追加」ボタン
-2. 種目リスト: 登録済み種目をドラッグで並び替え可能
-   - 各行: ハンドルアイコン（GripVertical）、種目名、部位バッジ、編集ボタン
-3. 種目追加モーダル:
-   - システムマスタから選択するタブ（部位ごとにグループ化）
-   - カスタム種目を追加するタブ（名前・部位を入力）
-
-**実装仕様**
-- ドラッグ&ドロップは `@dnd-kit` を使用
-- 並び替え後に `sort_order` をAPIで更新
-- 削除は確認なしで即時論理削除（誤操作防止のためUndoトーストを表示）
-- 部位の表示名は `TARGET_MUSCLE_LABELS` を使用
-
-### 5-3. 初回ログイン時の種目選択画面
-初回ログイン時（`user_exercises` が0件の場合）、種目選択の案内画面を表示する。
-
-`src/app/(app)/onboarding/page.tsx`:
-- 「まず、あなたがやる種目を選んでください」というメッセージ
-- `exercise_master` の種目を部位ごとにグループ表示
-- 各種目をタップで選択/解除（チェックマーク表示）
-- 「完了」ボタンで選択した種目を `user_exercises` に一括登録
-- 最低1種目を選択しないと完了できない
-
-ミドルウェアで `user_exercises` が0件の場合は `/onboarding` にリダイレクトする処理を追加。
-
-**✅ STEP 5 完了確認**: 種目の追加・編集・削除・並び替えが動作することを確認する。
-
----
-
-## STEP 6: メニュー提案ロジックの実装
-
-### 6-1. 提案エンジンの作成
-`lib/suggest/engine.ts`:
-
-> **注意**: 初期設計から実際の使用フィードバックを経てロジックを大幅修正済み。
-> 詳細設計書セクション5を参照。
-
-**修正の要点**
-- 基準重量: `lastSets[0]`（先頭セット）→ `Math.max(全セット重量)`
-- ウォームアップ除外: 最大重量の80%未満のセットをセット数カウントから除外
-- 判定対象: 全セット → トップセット（最大重量のセット）のみ
-- 提案回数の基準: `default_reps` → `bestTopReps`（前回実績の最高回数）
-- ストール判定: 常時 → レップ達成済みの場合のみ適用
-- 自重種目対応: 重量0kgの場合は回数で進捗管理
-
-**判定フロー（優先順位順）**
-
-| 条件 | 提案 |
-|------|------|
-| 初回（記録なし） | default_sets × default_reps |
-| 疲労度 >= 4（有酸素） | 重量 × 0.95, reps = bestTopReps |
-| 疲労度 >= 4（自重） | reps = bestTopReps × 0.8 |
-| レップ未達（bestTopReps < default_reps） | 重量維持, reps = bestTopReps + 1 |
-| 全トップセット余裕あり・レップ達成（有酸素） | 重量 + 2.5kg, reps = default_reps |
-| 全トップセット余裕あり・レップ達成（自重） | 重量0kg, reps = bestTopReps + 2 |
-| ストール（3セッション重量変化なし） | 重量維持, sets + 1, reps = bestTopReps |
-| ギリギリ達成 | 重量維持, reps = bestTopReps |
-
-実装は `lib/suggest/engine.ts` を直接参照すること。
-
-### 6-2. 提案APIの作成
-`src/app/api/suggest/route.ts`:
-
-```typescript
-import { createClient } from '@/lib/supabase/server'
-import { suggestMenu } from '@/lib/suggest/engine'
-import { NextResponse } from 'next/server'
-
-export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  // ユーザーの種目を取得
-  const { data: exercises } = await supabase
-    .from('user_exercises')
-    .select(`
-      *,
-      exercise_master(name, target_muscle)
-    `)
-    .eq('user_id', user.id)
-    .eq('is_active', true)
-    .order('sort_order')
-
-  // 直近4週間のセッションを取得
-  const fourWeeksAgo = new Date()
-  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28)
-
-  const { data: sessions } = await supabase
-    .from('training_sessions')
-    .select(`
-      *,
-      training_sets(*)
-    `)
-    .eq('user_id', user.id)
-    .gte('trained_at', fourWeeksAgo.toISOString().split('T')[0])
-    .order('trained_at', { ascending: false })
-
-  if (!exercises || !sessions) {
-    return NextResponse.json({ suggestions: [], warnings: [] })
-  }
-
-  // UserExercise型に変換（JOINデータを展開）
-  const normalizedExercises = exercises.map((e: any) => ({
-    ...e,
-    name: e.custom_name ?? e.exercise_master?.name ?? '',
-    target_muscle: e.custom_target_muscle ?? e.exercise_master?.target_muscle ?? '',
-  }))
-
-  const normalizedSessions = sessions.map((s: any) => ({
-    ...s,
-    sets: s.training_sets ?? [],
-  }))
-
-  const suggestions = suggestMenu({
-    exercises: normalizedExercises,
-    recentSessions: normalizedSessions,
-    todayDate: new Date(),
-  })
-
-  // 週ボリューム警告の生成
-  const warnings: string[] = []
-  const muscleVolumes = new Map<string, number>()
-  suggestions.forEach(s => {
-    const current = muscleVolumes.get(s.exercise.target_muscle) ?? 0
-    muscleVolumes.set(s.exercise.target_muscle, current + s.weekly_volume_sets)
-  })
-  muscleVolumes.forEach((sets, muscle) => {
-    if (sets > 20) warnings.push(`${muscle}のセット数が週${sets}セットを超えています`)
-  })
-
-  return NextResponse.json({ suggestions, warnings })
-}
-```
-
-**✅ STEP 6 完了確認**: `/api/suggest` にGETリクエストを送りレスポンスが返ることを確認する。
-
----
-
-## STEP 7: ホーム画面の実装
-
-### 7-1. 種目カードコンポーネントの作成
-`src/components/home/ExerciseCard.tsx`:
-
-以下の仕様で実装する:
-- 種目名（大きめのフォント）
-- 経過日数バッジ（例：「5日ぶり」）
-- 提案内容（例：「80kg × 8回 × 3セット」）
-- 提案理由（小さめのテキスト、例：「前回余裕あり・全セット達成のため重量+2.5kg」）
-- 週ボリュームが `low` の場合はさりげなく「ボリューム不足」インジケーター表示
-- 週ボリュームが `high` の場合は「オーバートレーニング注意」インジケーター表示
-- シンプルで余白のあるカードデザイン
-
-### 7-2. ホーム画面の作成
-`src/app/(app)/page.tsx`:
-
-以下の仕様で実装する:
-- サーバーコンポーネントとして実装（SSRで初回表示を高速化）
-- ページ上部に今日の日付を表示
-- `suggestMenu` の結果を元に `ExerciseCard` を並べる
-- 種目が未登録の場合は「種目を登録してください」の案内 + 種目管理画面へのリンクを表示
-- ページ下部に「記録を入力する」ボタンを固定表示（BottomNavの上）
-- ローディング中はスケルトン表示（`loading.tsx` を作成）
-
-**✅ STEP 7 完了確認**: ホーム画面に今日のメニューが表示されることを確認する。
-
----
-
-## STEP 8: 記録入力画面の実装
-
-### 8-1. RIRトグルコンポーネントの作成
-`src/components/record/RirToggle.tsx`:
-
-以下の仕様で実装する:
-- `true`（余裕あり）/ `false`（限界）の2択トグル
-- デフォルトは `true`（余裕あり）
-- タップ1回で切り替え
-- 余裕あり: 緑系の色 + 「余裕」テキスト
-- 限界: 赤系の色 + 「限界」テキスト
-- シンプルなピル型デザイン
-
-### 8-2. セット行コンポーネントの作成
-`src/components/record/SetRow.tsx`:
-
-以下の仕様で実装する:
-- セット番号（表示のみ）
-- 重量入力（テンキー、小数点対応、kg単位）
-- 回数入力（テンキー、整数のみ）
-- RIRトグル
-- 削除ボタン（セットが2以上の場合のみ表示）
-
-### 8-3. 疲労度選択コンポーネントの作成
-`src/components/record/FatigueSelector.tsx`:
-
-以下の仕様で実装する:
-- 1〜5の5段階
-- タップで選択
-- 数字と簡単なラベル（1:最悪、3:普通、5:最高）
-- シンプルなセグメントコントロール風デザイン
-
-### 8-4. セッション記録APIの作成
-`src/app/api/sessions/route.ts`:
-
-- **POST**: セッションとセット記録を一括保存（トランザクション処理）
-- **GET**: セッション一覧を取得（直近20件、セット情報を含む）
-
-### 8-5. 記録入力画面の作成
-`src/app/(app)/record/page.tsx`:
-
-以下の仕様で実装する:
-- ヘッダー: 「記録入力」+ 今日の日付
-- 疲労度選択（ページ上部）
-- ホーム画面の提案内容を初期値として自動入力
-  - URLパラメータ（`?from=home`）でホームからの遷移を検知
-  - 提案値が初期値として入力済み → 変更なければそのまま保存可能
-- 種目ごとにセクション分け
-  - 種目名
-  - セット行（SetRow）のリスト
-  - 「+ セット追加」ボタン
-- メモ入力（任意、テキストエリア）
-- 「保存する」ボタン（ページ下部に固定）
-  - 保存完了後はホーム画面にリダイレクト
-  - 保存完了のトースト通知を表示
-
-**✅ STEP 8 完了確認**: 記録入力→保存→ホーム画面への遷移が正常に動作することを確認する。
-
----
-
-## STEP 9: 履歴画面の実装
-
-### 9-1. ボリュームチャートコンポーネントの作成
-`src/components/history/VolumeChart.tsx`:
-
-以下の仕様で実装する:
-- rechartsの `LineChart` を使用
-- 横軸: 日付
-- 縦軸: 選択した種目の重量（kg）
-- 種目をドロップダウンで選択できる
-- シンプルで余白のあるグラフデザイン
-
-### 9-2. セッション一覧コンポーネントの作成
-`src/components/history/SessionList.tsx`:
-
-以下の仕様で実装する:
-- セッション日付（大きめ）、疲労度
-- 各種目の記録（種目名、重量×回数×セット数）
-- 総ボリューム（重量×レップ×セット数の合計）を表示
-
-### 9-3. 履歴画面の作成
-`src/app/(app)/history/page.tsx`:
-
-以下の仕様で実装する:
-- ページ上部にボリュームチャート
-- その下にセッション一覧（新しい順）
-- スクロールで過去のセッションを閲覧可能
-
-**✅ STEP 9 完了確認**: 履歴画面にグラフとセッション一覧が表示されることを確認する。
-
----
-
-## STEP 10: Stripe連携の実装
-
-### 10-1. Stripeの設定
-1. Stripe（https://stripe.com）でアカウント作成
-2. 商品と価格を作成（¥480/月、30日間トライアル付き）
-3. APIキーを `.env.local` に設定
-
-### 10-2. トライアル開始処理
-`src/app/api/stripe/create-subscription/route.ts`:
-
-サインアップ後に自動実行される処理:
-1. Stripe Customerを作成
-2. 30日間トライアル付きSubscriptionを作成
-3. `users` テーブルに `stripe_customer_id` と `stripe_subscription_id` を保存
-
-この処理は認証コールバック (`/auth/callback`) 後に呼び出す。
-
-### 10-3. Webhookの実装
-`src/app/api/webhooks/stripe/route.ts`:
-
-以下のイベントを処理する:
-- `customer.subscription.updated`: `subscription_status` を更新
-- `customer.subscription.deleted`: `subscription_status` を `canceled` に更新
-- `invoice.payment_failed`: `subscription_status` を `past_due` に更新
-
-### 10-4. 課金状態によるアクセス制御
-`src/lib/subscription.ts`:
-
-```typescript
-export function canUseApp(status: string, trialEndsAt: string): boolean {
-  if (status === 'active') return true
-  if (status === 'trialing') {
-    return new Date(trialEndsAt) > new Date()
-  }
-  return false
-}
-```
-
-ミドルウェアに追加: `canceled` かつトライアル終了の場合は `/settings` のみアクセス可能にする。
-
-### 10-5. 設定画面の作成
-`src/app/(app)/settings/page.tsx`:
-
-以下の仕様で実装する:
-- 現在のサブスクリプション状態表示
-- トライアル残り日数表示
-- 支払い管理（Stripe Customer Portalへのリンク）
-- ログアウトボタン
-
-**✅ STEP 10 完了確認**: トライアル開始・Webhookの受信が正常に動作することを確認する。
-
----
-
-## STEP 11: 仕上げとデプロイ
-
-### 11-1. エラーハンドリングの確認
-以下のエラーケースが適切に処理されていることを確認する:
-- 認証エラー → ログイン画面にリダイレクト
-- APIエラー（5xx） → トースト通知「保存に失敗しました。再試行してください」
-- バリデーションエラー → フィールド下にインラインエラー表示
-- 種目未登録 → 「まずは種目を登録してください」の案内表示
-- オフライン → 「インターネット接続を確認してください」のトースト
-
-### 11-2. レスポンシブ対応の確認
-- スマートフォン（375px〜）で全画面が正常に表示されることを確認
-- PC（1280px）でも問題なく使えることを確認
-
-### 11-3. Vercelデプロイ
-1. GitHubにプッシュ
-2. Vercelでプロジェクトを作成
-3. 環境変数を設定
-4. デプロイ
-5. SupabaseのリダイレクトURIに本番URLを追加
-
-### 11-4. 最終確認チェックリスト
-- [ ] Google認証でサインアップ・ログインできる
-- [ ] 初回ログイン時に種目選択画面が表示される
-- [ ] ホーム画面を開いた瞬間にメニューが表示される
-- [ ] 記録入力が30秒以内に完了できる
-- [ ] 余裕度トグルが正常に動作する
-- [ ] 履歴画面にグラフが表示される
-- [ ] 種目の追加・並び替え・削除ができる
-- [ ] Stripeのトライアルが開始される
-- [ ] ダーク/ライトモードが正常に切り替わる
-- [ ] スマートフォンで違和感なく使える
+## 次フェーズで実装する機能
+
+### フェーズ2: 精度・UX向上
+1. **Google OAuth 本番設定**
+   - Supabase ダッシュボードでGoogle Provider を有効化
+   - Google Cloud Console でOAuth クライアントID作成
+   - 本番リダイレクトURIの設定
+
+2. **Stripe 本番設定**
+   - ¥480/月・30日間トライアルの商品・価格を作成
+   - Webhook エンドポイントの登録
+   - 課金状態によるアクセス制御を有効化（`canUseApp()` 関数は実装済み）
+
+3. **AIメニュー提案**
+   - `lib/suggest/engine.ts` の `suggestMenu` を Anthropic API に切り替え
+   - ルールベースはフォールバックとして維持
+
+4. **onboarding の改善**
+   - 初回ユーザーへの使い方ガイダンス追加
+
+### フェーズ3: 拡張
+- 英語対応
+- ネイティブアプリ化
+- プッシュ通知
 
 ---
 
@@ -875,7 +220,36 @@ export function canUseApp(status: string, trialEndsAt: string): boolean {
 
 - **機能を追加しない**: 指示書に記載されていない機能はMVPに含めない
 - **HTMLのformタグを使わない**: フォームはReactのイベントハンドラで処理する
-- **localStorageを使わない**: 状態管理はReact StateとSupabaseで行う
+- **localStorageを使わない**: 状態管理はReact StateとSupabaseで行う（sessionStorageは当日限定の非表示管理のみ許容）
 - **any型を極力使わない**: TypeScriptのstrictモードに従う
-- **インラインスタイルを使わない**: Tailwind CSSクラスのみ使用する
+- **インラインスタイルを使わない**: Tailwind CSSクラスのみ使用する（例外: `env(safe-area-inset-bottom)` の動的計算）
 - **コメントは日本語で書く**
+- **Next.jsのバージョンに注意**: Next.js 16 は `params` が `Promise<...>` 型。`await params` で取得する
+- **middleware.ts は使用しない**: 認証チェックはサーバーコンポーネントとAPIルートで実施
+
+---
+
+## ファイル別実装メモ
+
+### lib/suggest/engine.ts
+- `TRAINING` 定数は `lib/constants/training.ts` から import
+- `suggestMenu` の戻り値は `Suggestion[]`（`proposed_set_targets: SetTarget[]` を含む）
+- 提案から除外する条件: `days_since_last < TRAINING.MIN_DAYS_BETWEEN_SESSIONS`
+- 7日以上経過のカード強調は `SwipeableExerciseCard` 側で判定（`days_since_last >= 7`）
+
+### lib/normalize/exercises.ts
+- `RawUserExercise` 型（Supabase JOIN 結果）を `UserExercise` 型に変換
+- 呼び出し箇所: `app/(app)/page.tsx`, `app/(app)/history/page.tsx`, `app/api/suggest/route.ts`, `app/api/exercises/route.ts`
+
+### app/(app)/record/page.tsx
+- `sessionStorage` の `calcul_hidden_today` キーで非表示種目IDを管理
+- `exerciseId` クエリなし（記録タブから遷移）の場合のみ非表示フィルタを適用
+- `done === false` のセットは POST 時に除外される
+
+### app/api/sessions/[sessionId]/route.ts
+- PATCH は `update_session_with_sets` RPC を試みて、失敗時は3ステップ更新にフォールバック
+- RPC 関数の SQL は `lib/sql/update_session_with_sets.sql` に保存
+
+### components/history/HistoryClient.tsx
+- `selectedDate` の初期値は `todayLocalDate()` （今日）
+- `MonthCalendar` でより古い日付を選択すると `focusDate` が更新され `WeekCalendar` がその週にスクロール
