@@ -245,8 +245,10 @@ function RecordContent() {
         </div>
 
         {exerciseSets.map((ex, exIdx) => {
-          const showCircle = !fromHome   // ホームから来た場合は CircleCheck 不要
+          const showCircle = !fromHome
           const isVisible = fromHome || ex.enabled
+          const workingSets = ex.sets.filter(s => !s.is_warmup)
+          const allDone = workingSets.length > 0 && workingSets.every(s => s.done)
 
           return (
             <div key={ex.exercise.id} className={`space-y-3 transition-opacity ${isVisible ? 'opacity-100' : 'opacity-30'}`}>
@@ -260,6 +262,11 @@ function RecordContent() {
                 <h2 className="text-base font-semibold text-black dark:text-white">
                   {ex.exercise.name}
                 </h2>
+                {allDone && (
+                  <span className="text-xs font-bold text-emerald-500 animate-pulse">
+                    GOOD!
+                  </span>
+                )}
               </div>
               {isVisible && (
                 <>
