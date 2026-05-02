@@ -37,7 +37,7 @@ export async function POST() {
   const subscription = await stripe.subscriptions.create({
     customer: customerId,
     items: [{ price: process.env.STRIPE_PRICE_ID }],
-    trial_period_days: 30,
+    trial_period_days: 0,
     payment_settings: { save_default_payment_method: 'on_subscription' },
     trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
   })
