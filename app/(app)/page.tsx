@@ -42,17 +42,9 @@ export default async function HomePage() {
     ? suggestMenu({ exercises: normalizedExercises, recentSessions: normalizedSessions, todayDate: new Date() })
     : []
 
-  const today = new Date().toLocaleDateString('ja-JP', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'short',
-  })
-
   return (
     <div className="min-h-screen bg-white dark:bg-black">
       <HomeMenu
-        today={today}
         initialSuggestions={suggestions}
         allExercises={normalizedExercises}
       />

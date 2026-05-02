@@ -43,12 +43,17 @@ function removeHiddenId(exerciseId: string) {
 }
 
 type Props = {
-  today: string
   initialSuggestions: Suggestion[]
   allExercises: UserExercise[]
 }
 
-export default function HomeMenu({ today, initialSuggestions, allExercises }: Props) {
+export default function HomeMenu({ initialSuggestions, allExercises }: Props) {
+  const today = new Date().toLocaleDateString('ja-JP', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  })
   // 初期化時に sessionStorage の非表示リストを適用
   const [suggestions, setSuggestions] = useState<Suggestion[]>(() => {
     const hiddenIds = getHiddenIds()
