@@ -43,7 +43,7 @@ export default function LoginPage() {
             </div>
             <div className="text-center">
               <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-white">
-                Calcul
+                Auxlog
               </h1>
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 今日のメニューを、30秒で。

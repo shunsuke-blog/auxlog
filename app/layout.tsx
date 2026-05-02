@@ -8,7 +8,7 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Calcul",
+  title: "Auxlog",
   description: "今日のメニューを、30秒で。",
 };
 

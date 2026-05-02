@@ -47,7 +47,7 @@ function RecordContent() {
       // ホームでスワイプ削除した種目を非表示（exerciseId 未指定の全種目表示時のみ適用）
       const suggestions = exerciseId ? allSuggestions : (() => {
         try {
-          const stored = sessionStorage.getItem('calcul_hidden_today')
+          const stored = sessionStorage.getItem('auxlog_hidden_today')
           if (!stored) return allSuggestions
           const { date, ids } = JSON.parse(stored) as { date: string; ids: string[] }
           const today = todayLocalDate()

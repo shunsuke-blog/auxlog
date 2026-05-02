@@ -242,7 +242,7 @@ const limit = Math.min(Math.max(1, rawLimit), 100)  // サーバー側で最大1
 - 呼び出し箇所: `app/(app)/page.tsx`, `app/(app)/history/page.tsx`, `app/api/suggest/route.ts`, `app/api/exercises/route.ts`
 
 ### app/(app)/record/page.tsx
-- `sessionStorage` の `calcul_hidden_today` キーで非表示種目IDを管理
+- `sessionStorage` の `auxlog_hidden_today` キーで非表示種目IDを管理
 - `exerciseId` クエリなし（記録タブから遷移）の場合のみ非表示フィルタを適用
 - `done === false` のセットは POST 時に除外される
 

@@ -8,7 +8,7 @@ import { TARGET_MUSCLE_LABELS } from '@/types'
 import SwipeableExerciseCard from './SwipeableExerciseCard'
 import { todayLocalDate } from '@/lib/utils/date'
 
-const HIDDEN_KEY = 'calcul_hidden_today'
+const HIDDEN_KEY = 'auxlog_hidden_today'
 
 type HiddenData = { date: string; ids: string[] }
 
