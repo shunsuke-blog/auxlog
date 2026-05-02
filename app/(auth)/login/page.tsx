@@ -1,14 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Dumbbell } from 'lucide-react'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
-  const [loading, setLoading] = useState(false)
-
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
 
   const handleGoogleLogin = async () => {
@@ -19,20 +14,6 @@ export default function LoginPage() {
         redirectTo: `${appUrl}/auth/callback`,
       },
     })
-  }
-
-  const handleMagicLink = async () => {
-    if (!email.trim()) return
-    setLoading(true)
-    const supabase = createClient()
-    await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: `${appUrl}/auth/callback`,
-      },
-    })
-    setSent(true)
-    setLoading(false)
   }
 
   return (
@@ -53,8 +34,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="w-full flex flex-col gap-3">
-            {/* Googleログイン（設定後に有効） */}
+          <div className="w-full">
             <button
               onClick={handleGoogleLogin}
               className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-black dark:text-white text-sm font-medium transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
@@ -67,40 +47,6 @@ export default function LoginPage() {
               </svg>
               Googleでログイン
             </button>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-zinc-100 dark:bg-zinc-900" />
-              <span className="text-xs text-zinc-400">または</span>
-              <div className="flex-1 h-px bg-zinc-100 dark:bg-zinc-900" />
-            </div>
-
-            {/* メールログイン（マジックリンク） */}
-            {sent ? (
-              <div className="text-center py-4">
-                <p className="text-sm font-medium text-black dark:text-white">メールを送信しました</p>
-                <p className="mt-1 text-xs text-zinc-400">
-                  {email} に届いたリンクをクリックしてログインしてください
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleMagicLink()}
-                  placeholder="メールアドレス"
-                  className="w-full px-4 py-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-black dark:text-white text-sm outline-none focus:border-black dark:focus:border-white transition-colors placeholder:text-zinc-300 dark:placeholder:text-zinc-700"
-                />
-                <button
-                  onClick={handleMagicLink}
-                  disabled={!email.trim() || loading}
-                  className="w-full py-3.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium disabled:opacity-40 transition-opacity"
-                >
-                  {loading ? '送信中...' : 'メールでログイン'}
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>
