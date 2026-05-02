@@ -52,7 +52,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black pb-32">
+    <div className="min-h-screen bg-white dark:bg-black pb-24">
       <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
         <h1 className="text-xl font-semibold text-black dark:text-white">
           あなたが行っている種目を選択してください
