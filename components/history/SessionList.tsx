@@ -143,15 +143,15 @@ export default function SessionList({ sessions, exercises }: Props) {
                         <div className="flex items-baseline gap-3 pt-3 pb-1">
                           {isBodyweight ? (
                             <>
-                              <span className="text-base font-bold text-black dark:text-white">
-                                {totalReps}<span className="text-xs font-normal text-zinc-400 ml-0.5">回</span>
+                              <span className="text-2xl font-bold text-black dark:text-white">
+                                {totalReps}<span className="text-sm font-normal text-zinc-400 ml-0.5">回</span>
                               </span>
                               <span className="text-xs text-zinc-400">{totalWorkingSets}セット</span>
                             </>
                           ) : (
                             <>
-                              <span className="text-base font-bold text-black dark:text-white">
-                                {maxWeight}<span className="text-xs font-normal text-zinc-400 ml-0.5">kg</span>
+                              <span className="text-2xl font-bold text-black dark:text-white">
+                                {maxWeight}<span className="text-sm font-normal text-zinc-400 ml-0.5">kg</span>
                               </span>
                               <span className="text-xs text-zinc-400">{exSets.length}セット</span>
                             </>
@@ -163,7 +163,9 @@ export default function SessionList({ sessions, exercises }: Props) {
                           <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider text-right">回数</span>
                           <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider text-right">余裕</span>
                         </div>
-                        {exSets.map(set => (
+                        {exSets.map(set => {
+                          const isMaxWeight = !isBodyweight && !set.is_warmup && set.weight_kg === maxWeight
+                          return (
                           <div key={set.id} className={`grid grid-cols-4 gap-2 ${set.is_warmup ? 'opacity-50' : ''}`}>
                             <span className="text-xs text-zinc-500 flex items-center gap-1">
                               {set.set_number}
@@ -171,7 +173,7 @@ export default function SessionList({ sessions, exercises }: Props) {
                                 <span className="text-[9px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-1 rounded">W</span>
                               )}
                             </span>
-                            <span className="text-xs text-black dark:text-white text-right font-medium">
+                            <span className={`text-xs text-right ${isMaxWeight ? 'font-bold text-black dark:text-white' : 'font-medium text-zinc-400 dark:text-zinc-500'}`}>
                               {isBodyweight
                                 ? (set.weight_kg > 0 ? `+${set.weight_kg}kg` : '自重')
                                 : `${set.weight_kg}kg`
@@ -184,7 +186,8 @@ export default function SessionList({ sessions, exercises }: Props) {
                               {set.rir ? '余裕' : '限界'}
                             </span>
                           </div>
-                        ))}
+                        )})}
+
                       </div>
                     )}
                   </div>
