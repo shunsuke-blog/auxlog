@@ -11,7 +11,7 @@ export async function GET() {
     .from('user_exercises')
     .select(`
       *,
-      exercise_master(name, target_muscle)
+      exercise_master(name, target_muscle, is_bodyweight)
     `)
     .eq('user_id', user.id)
     .eq('is_active', true)
@@ -29,12 +29,14 @@ export async function GET() {
     default_reps: number
     sort_order: number
     is_active: boolean
+    is_bodyweight: boolean
     created_at: string
-    exercise_master: { name: string; target_muscle: string } | null
+    exercise_master: { name: string; target_muscle: string; is_bodyweight: boolean } | null
   }) => ({
     ...e,
     name: e.custom_name ?? e.exercise_master?.name ?? '',
     target_muscle: (e.custom_target_muscle ?? e.exercise_master?.target_muscle ?? '') as TargetMuscle,
+    is_bodyweight: e.custom_name ? (e.is_bodyweight ?? false) : (e.exercise_master?.is_bodyweight ?? false),
   }))
 
   return NextResponse.json({ exercises })

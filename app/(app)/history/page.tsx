@@ -34,7 +34,7 @@ export default async function HistoryPage() {
     is_active: boolean
     is_bodyweight: boolean
     created_at: string
-    exercise_master: { name: string; target_muscle: string } | null
+    exercise_master: { name: string; target_muscle: string; is_bodyweight: boolean } | null
   }) => ({
     ...e,
     custom_target_muscle: e.custom_target_muscle as TargetMuscle | null,
