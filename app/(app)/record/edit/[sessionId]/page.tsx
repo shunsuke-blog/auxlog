@@ -7,12 +7,14 @@ import SetRow, { type SetData } from '@/components/record/SetRow'
 import { Plus, ChevronLeft, Trash2, X } from 'lucide-react'
 import { useToast } from '@/hooks/useToast'
 import Toast from '@/components/ui/Toast'
+import CircleCheck from '@/components/ui/CircleCheck'
 import type { UserExercise } from '@/types'
 
 type ExerciseSets = {
   exerciseId: string
   exerciseName: string
   isBodyweight: boolean
+  enabled: boolean
   sets: SetData[]
 }
 
@@ -110,7 +112,7 @@ function EditContent() {
           false
 
         if (!grouped.has(exId)) {
-          grouped.set(exId, { exerciseId: exId, exerciseName: exName, isBodyweight, sets: [] })
+          grouped.set(exId, { exerciseId: exId, exerciseName: exName, isBodyweight, enabled: true, sets: [] })
         }
         grouped.get(exId)!.sets.push({
           set_number: set.set_number,
@@ -170,11 +172,20 @@ function EditContent() {
     })
   }
 
+  const toggleEnabled = (exIdx: number, value: boolean) => {
+    setExerciseSets(prev => {
+      const next = [...prev]
+      next[exIdx] = { ...next[exIdx], enabled: value }
+      return next
+    })
+  }
+
   const addExercise = (exercise: UserExercise) => {
     setExerciseSets(prev => [...prev, {
       exerciseId: exercise.id,
       exerciseName: exercise.name,
       isBodyweight: exercise.is_bodyweight,
+      enabled: true,
       sets: [{
         set_number: 1,
         weight_kg: '',
@@ -190,7 +201,7 @@ function EditContent() {
   const handleSave = async () => {
     setSaving(true)
 
-    const editedSets = exerciseSets.flatMap(ex =>
+    const editedSets = exerciseSets.filter(ex => ex.enabled).flatMap(ex =>
       ex.sets
         .filter(s => s.weight_kg !== '' && s.reps !== '')
         .map(s => ({
@@ -290,28 +301,38 @@ function EditContent() {
         </div>
 
         {exerciseSets.map((ex, exIdx) => (
-          <div key={ex.exerciseId} className="space-y-3">
-            <h2 className="text-base font-semibold text-black dark:text-white">{ex.exerciseName}</h2>
-            <div className="space-y-2.5">
-              {ex.sets.map((set, setIdx) => (
-                <SetRow
-                  key={setIdx}
-                  setData={set}
-                  canDelete={ex.sets.length > 1}
-                  isBodyweight={ex.isBodyweight}
-                  onChange={data => updateSet(exIdx, setIdx, data)}
-                  onDelete={() => deleteSet(exIdx, setIdx)}
-                />
-              ))}
+          <div key={ex.exerciseId} className={`space-y-3 transition-opacity ${ex.enabled ? 'opacity-100' : 'opacity-30'}`}>
+            <div className="flex items-center gap-3">
+              <CircleCheck
+                checked={ex.enabled}
+                onChange={v => toggleEnabled(exIdx, v)}
+              />
+              <h2 className="text-base font-semibold text-black dark:text-white">{ex.exerciseName}</h2>
             </div>
-            <button
-              type="button"
-              onClick={() => addSet(exIdx)}
-              className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 hover:text-black dark:hover:text-white transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              セット追加
-            </button>
+            {ex.enabled && (
+              <>
+                <div className="space-y-2.5">
+                  {ex.sets.map((set, setIdx) => (
+                    <SetRow
+                      key={setIdx}
+                      setData={set}
+                      canDelete={ex.sets.length > 1}
+                      isBodyweight={ex.isBodyweight}
+                      onChange={data => updateSet(exIdx, setIdx, data)}
+                      onDelete={() => deleteSet(exIdx, setIdx)}
+                    />
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => addSet(exIdx)}
+                  className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 hover:text-black dark:hover:text-white transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  セット追加
+                </button>
+              </>
+            )}
           </div>
         ))}
 
@@ -346,7 +367,7 @@ function EditContent() {
           disabled={saving}
           className="w-full max-w-lg mx-auto block py-4 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-40 transition-opacity shadow-lg"
         >
-          {saving ? '保存中...' : '保存する'}
+          {saving ? '更新中...' : '更新する'}
         </button>
       </div>
 

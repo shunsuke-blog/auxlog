@@ -305,9 +305,12 @@ function RecordContent() {
           return groups.map(({ muscle, items }) => (
             <div key={muscle ?? 'all'}>
               {muscle && (
-                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3 mt-2">
-                  {TARGET_MUSCLE_LABELS[muscle]}
-                </h3>
+                <div className="mt-2 mb-4">
+                  <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+                    {TARGET_MUSCLE_LABELS[muscle]}
+                  </h3>
+                  <div className="h-px bg-zinc-200 dark:bg-zinc-800" />
+                </div>
               )}
               <div className="space-y-6">
                 {items.map(({ ex, idx: exIdx }) => {
