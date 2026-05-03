@@ -15,10 +15,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .eq('id', user.id)
     .single()
 
-  const status = userData?.subscription_status ?? 'trialing'
+  const status = userData?.subscription_status ?? null
   const trialEndsAt = userData?.trial_ends_at ?? ''
 
-  if (!canUseApp(status, trialEndsAt)) {
+  // NULLはサブスク未設定の新規ユーザー。アクセスは許可してオンボーディングに委ねる
+  if (status !== null && !canUseApp(status, trialEndsAt)) {
     redirect(`/subscribe?reason=${status}`)
   }
 

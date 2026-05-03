@@ -32,7 +32,7 @@ export default async function SettingsPage() {
     .eq('id', user.id)
     .single()
 
-  const status = userData?.subscription_status ?? 'trialing'
+  const status = userData?.subscription_status ?? null
   const trialEndsAt = userData?.trial_ends_at ?? ''
   const daysLeft = status === 'trialing' && trialEndsAt ? getTrialDaysLeft(trialEndsAt) : null
 
@@ -55,9 +55,10 @@ export default async function SettingsPage() {
             <span className={`text-sm font-medium ${
               status === 'active' ? 'text-emerald-500' :
               status === 'trialing' ? 'text-amber-500' :
+              status === null ? 'text-zinc-400' :
               'text-red-500'
             }`}>
-              {getStatusLabel(status)}
+              {status === null ? '未開始' : getStatusLabel(status)}
             </span>
           </div>
           {daysLeft !== null && (
@@ -72,7 +73,7 @@ export default async function SettingsPage() {
           </div>
         </div>
 
-        {status !== 'canceled' && <PortalButton status={status} />}
+        {status !== 'canceled' && <PortalButton status={status ?? 'trialing'} />}
 
         <Link
           href="/exercises"
