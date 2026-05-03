@@ -1,14 +1,36 @@
 'use client'
 
-import { useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CreditCard, LogOut } from 'lucide-react'
 
 function SubscribeContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const reason = searchParams.get('reason')
+  const step = searchParams.get('step')
+
   const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState('')
+
+  // ポータルからカード登録後に戻ってきたら自動でサブスク再開
+  useEffect(() => {
+    if (step !== 'activate') return
+    const activate = async () => {
+      setLoading(true)
+      setMessage('サブスクリプションを再開しています...')
+      const res = await fetch('/api/stripe/reactivate-subscription', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok && !data.error) {
+        router.replace('/')
+      } else {
+        setMessage(data.error ?? 'エラーが発生しました。もう一度お試しください。')
+        setLoading(false)
+      }
+    }
+    activate()
+  }, [step, router])
 
   const heading = reason === 'canceled'
     ? 'トライアルが終了しました'
@@ -25,8 +47,12 @@ function SubscribeContent() {
   const handleRegisterCard = async () => {
     setLoading(true)
     try {
-      // キャンセル済みユーザーには新トライアルを作らず、ポータルで決済手段の登録のみ行う
-      const res = await fetch('/api/stripe/create-portal-session', { method: 'POST' })
+      // return_url に step=activate を付けてポータルを開く
+      const res = await fetch('/api/stripe/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ returnPath: '/subscribe?step=activate' }),
+      })
       const data = await res.json()
       if (data.url) {
         window.location.href = data.url
@@ -40,6 +66,18 @@ function SubscribeContent() {
     const supabase = createClient()
     await supabase.auth.signOut()
     window.location.href = '/login'
+  }
+
+  if (step === 'activate') {
+    return (
+      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center px-6">
+        <div className="text-center space-y-3">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            {message || 'サブスクリプションを再開しています...'}
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (

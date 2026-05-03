@@ -3,6 +3,11 @@ import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
+  let returnPath: string | undefined
+  try {
+    const body = await request.json()
+    returnPath = body.returnPath
+  } catch { /* body なし = settings に戻る */ }
   if (!process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json({ error: 'Stripe not configured' }, { status: 503 })
   }
@@ -39,7 +44,7 @@ export async function POST(request: Request) {
 
   const session = await stripe.billingPortal.sessions.create({
     customer: customerId,
-    return_url: `${origin}/settings`,
+    return_url: `${origin}${returnPath ?? '/settings'}`,
   })
 
   return NextResponse.json({ url: session.url })
