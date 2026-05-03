@@ -33,14 +33,20 @@ export async function POST() {
     customerId = customer.id
   }
 
-  // 30日トライアル・カード未登録で開始、終了時に未登録なら自動キャンセル
-  const subscription = await stripe.subscriptions.create({
-    customer: customerId,
-    items: [{ price: process.env.STRIPE_PRICE_ID }],
-    trial_period_days: 30,
-    payment_settings: { save_default_payment_method: 'on_subscription' },
-    trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
-  })
+  let subscription
+  try {
+    subscription = await stripe.subscriptions.create({
+      customer: customerId,
+      items: [{ price: process.env.STRIPE_PRICE_ID }],
+      trial_period_days: 30,
+      payment_settings: { save_default_payment_method: 'on_subscription' },
+      trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('[create-subscription] Stripe error:', message)
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 
   const trialEnd = subscription.trial_end
     ? new Date(subscription.trial_end * 1000).toISOString()
