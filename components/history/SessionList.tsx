@@ -183,8 +183,8 @@ export default function SessionList({ sessions, exercises }: Props) {
                             <span className="text-xs text-black dark:text-white text-right font-medium">
                               {set.reps}回
                             </span>
-                            <span className={`text-xs text-right font-medium ${set.rir ? 'text-emerald-500' : 'text-red-500'}`}>
-                              {set.rir ? '余裕' : '限界'}
+                            <span className={`text-xs text-right font-medium ${set.is_warmup ? 'text-zinc-300 dark:text-zinc-700' : set.rir ? 'text-emerald-500' : 'text-red-500'}`}>
+                              {set.is_warmup ? '—' : set.rir ? '余裕' : '限界'}
                             </span>
                           </div>
                         )})}
