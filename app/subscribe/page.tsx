@@ -25,7 +25,7 @@ function SubscribeContent() {
   const handleRegisterCard = async () => {
     setLoading(true)
     try {
-      await fetch('/api/stripe/create-subscription', { method: 'POST' })
+      // キャンセル済みユーザーには新トライアルを作らず、ポータルで決済手段の登録のみ行う
       const res = await fetch('/api/stripe/create-portal-session', { method: 'POST' })
       const data = await res.json()
       if (data.url) {
