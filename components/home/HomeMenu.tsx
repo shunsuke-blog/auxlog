@@ -105,7 +105,7 @@ export default function HomeMenu({ initialSuggestions, allExercises }: Props) {
   return (
     <>
       {/* ヘッダー（固定） */}
-      <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-4 flex items-center justify-between">
+      <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 flex items-center justify-between">
         <div>
           <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium tracking-wide">{today}</p>
           <h1 className="text-xl font-black text-black dark:text-white tracking-tight leading-tight">

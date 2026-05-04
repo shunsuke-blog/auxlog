@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
+import { ChevronsUpDown } from 'lucide-react'
 import type { UserExercise, TrainingSet } from '@/types'
 
 type Metric = 'max' | 'volume' | '1rm'
@@ -85,15 +86,18 @@ export default function VolumeChart({ sessions, exercises }: Props) {
     <div className="px-6 py-5 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-black dark:text-white">{title}</h2>
-        <select
-          value={selectedExerciseId}
-          onChange={e => setSelectedExerciseId(e.target.value)}
-          className="text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-900 rounded-lg px-2.5 py-1.5 outline-none border-none"
-        >
-          {exercises.map(ex => (
-            <option key={ex.id} value={ex.id}>{ex.name}</option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            value={selectedExerciseId}
+            onChange={e => setSelectedExerciseId(e.target.value)}
+            className="appearance-none text-xs text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 rounded-lg pl-2.5 pr-7 py-1.5 outline-none border-none cursor-pointer"
+          >
+            {exercises.map(ex => (
+              <option key={ex.id} value={ex.id}>{ex.name}</option>
+            ))}
+          </select>
+          <ChevronsUpDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 pointer-events-none" />
+        </div>
       </div>
 
       {chartData.length === 0 ? (

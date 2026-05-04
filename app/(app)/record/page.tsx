@@ -256,7 +256,7 @@ function RecordContent() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
-      <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-4 py-4 z-10 flex items-center gap-2">
+      <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-4 py-5 z-10 flex items-center gap-2">
         <button
           onClick={() => router.back()}
           className="p-1.5 -ml-1.5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
