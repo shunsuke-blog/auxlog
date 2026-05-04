@@ -153,7 +153,9 @@ CREATE TABLE users (
   subscription_status TEXT DEFAULT 'trialing',
   -- trialing / active / canceling / canceled / past_due
   trial_ends_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days'),
-  is_admin BOOLEAN DEFAULT false,  -- 管理者フラグ（請求スキップ、常にactive扱い）
+  is_admin BOOLEAN DEFAULT false,   -- 管理者フラグ（請求スキップ、常にactive扱い）
+  is_free BOOLEAN DEFAULT false,    -- 無料ユーザーフラグ（ベータ・招待ユーザー）
+  free_until TIMESTAMPTZ DEFAULT NULL,  -- 無料期限（NULLは永久無料）
   training_level TEXT DEFAULT 'intermediate' CHECK (training_level IN ('beginner', 'intermediate', 'advanced')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -861,6 +863,8 @@ RESEND_API_KEY=          # お問い合わせメール送信（Resend）
 
 ### 11.7 アクセス制御（app/(app)/layout.tsx）
 - `is_admin = true` → チェックスキップ、常にアクセス許可
+- `is_free = true` かつ `free_until = NULL または未来` → チェックスキップ、全機能許可
+- `is_free = true` かつ `free_until` が過去 → 通常のサブスクチェックへ
 - `status = null` → 新規ユーザー、`create-subscription` を呼んでトライアル開始
 - `status = 'trialing' | 'canceling'` → `trial_ends_at` が未来なら許可
 - `status = 'active'` → 許可

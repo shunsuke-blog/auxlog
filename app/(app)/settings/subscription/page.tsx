@@ -37,11 +37,14 @@ export default async function SubscriptionPage() {
 
   const { data: userData } = await supabase
     .from('users')
-    .select('stripe_customer_id, stripe_subscription_id, subscription_status, trial_ends_at, is_admin')
+    .select('stripe_customer_id, stripe_subscription_id, subscription_status, trial_ends_at, is_admin, is_free, free_until')
     .eq('id', user.id)
     .single()
 
   const isAdmin = userData?.is_admin ?? false
+  const isFree = userData?.is_free ?? false
+  const freeUntil = userData?.free_until ?? null
+  const freeActive = isFree && (!freeUntil || new Date(freeUntil) > new Date())
   const status = isAdmin ? 'active' : (userData?.subscription_status ?? null)
   const trialEndsAt = userData?.trial_ends_at ?? null
 
@@ -101,10 +104,16 @@ export default async function SubscriptionPage() {
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-zinc-500 dark:text-zinc-400">ステータス</span>
-            <span className={`text-sm font-medium ${getStatusColor(status)}`}>
-              {isAdmin ? '有効（管理者）' : getStatusLabel(status)}
+            <span className={`text-sm font-medium ${isAdmin || freeActive ? 'text-emerald-500' : getStatusColor(status)}`}>
+              {isAdmin ? '有効（管理者）' : freeActive ? `無料${freeUntil ? '（期限付き）' : ''}` : getStatusLabel(status)}
             </span>
           </div>
+          {freeActive && freeUntil && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">無料期限</span>
+              <span className="text-sm text-black dark:text-white">{formatDate(freeUntil)}</span>
+            </div>
+          )}
           {trialEndsAt && (status === 'trialing' || status === 'canceling') && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -121,8 +130,8 @@ export default async function SubscriptionPage() {
           )}
         </div>
 
-        {/* クレジットカード情報 */}
-        <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
+        {/* クレジットカード情報（管理者・無料ユーザーには表示しない） */}
+        {!isAdmin && !freeActive && <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
           <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">お支払い方法</h2>
           {cardInfo ? (
             <div className="flex items-center gap-3">
@@ -144,12 +153,12 @@ export default async function SubscriptionPage() {
           {status !== 'canceled' && (
             <ChangeCardButton />
           )}
-        </div>
+        </div>}
 
-        {/* アクション（管理者には表示しない） */}
-        {!isAdmin && (status === 'active' || status === 'trialing') && <CancelButton />}
-        {!isAdmin && status === 'canceling' && <ResumeButton />}
-        {!isAdmin && status === 'canceled' && (
+        {/* アクション（管理者・無料ユーザーには表示しない） */}
+        {!isAdmin && !freeActive && (status === 'active' || status === 'trialing') && <CancelButton />}
+        {!isAdmin && !freeActive && status === 'canceling' && <ResumeButton />}
+        {!isAdmin && !freeActive && status === 'canceled' && (
           <Link
             href="/subscribe?reason=canceled"
             className="w-full block text-center py-4 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold"

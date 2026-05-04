@@ -30,11 +30,14 @@ export default async function SettingsPage() {
 
   const { data: userData } = await supabase
     .from('users')
-    .select('email, subscription_status, trial_ends_at, is_admin, training_level')
+    .select('email, subscription_status, trial_ends_at, is_admin, is_free, free_until, training_level')
     .eq('id', user.id)
     .single()
 
   const isAdmin = userData?.is_admin ?? false
+  const isFree = userData?.is_free ?? false
+  const freeUntil = userData?.free_until ?? null
+  const freeActive = isFree && (!freeUntil || new Date(freeUntil) > new Date())
   const trainingLevel: TrainingLevel = (userData?.training_level as TrainingLevel) ?? 'intermediate'
   const status = isAdmin ? 'active' : (userData?.subscription_status ?? null)
   const trialEndsAt = userData?.trial_ends_at ?? ''
@@ -62,16 +65,25 @@ export default async function SettingsPage() {
           <div className="flex items-center justify-between">
             <span className="text-sm text-black dark:text-white">ステータス</span>
             <span className={`text-sm font-medium ${
+              isAdmin || freeActive ? 'text-emerald-500' :
               status === 'active' ? 'text-emerald-500' :
               status === 'trialing' ? 'text-accent' :
               status === 'canceling' ? 'text-accent' :
               status === null ? 'text-zinc-400' :
               'text-red-500'
             }`}>
-              {isAdmin ? '有効（管理者）' : status === null ? '未開始' : getStatusLabel(status)}
+              {isAdmin ? '有効（管理者）' : freeActive ? `無料${freeUntil ? '（期限付き）' : ''}` : status === null ? '未開始' : getStatusLabel(status)}
             </span>
           </div>
-          {daysLeft !== null && (
+          {freeActive && freeUntil && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">無料期限</span>
+              <span className="text-sm text-black dark:text-white">
+                {new Date(freeUntil).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' })}
+              </span>
+            </div>
+          )}
+          {!isAdmin && !freeActive && daysLeft !== null && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-zinc-500 dark:text-zinc-400">
                 {status === 'canceling' ? 'サービス終了まで' : 'トライアル残り'}
@@ -79,10 +91,12 @@ export default async function SettingsPage() {
               <span className="text-sm text-black dark:text-white">{daysLeft}日</span>
             </div>
           )}
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-zinc-500 dark:text-zinc-400">料金</span>
-            <span className="text-sm text-black dark:text-white">¥480/月</span>
-          </div>
+          {!isAdmin && !freeActive && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">料金</span>
+              <span className="text-sm text-black dark:text-white">¥480/月</span>
+            </div>
+          )}
         </Link>
         
         <TrainingLevelSelector initialLevel={trainingLevel} />
