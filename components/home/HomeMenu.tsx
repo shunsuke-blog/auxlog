@@ -123,7 +123,7 @@ export default function HomeMenu({ initialSuggestions, allExercises }: Props) {
       </div>
 
       {/* カードリスト */}
-      <div className="px-5 pb-6 space-y-4">
+      <div className="px-5 py-6 space-y-4">
         {allExercises.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-sm text-zinc-400 dark:text-zinc-600 mb-4">

@@ -45,6 +45,24 @@ export async function DELETE(
 
   const { id } = await params
 
+  // 所有権確認
+  const { data: exercise } = await supabase
+    .from('user_exercises')
+    .select('id')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!exercise) return NextResponse.json({ error: '種目が見つかりません' }, { status: 404 })
+
+  // 該当種目のトレーニング記録を削除してから種目を論理削除
+  const { error: setsError } = await supabase
+    .from('training_sets')
+    .delete()
+    .eq('exercise_id', id)
+
+  if (setsError) return NextResponse.json({ error: '履歴の削除に失敗しました' }, { status: 500 })
+
   const { error } = await supabase
     .from('user_exercises')
     .update({ is_active: false })

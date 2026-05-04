@@ -12,9 +12,10 @@ const MUSCLE_ORDER: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arm
 type AddModalProps = {
   onClose: () => void
   onAdd: () => void
+  registeredMasterIds: Set<string>
 }
 
-function AddModal({ onClose, onAdd }: AddModalProps) {
+function AddModal({ onClose, onAdd, registeredMasterIds }: AddModalProps) {
   const [tab, setTab] = useState<'master' | 'custom'>('master')
   const [masters, setMasters] = useState<ExerciseMaster[]>([])
   const [customName, setCustomName] = useState('')
@@ -28,6 +29,7 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
   }, [])
 
   const grouped = masters.reduce<Record<TargetMuscle, ExerciseMaster[]>>((acc, ex) => {
+    if (registeredMasterIds.has(ex.id)) return acc
     const muscle = ex.target_muscle as TargetMuscle
     if (!acc[muscle]) acc[muscle] = []
     acc[muscle].push(ex)
@@ -168,10 +170,11 @@ export default function ExercisesPage() {
 
   useEffect(() => { loadExercises() }, [loadExercises])
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`「${name}」を削除しますか？\nこの種目のトレーニング履歴もすべて削除されます。`)) return
     setExercises(prev => prev.filter(e => e.id !== id))
     await fetch(`/api/exercises/${id}`, { method: 'DELETE' })
-    showToast('種目を削除しました')
+    showToast('種目と履歴を削除しました')
   }
 
   const grouped = exercises.reduce<Partial<Record<TargetMuscle, UserExercise[]>>>((acc, ex) => {
@@ -217,7 +220,7 @@ export default function ExercisesPage() {
                         {ex.name}
                       </span>
                       <button
-                        onClick={() => handleDelete(ex.id)}
+                        onClick={() => handleDelete(ex.id, ex.name)}
                         className="text-zinc-300 dark:text-zinc-700 hover:text-red-400 transition-colors shrink-0"
                       >
                         <X className="w-4 h-4" />
@@ -235,6 +238,7 @@ export default function ExercisesPage() {
         <AddModal
           onClose={() => setShowModal(false)}
           onAdd={loadExercises}
+          registeredMasterIds={new Set(exercises.map(e => e.exercise_master_id).filter(Boolean) as string[])}
         />
       )}
 
