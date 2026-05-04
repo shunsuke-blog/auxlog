@@ -29,10 +29,6 @@ export default function SwipeableExerciseCard({ suggestion, onDelete }: Props) {
 
   const { exercise, proposed_weight_kg, proposed_sets, proposed_reps, proposed_set_targets, reason, days_since_last, volume_status } = suggestion
 
-  const allSameReps = proposed_set_targets.every(t => t.reps === proposed_reps)
-  const repsLabel = allSameReps
-    ? `${proposed_reps}回`
-    : proposed_set_targets.map(t => t.reps).join(' / ') + '回'
   const dayLabel = days_since_last >= 999 ? '初回' : `${days_since_last}日ぶり`
 
   const weightDisplay = exercise.is_bodyweight

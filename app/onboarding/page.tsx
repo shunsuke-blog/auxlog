@@ -53,11 +53,15 @@ export default function OnboardingPage() {
   }
 
   const handleLevelNext = async () => {
-    await fetch('/api/users/training-level', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ training_level: selectedLevel }),
-    })
+    try {
+      await fetch('/api/users/training-level', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ training_level: selectedLevel }),
+      })
+    } catch {
+      // 失敗してもデフォルト(intermediate)のまま次ステップへ進める
+    }
     setStep('exercises')
   }
 

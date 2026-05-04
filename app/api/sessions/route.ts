@@ -36,7 +36,10 @@ export async function POST(request: Request) {
     .from('training_sets')
     .insert(setsToInsert)
 
-  if (setsError) return NextResponse.json({ error: 'セットの保存に失敗しました' }, { status: 500 })
+  if (setsError) {
+    await supabase.from('training_sessions').delete().eq('id', session.id)
+    return NextResponse.json({ error: 'セットの保存に失敗しました' }, { status: 500 })
+  }
 
   return NextResponse.json({ session_id: session.id, created_at: session.created_at })
 }
@@ -47,11 +50,10 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  const rawLimit = parseInt(searchParams.get('limit') ?? '20')
-  const rawOffset = parseInt(searchParams.get('offset') ?? '0')
-  // サーバー側で上限を強制
-  const limit = Math.min(Math.max(1, rawLimit), 100)
-  const offset = Math.max(0, rawOffset)
+  const rawLimit = parseInt(searchParams.get('limit') ?? '20', 10)
+  const rawOffset = parseInt(searchParams.get('offset') ?? '0', 10)
+  const limit = Math.min(Math.max(1, isNaN(rawLimit) ? 20 : rawLimit), 100)
+  const offset = Math.max(0, isNaN(rawOffset) ? 0 : rawOffset)
 
   const { data: sessions, error, count } = await supabase
     .from('training_sessions')

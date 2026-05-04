@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Pencil, ChevronDown, PenLine } from 'lucide-react'
 import type { UserExercise, TrainingSet } from '@/types'
@@ -32,7 +32,7 @@ export default function SessionList({ sessions, exercises }: Props) {
     })
   }
 
-  const exerciseMap = new Map(exercises.map(e => [e.id, e]))
+  const exerciseMap = useMemo(() => new Map(exercises.map(e => [e.id, e])), [exercises])
 
   if (sessions.length === 0) {
     return (
