@@ -144,10 +144,11 @@ function proposeNextSet(
   if (lastSets.length === 0) {
     const reps = exercise.default_reps
     const sets = exercise.default_sets
-    const setTargets: SetTarget[] = Array.from({ length: sets }, (_, i) => ({
-      set_number: i + 1, weight_kg: 0, reps: Math.max(1, reps - i), is_warmup: false,
+    const warmup: SetTarget = { set_number: 1, weight_kg: 0, reps, is_warmup: true }
+    const working: SetTarget[] = Array.from({ length: sets }, (_, i) => ({
+      set_number: i + 2, weight_kg: 0, reps: Math.max(1, reps - i), is_warmup: false,
     }))
-    return { weight: 0, sets, reps, reason: '初回のため初期値を使用', setTargets }
+    return { weight: 0, sets: 1 + sets, reps, reason: '初回のため初期値を使用', setTargets: [warmup, ...working] }
   }
 
   // ── ウォームアップ/ワーキング分離 ────────────────────────────

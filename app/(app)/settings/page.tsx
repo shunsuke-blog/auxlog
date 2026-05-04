@@ -84,7 +84,8 @@ export default async function SettingsPage() {
             <span className="text-sm text-black dark:text-white">¥480/月</span>
           </div>
         </Link>
-
+        
+        <TrainingLevelSelector initialLevel={trainingLevel} />
 
         <Link
           href="/exercises"
@@ -96,8 +97,6 @@ export default async function SettingsPage() {
           </div>
           <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
         </Link>
-
-        <TrainingLevelSelector initialLevel={trainingLevel} />
 
         <Link
           href="/contact"
