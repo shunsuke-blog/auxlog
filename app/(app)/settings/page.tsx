@@ -3,8 +3,6 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronRight, Dumbbell } from 'lucide-react'
 import LogoutButton from './LogoutButton'
-import PortalButton from './PortalButton'
-import CancelButton from './CancelButton'
 
 function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
@@ -52,7 +50,10 @@ export default async function SettingsPage() {
           <p className="text-sm text-black dark:text-white">{userData?.email ?? user.email}</p>
         </div>
 
-        <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
+        <Link
+          href="/settings/subscription"
+          className="block px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3"
+        >
           <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">サブスクリプション</h2>
           <div className="flex items-center justify-between">
             <span className="text-sm text-black dark:text-white">ステータス</span>
@@ -78,10 +79,8 @@ export default async function SettingsPage() {
             <span className="text-sm text-zinc-500 dark:text-zinc-400">料金</span>
             <span className="text-sm text-black dark:text-white">¥480/月</span>
           </div>
-        </div>
+        </Link>
 
-        {status !== 'canceled' && <PortalButton status={status ?? 'trialing'} />}
-        {(status === 'active' || status === 'trialing') && <CancelButton />}
 
         <Link
           href="/exercises"
