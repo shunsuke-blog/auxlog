@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
   const resend = new Resend(process.env.RESEND_API_KEY)
   const { error } = await resend.emails.send({
-    from: 'Auxlog <onboarding@resend.dev>',
+    from: 'Auxlog <noreply@bloomines.com>',
     to: 'auxlog.support@gmail.com',
     replyTo: user.email,
     subject: `[${CATEGORY_LABELS[category]}] ${subject}`,
