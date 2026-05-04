@@ -72,6 +72,15 @@ Auxlog
 
 #### 2.3 次回メニューの自動提案
 以下のルールベースロジックで提案する（MVPはAI不要）
+
+**トレーニングレベル**
+ユーザーのトレーニング歴に応じて週ボリューム目標を個人化する。
+
+| レベル | 目安 | 週目標セット数（筋群ごと） |
+|--------|------|--------------------------|
+| 初級者 | 1年未満 | 8〜12セット |
+| 中級者 | 1〜3年 | 12〜16セット |
+| 上級者 | 3年以上 | 16〜20セット |
 根拠：筋肥大研究の最新メタアナリシス（Schoenfeld et al. 2021、RP Strength 2025、PubMed 2025）に基づく
 
 **種目選択ロジック**
@@ -253,6 +262,7 @@ Auxlog
 | subscription_status | text | trialing/active/canceling/canceled/past_due |
 | trial_ends_at | timestamptz | トライアル終了日時 |
 | is_admin | boolean | 管理者フラグ（請求をスキップ、常にactive扱い） |
+| training_level | text | beginner/intermediate/advanced（デフォルト: intermediate） |
 | created_at | timestamp | 登録日時 |
 
 ### exercise_master（システム共通種目マスタ）

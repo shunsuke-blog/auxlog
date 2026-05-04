@@ -2,18 +2,25 @@ import { createClient } from '@/lib/supabase/server'
 import { suggestMenu } from '@/lib/suggest/engine'
 import { normalizeExercises } from '@/lib/normalize/exercises'
 import { NextResponse } from 'next/server'
+import type { TrainingLevel } from '@/types'
+import { VOLUME_TARGETS } from '@/lib/constants/training'
 
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: exercises } = await supabase
-    .from('user_exercises')
-    .select('*, exercise_master(name, target_muscle, is_bodyweight, is_compound)')
-    .eq('user_id', user.id)
-    .eq('is_active', true)
-    .order('sort_order')
+  const [{ data: userData }, { data: exercises }] = await Promise.all([
+    supabase.from('users').select('training_level').eq('id', user.id).single(),
+    supabase
+      .from('user_exercises')
+      .select('*, exercise_master(name, target_muscle, is_bodyweight, is_compound)')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .order('sort_order'),
+  ])
+
+  const trainingLevel: TrainingLevel = (userData?.training_level as TrainingLevel) ?? 'intermediate'
 
   const fourWeeksAgo = new Date()
   fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28)
@@ -40,6 +47,7 @@ export async function GET() {
     exercises: normalizedExercises,
     recentSessions: normalizedSessions,
     todayDate: new Date(),
+    trainingLevel,
   })
 
   const warnings: string[] = []
@@ -52,7 +60,8 @@ export async function GET() {
     }
   })
   muscleVolumes.forEach((sets, muscle) => {
-    if (sets > 20) warnings.push(`${muscle}のセット数が週${sets}セットを超えています`)
+    const maxSets = VOLUME_TARGETS[trainingLevel].max
+    if (sets > maxSets) warnings.push(`${muscle}のセット数が週${sets}セットを超えています`)
   })
 
   return NextResponse.json({ suggestions, warnings })

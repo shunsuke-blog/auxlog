@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronRight, Dumbbell, Mail } from 'lucide-react'
 import LogoutButton from './LogoutButton'
+import TrainingLevelSelector from './TrainingLevelSelector'
+import type { TrainingLevel } from '@/types'
 
 function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
@@ -28,11 +30,12 @@ export default async function SettingsPage() {
 
   const { data: userData } = await supabase
     .from('users')
-    .select('email, subscription_status, trial_ends_at, is_admin')
+    .select('email, subscription_status, trial_ends_at, is_admin, training_level')
     .eq('id', user.id)
     .single()
 
   const isAdmin = userData?.is_admin ?? false
+  const trainingLevel: TrainingLevel = (userData?.training_level as TrainingLevel) ?? 'intermediate'
   const status = isAdmin ? 'active' : (userData?.subscription_status ?? null)
   const trialEndsAt = userData?.trial_ends_at ?? ''
   const daysLeft = (status === 'trialing' || status === 'canceling') && trialEndsAt
@@ -93,6 +96,8 @@ export default async function SettingsPage() {
           </div>
           <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
         </Link>
+
+        <TrainingLevelSelector initialLevel={trainingLevel} />
 
         <Link
           href="/contact"

@@ -1,10 +1,11 @@
-import type { UserExercise, TrainingSet, SessionWithSets, Suggestion, SetTarget, VolumeStatus } from '@/types'
-import { TRAINING } from '@/lib/constants/training'
+import type { UserExercise, TrainingSet, SessionWithSets, Suggestion, SetTarget, VolumeStatus, TrainingLevel } from '@/types'
+import { TRAINING, VOLUME_TARGETS } from '@/lib/constants/training'
 
 type SuggestInput = {
   exercises: UserExercise[]
   recentSessions: SessionWithSets[]
   todayDate: Date
+  trainingLevel: TrainingLevel
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -94,7 +95,7 @@ function buildWarmupTargets(warmupSets: TrainingSet[]): SetTarget[] {
 // ────────────────────────────────────────────────────────────────
 
 export function suggestMenu(input: SuggestInput): Suggestion[] {
-  const { exercises, recentSessions, todayDate } = input
+  const { exercises, recentSessions, todayDate, trainingLevel } = input
 
   return exercises
     .filter(e => e.is_active)
@@ -127,7 +128,7 @@ export function suggestMenu(input: SuggestInput): Suggestion[] {
         reason,
         days_since_last: daysSinceLast,
         weekly_volume_sets: weeklyVolumeSets,
-        volume_status: getVolumeStatus(weeklyVolumeSets),
+        volume_status: getVolumeStatus(weeklyVolumeSets, trainingLevel),
       }]
     })
     .sort((a, b) => b.days_since_last - a.days_since_last)
@@ -298,8 +299,9 @@ function calcMinRecoveryDays(exercise: import('@/types').UserExercise, lastWorki
   return TRAINING.MIN_DAYS_BETWEEN_SESSIONS
 }
 
-function getVolumeStatus(weeklySets: number): VolumeStatus {
-  if (weeklySets < TRAINING.WEEKLY_VOLUME_LOW) return 'low'
-  if (weeklySets <= TRAINING.WEEKLY_VOLUME_HIGH) return 'optimal'
+function getVolumeStatus(weeklySets: number, level: TrainingLevel): VolumeStatus {
+  const target = VOLUME_TARGETS[level]
+  if (weeklySets < target.min) return 'low'
+  if (weeklySets <= target.max) return 'optimal'
   return 'high'
 }

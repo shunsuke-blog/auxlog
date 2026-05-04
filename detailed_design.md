@@ -154,6 +154,7 @@ CREATE TABLE users (
   -- trialing / active / canceling / canceled / past_due
   trial_ends_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days'),
   is_admin BOOLEAN DEFAULT false,  -- 管理者フラグ（請求スキップ、常にactive扱い）
+  training_level TEXT DEFAULT 'intermediate' CHECK (training_level IN ('beginner', 'intermediate', 'advanced')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
@@ -463,6 +464,12 @@ CREATE INDEX idx_user_exercises_user
 ### 5.2 定数（lib/constants/training.ts）
 
 ```typescript
+export const VOLUME_TARGETS = {
+  beginner:     { min: 8,  max: 12 },
+  intermediate: { min: 12, max: 16 },
+  advanced:     { min: 16, max: 20 },
+} as const
+
 export const TRAINING = {
   DAYS_SINCE_LAST_NEVER: 999,              // 記録なし時の経過日数（初回扱い）
   MIN_DAYS_BETWEEN_SESSIONS: 2,            // デフォルト最低回復日数
@@ -483,7 +490,7 @@ export const TRAINING = {
 ### 5.3 判定フロー
 
 ```
-入力: exercises, recentSessions, todayDate
+入力: exercises, recentSessions, todayDate, trainingLevel
 
 0. 種目ごとに回復日数チェック（calcMinRecoveryDays）→ 未満なら提案リストから除外
    - コンパウンド + 限界セットあり → 3日
@@ -537,7 +544,7 @@ export const TRAINING = {
 | `buildWarmupTargets(warmupSets)` | ウォームアップセットは前回の重量・回数を維持 |
 | `calcWeeklyVolumeSets(exercise, sessions, today)` | 過去7日間のワーキングセット数を集計 |
 | `checkStagnation(exerciseId, sessions)` | 直近3セッションの最大重量が同一か判定 |
-| `getVolumeStatus(weeklySets)` | 週セット数から low/optimal/high を返す |
+| `getVolumeStatus(weeklySets, level)` | 週セット数とレベルから low/optimal/high を返す |
 
 ### 5.5 SetTarget 型（提案セット詳細）
 

@@ -21,6 +21,14 @@ export type SubscriptionStatus =
 
 export type VolumeStatus = 'low' | 'optimal' | 'high';
 
+export type TrainingLevel = 'beginner' | 'intermediate' | 'advanced';
+
+export const TRAINING_LEVEL_LABELS: Record<TrainingLevel, string> = {
+  beginner: '初級者',
+  intermediate: '中級者',
+  advanced: '上級者',
+};
+
 export type ExerciseMaster = {
   id: string;
   name: string;

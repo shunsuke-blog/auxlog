@@ -3,18 +3,24 @@ import { suggestMenu } from '@/lib/suggest/engine'
 import HomeMenu from '@/components/home/HomeMenu'
 import { redirect } from 'next/navigation'
 import { normalizeExercises } from '@/lib/normalize/exercises'
+import type { TrainingLevel } from '@/types'
 
 export default async function HomePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: exercises } = await supabase
-    .from('user_exercises')
-    .select('*, exercise_master(name, target_muscle, is_bodyweight, is_compound)')
-    .eq('user_id', user.id)
-    .eq('is_active', true)
-    .order('sort_order')
+  const [{ data: userData }, { data: exercises }] = await Promise.all([
+    supabase.from('users').select('training_level').eq('id', user.id).single(),
+    supabase
+      .from('user_exercises')
+      .select('*, exercise_master(name, target_muscle, is_bodyweight, is_compound)')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .order('sort_order'),
+  ])
+
+  const trainingLevel: TrainingLevel = (userData?.training_level as TrainingLevel) ?? 'intermediate'
 
   if (!exercises || exercises.length === 0) {
     redirect('/onboarding')
@@ -39,7 +45,7 @@ export default async function HomePage() {
   }))
 
   const suggestions = normalizedExercises.length > 0
-    ? suggestMenu({ exercises: normalizedExercises, recentSessions: normalizedSessions, todayDate: new Date() })
+    ? suggestMenu({ exercises: normalizedExercises, recentSessions: normalizedSessions, todayDate: new Date(), trainingLevel })
     : []
 
   return (
