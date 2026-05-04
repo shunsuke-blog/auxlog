@@ -1,74 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Plus, X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import type { UserExercise, ExerciseMaster, TargetMuscle } from '@/types'
 import { TARGET_MUSCLE_LABELS } from '@/types'
 import { useToast } from '@/hooks/useToast'
 import Toast from '@/components/ui/Toast'
 
-type SortableItemProps = {
-  exercise: UserExercise
-  onDelete: (id: string) => void
-}
-
-function SortableItem({ exercise, onDelete }: SortableItemProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: exercise.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="flex items-center gap-3 px-4 py-3.5 bg-white dark:bg-zinc-900 rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] dark:shadow-none dark:border dark:border-zinc-800"
-    >
-      <button
-        className="text-zinc-300 dark:text-zinc-700 touch-none"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="w-4 h-4" />
-      </button>
-      <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium text-black dark:text-white">
-          {exercise.name}
-        </span>
-      </div>
-      <span className="text-xs text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-900 px-2 py-0.5 rounded-full flex-shrink-0">
-        {TARGET_MUSCLE_LABELS[exercise.target_muscle]}
-      </span>
-      <button
-        onClick={() => onDelete(exercise.id)}
-        className="text-zinc-300 dark:text-zinc-700 hover:text-red-400 transition-colors flex-shrink-0"
-      >
-        <X className="w-4 h-4" />
-      </button>
-    </div>
-  )
-}
+const MUSCLE_ORDER: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arms']
 
 type AddModalProps = {
   onClose: () => void
@@ -88,7 +27,6 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
       .then(d => setMasters(d.exercises ?? []))
   }, [])
 
-  const muscleOrder: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arms']
   const grouped = masters.reduce<Record<TargetMuscle, ExerciseMaster[]>>((acc, ex) => {
     const muscle = ex.target_muscle as TargetMuscle
     if (!acc[muscle]) acc[muscle] = []
@@ -120,7 +58,7 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ paddingBottom: "calc(4rem + env(safe-area-inset-bottom))" }}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-lg bg-white dark:bg-zinc-950 rounded-t-2xl max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-900">
@@ -149,7 +87,7 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
         <div className="overflow-y-auto flex-1 px-6 py-4">
           {tab === 'master' ? (
             <div className="space-y-6">
-              {muscleOrder.map(muscle => {
+              {MUSCLE_ORDER.map(muscle => {
                 const exercises = grouped[muscle]
                 if (!exercises?.length) return null
                 return (
@@ -187,7 +125,7 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
               <div>
                 <label className="block text-xs font-medium text-zinc-500 mb-1.5">部位</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {(['chest', 'back', 'legs', 'shoulders', 'arms'] as TargetMuscle[]).map(m => (
+                  {MUSCLE_ORDER.map(m => (
                     <button
                       key={m}
                       onClick={() => setCustomMuscle(m)}
@@ -222,11 +160,6 @@ export default function ExercisesPage() {
   const [showModal, setShowModal] = useState(false)
   const { toast, showToast } = useToast()
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  )
-
   const loadExercises = useCallback(async () => {
     const res = await fetch('/api/exercises')
     const data = await res.json()
@@ -235,31 +168,17 @@ export default function ExercisesPage() {
 
   useEffect(() => { loadExercises() }, [loadExercises])
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-
-    const oldIndex = exercises.findIndex(e => e.id === active.id)
-    const newIndex = exercises.findIndex(e => e.id === over.id)
-    const reordered = arrayMove(exercises, oldIndex, newIndex)
-    setExercises(reordered)
-
-    await Promise.all(
-      reordered.map((ex, i) =>
-        fetch(`/api/exercises/${ex.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sort_order: i }),
-        })
-      )
-    )
-  }
-
   const handleDelete = async (id: string) => {
     setExercises(prev => prev.filter(e => e.id !== id))
     await fetch(`/api/exercises/${id}`, { method: 'DELETE' })
     showToast('種目を削除しました')
   }
+
+  const grouped = exercises.reduce<Partial<Record<TargetMuscle, UserExercise[]>>>((acc, ex) => {
+    if (!acc[ex.target_muscle]) acc[ex.target_muscle] = []
+    acc[ex.target_muscle]!.push(ex)
+    return acc
+  }, {})
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
@@ -274,28 +193,41 @@ export default function ExercisesPage() {
         </button>
       </div>
 
-      <div className="px-6 py-4">
+      <div className="px-6 py-6 space-y-8">
         {exercises.length === 0 ? (
           <div className="text-center py-20 text-zinc-400 dark:text-zinc-600">
             <p className="text-sm">種目がまだ登録されていません</p>
           </div>
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={exercises.map(e => e.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-2">
-                {exercises.map(ex => (
-                  <SortableItem key={ex.id} exercise={ex} onDelete={handleDelete} />
-                ))}
+          MUSCLE_ORDER.map(muscle => {
+            const group = grouped[muscle]
+            if (!group?.length) return null
+            return (
+              <div key={muscle}>
+                <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">
+                  {TARGET_MUSCLE_LABELS[muscle]}
+                </h2>
+                <div className="space-y-2">
+                  {group.map(ex => (
+                    <div
+                      key={ex.id}
+                      className="flex items-center gap-3 px-4 py-3.5 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-800"
+                    >
+                      <span className="flex-1 text-sm font-medium text-black dark:text-white">
+                        {ex.name}
+                      </span>
+                      <button
+                        onClick={() => handleDelete(ex.id)}
+                        className="text-zinc-300 dark:text-zinc-700 hover:text-red-400 transition-colors shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </SortableContext>
-          </DndContext>
+            )
+          })
         )}
       </div>
 
