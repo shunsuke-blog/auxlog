@@ -171,7 +171,7 @@ export default function SessionList({ sessions, exercises }: Props) {
                             <span className="text-xs text-zinc-500 flex items-center gap-1">
                               {set.set_number}
                               {set.is_warmup && (
-                                <span className="text-[9px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-1 rounded">W</span>
+                                <span className="text-[9px] font-bold text-accent bg-accent/10 px-1 rounded">W</span>
                               )}
                             </span>
                             <span className={`text-xs text-right ${isMaxWeight ? 'font-bold text-black dark:text-white' : 'font-medium text-zinc-400 dark:text-zinc-500'}`}>

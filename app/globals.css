@@ -3,18 +3,26 @@
 :root {
   --background: #ffffff;
   --foreground: #000000;
+  --my-accent: #B8CC00;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
+  --color-accent: var(--my-accent);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #000000;
+    --background: #0A0A0A;
     --foreground: #ffffff;
+    --my-accent: #E8FF00;
+    /* ダーク背景の一括上書き */
+    --color-black: #0A0A0A;
+    --color-zinc-950: #141414;
+    --color-zinc-900: #1A1A1A;
+    --color-zinc-800: #222222;
   }
 }
 

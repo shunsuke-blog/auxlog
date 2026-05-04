@@ -136,7 +136,7 @@ export default function SwipeableExerciseCard({ suggestion, onDelete }: Props) {
         onClick={handleClick}
         className={`relative bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none cursor-pointer select-none active:scale-[0.99] transition-transform px-5 pt-4 pb-5 border ${
           days_since_last >= 7
-            ? 'border-amber-400 dark:border-amber-500'
+            ? 'border-accent'
             : 'border-zinc-200 dark:border-zinc-800'
         }`}
       >
@@ -148,7 +148,7 @@ export default function SwipeableExerciseCard({ suggestion, onDelete }: Props) {
                 {exercise.name}
               </h3>
               {days_since_last >= 7 && (
-                <span className="text-[9px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-full tracking-wide">
+                <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-full tracking-wide">
                   優先
                 </span>
               )}
@@ -158,7 +158,7 @@ export default function SwipeableExerciseCard({ suggestion, onDelete }: Props) {
                 {TARGET_MUSCLE_LABELS[exercise.target_muscle]}
               </span>
               {volume_status === 'low' && (
-                <span className="text-[9px] font-semibold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-full">
+                <span className="text-[9px] font-semibold text-accent bg-accent/10 px-1.5 py-0.5 rounded-full">
                   ボリューム不足
                 </span>
               )}

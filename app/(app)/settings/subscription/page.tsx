@@ -20,8 +20,8 @@ function getStatusLabel(status: string | null): string {
 
 function getStatusColor(status: string | null): string {
   if (status === 'active') return 'text-emerald-500'
-  if (status === 'trialing') return 'text-amber-500'
-  if (status === 'canceling') return 'text-orange-500'
+  if (status === 'trialing') return 'text-accent'
+  if (status === 'canceling') return 'text-accent'
   if (status === null) return 'text-zinc-400'
   return 'text-red-500'
 }

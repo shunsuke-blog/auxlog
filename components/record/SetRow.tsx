@@ -49,7 +49,7 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
     <div className={`transition-opacity ${is_warmup ? 'opacity-60' : ''}`}>
       {is_warmup && (
         <div className="flex items-center gap-1 mb-1">
-          <span className="text-[10px] font-semibold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full">
+          <span className="text-[10px] font-semibold text-accent bg-accent/10 px-2 py-0.5 rounded-full">
             ウォームアップ
           </span>
         </div>
@@ -144,8 +144,8 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
           onClick={() => onChange({ ...setData, is_warmup: !is_warmup })}
           className={`shrink-0 px-2 py-1 rounded-full text-[10px] font-semibold border transition-colors ${
             is_warmup
-              ? 'border-amber-400 text-amber-500 bg-amber-50 dark:bg-amber-950/40'
-              : 'border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-600 hover:border-amber-300 hover:text-amber-400'
+              ? 'border-accent text-accent bg-accent/10'
+              : 'border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-600 hover:border-accent hover:text-accent'
           }`}
         >
           {is_warmup ? 'W/UP' : 'W/UP'}

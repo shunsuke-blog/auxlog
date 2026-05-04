@@ -44,7 +44,7 @@ export default function ExerciseCard({ suggestion }: Props) {
       <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-3">{reason}</p>
 
       {volume_status === 'low' && (
-        <div className="flex items-center gap-1.5 text-amber-500 text-xs">
+        <div className="flex items-center gap-1.5 text-accent text-xs">
           <TrendingDown className="w-3.5 h-3.5" />
           ボリューム不足（週10セット未満）
         </div>

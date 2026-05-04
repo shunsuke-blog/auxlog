@@ -60,8 +60,8 @@ export default async function SettingsPage() {
             <span className="text-sm text-black dark:text-white">ステータス</span>
             <span className={`text-sm font-medium ${
               status === 'active' ? 'text-emerald-500' :
-              status === 'trialing' ? 'text-amber-500' :
-              status === 'canceling' ? 'text-orange-500' :
+              status === 'trialing' ? 'text-accent' :
+              status === 'canceling' ? 'text-accent' :
               status === null ? 'text-zinc-400' :
               'text-red-500'
             }`}>
