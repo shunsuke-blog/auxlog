@@ -32,6 +32,7 @@ function RecordContent() {
   const [exerciseSets, setExerciseSets] = useState<ExerciseSets[]>([])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [pendingSets, setPendingSets] = useState<ReturnType<typeof buildSets> | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [exerciseName, setExerciseName] = useState('')
@@ -202,14 +203,12 @@ function RecordContent() {
     })
   }
 
-  const handleSave = async () => {
-    setSaving(true)
-
-    const sets = exerciseSets
-      .filter(ex => fromHome || ex.enabled)   // ホームから: 常に含む / タブから: enabled のみ
+  const buildSets = () =>
+    exerciseSets
+      .filter(ex => fromHome || ex.enabled)
       .flatMap(ex =>
         ex.sets
-          .filter(s => s.done)                // 実施フラグが立っているセットのみ保存
+          .filter(s => s.done)
           .map(s => ({
             exercise_id: ex.exercise.id,
             set_number: s.set_number,
@@ -220,13 +219,31 @@ function RecordContent() {
           }))
       )
 
+  const handleSave = () => {
     setErrorMessage(null)
+    const sets = buildSets()
 
     if (sets.length === 0) {
       setErrorMessage('実施済みのセットがありません')
-      setSaving(false)
       return
     }
+
+    const undoneCount = exerciseSets
+      .filter(ex => fromHome || ex.enabled)
+      .flatMap(ex => ex.sets)
+      .filter(s => !s.done).length
+
+    if (undoneCount > 0) {
+      setPendingSets(sets)
+      return
+    }
+
+    executeSave(sets)
+  }
+
+  const executeSave = async (sets: ReturnType<typeof buildSets>) => {
+    setSaving(true)
+    setPendingSets(null)
 
     const res = await fetch('/api/sessions', {
       method: 'POST',
@@ -443,6 +460,33 @@ function RecordContent() {
           </div>
         )
       })()}
+
+      {/* ウォームアップ未記録の警告モーダル */}
+      {pendingSets && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setPendingSets(null)} />
+          <div className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
+            <p className="text-base font-semibold text-black dark:text-white">未実施のセットがあります</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              チェックが入っていないセットは保存されません。このまま保存しますか？
+            </p>
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setPendingSets(null)}
+                className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white"
+              >
+                戻る
+              </button>
+              <button
+                onClick={() => executeSave(pendingSets)}
+                className="flex-1 py-3 rounded-xl bg-black dark:bg-white text-sm font-medium text-white dark:text-black"
+              >
+                このまま保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {saved && <SaveComplete onDone={() => router.push('/')} />}
     </div>
