@@ -28,11 +28,12 @@ export default async function SettingsPage() {
 
   const { data: userData } = await supabase
     .from('users')
-    .select('email, subscription_status, trial_ends_at')
+    .select('email, subscription_status, trial_ends_at, is_admin')
     .eq('id', user.id)
     .single()
 
-  const status = userData?.subscription_status ?? null
+  const isAdmin = userData?.is_admin ?? false
+  const status = isAdmin ? 'active' : (userData?.subscription_status ?? null)
   const trialEndsAt = userData?.trial_ends_at ?? ''
   const daysLeft = (status === 'trialing' || status === 'canceling') && trialEndsAt
     ? getTrialDaysLeft(trialEndsAt)
@@ -64,7 +65,7 @@ export default async function SettingsPage() {
               status === null ? 'text-zinc-400' :
               'text-red-500'
             }`}>
-              {status === null ? '未開始' : getStatusLabel(status)}
+              {isAdmin ? '有効（管理者）' : status === null ? '未開始' : getStatusLabel(status)}
             </span>
           </div>
           {daysLeft !== null && (

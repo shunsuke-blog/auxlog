@@ -11,16 +11,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const { data: userData } = await supabase
     .from('users')
-    .select('subscription_status, trial_ends_at')
+    .select('subscription_status, trial_ends_at, is_admin')
     .eq('id', user.id)
     .single()
 
-  const status = userData?.subscription_status ?? null
-  const trialEndsAt = userData?.trial_ends_at ?? ''
+  // 管理者はサブスク状態に関わらず常にアクセス許可
+  if (!userData?.is_admin) {
+    const status = userData?.subscription_status ?? null
+    const trialEndsAt = userData?.trial_ends_at ?? ''
 
-  // NULLはサブスク未設定の新規ユーザー。アクセスは許可してオンボーディングに委ねる
-  if (status !== null && !canUseApp(status, trialEndsAt)) {
-    redirect(`/subscribe?reason=${status}`)
+    // NULLはサブスク未設定の新規ユーザー。アクセスは許可してオンボーディングに委ねる
+    if (status !== null && !canUseApp(status, trialEndsAt)) {
+      redirect(`/subscribe?reason=${status}`)
+    }
   }
 
   return (

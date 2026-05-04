@@ -37,11 +37,12 @@ export default async function SubscriptionPage() {
 
   const { data: userData } = await supabase
     .from('users')
-    .select('stripe_customer_id, stripe_subscription_id, subscription_status, trial_ends_at')
+    .select('stripe_customer_id, stripe_subscription_id, subscription_status, trial_ends_at, is_admin')
     .eq('id', user.id)
     .single()
 
-  const status = userData?.subscription_status ?? null
+  const isAdmin = userData?.is_admin ?? false
+  const status = isAdmin ? 'active' : (userData?.subscription_status ?? null)
   const trialEndsAt = userData?.trial_ends_at ?? null
 
   // Stripeからカード情報・サブスク情報を取得
@@ -101,7 +102,7 @@ export default async function SubscriptionPage() {
           <div className="flex items-center justify-between">
             <span className="text-sm text-zinc-500 dark:text-zinc-400">ステータス</span>
             <span className={`text-sm font-medium ${getStatusColor(status)}`}>
-              {getStatusLabel(status)}
+              {isAdmin ? '有効（管理者）' : getStatusLabel(status)}
             </span>
           </div>
           {trialEndsAt && (status === 'trialing' || status === 'canceling') && (
@@ -145,10 +146,10 @@ export default async function SubscriptionPage() {
           )}
         </div>
 
-        {/* アクション */}
-        {(status === 'active' || status === 'trialing') && <CancelButton />}
-        {status === 'canceling' && <ResumeButton />}
-        {status === 'canceled' && (
+        {/* アクション（管理者には表示しない） */}
+        {!isAdmin && (status === 'active' || status === 'trialing') && <CancelButton />}
+        {!isAdmin && status === 'canceling' && <ResumeButton />}
+        {!isAdmin && status === 'canceled' && (
           <Link
             href="/subscribe?reason=canceled"
             className="w-full block text-center py-4 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold"
