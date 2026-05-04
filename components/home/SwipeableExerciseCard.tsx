@@ -134,7 +134,11 @@ export default function SwipeableExerciseCard({ suggestion, onDelete }: Props) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onClick={handleClick}
-        className="relative bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none cursor-pointer select-none active:scale-[0.99] transition-transform px-5 pt-4 pb-5"
+        className={`relative bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none cursor-pointer select-none active:scale-[0.99] transition-transform px-5 pt-4 pb-5 border ${
+          days_since_last >= 7
+            ? 'border-amber-400 dark:border-amber-500'
+            : 'border-zinc-200 dark:border-zinc-800'
+        }`}
       >
         {/* 種目名・部位・バッジ行 */}
         <div className="flex items-start justify-between gap-3 mb-3">
