@@ -44,15 +44,22 @@ export default async function SubscriptionPage() {
   const status = userData?.subscription_status ?? null
   const trialEndsAt = userData?.trial_ends_at ?? null
 
-  // Stripeからカード情報を取得
+  // Stripeからカード情報・サブスク情報を取得
   type CardInfo = { brand: string; last4: string; expMonth: number; expYear: number } | null
   let cardInfo: CardInfo = null
+  let nextBillingDate: string | null = null
+
   if (process.env.STRIPE_SECRET_KEY && userData?.stripe_customer_id) {
     try {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-      const customer = await stripe.customers.retrieve(userData.stripe_customer_id, {
-        expand: ['invoice_settings.default_payment_method'],
-      }) as Stripe.Customer
+      const [customer, subscription] = await Promise.all([
+        stripe.customers.retrieve(userData.stripe_customer_id, {
+          expand: ['invoice_settings.default_payment_method'],
+        }) as Promise<Stripe.Customer>,
+        userData?.stripe_subscription_id
+          ? stripe.subscriptions.retrieve(userData.stripe_subscription_id)
+          : Promise.resolve(null),
+      ])
       const pm = customer.invoice_settings?.default_payment_method as Stripe.PaymentMethod | null
       if (pm?.card) {
         cardInfo = {
@@ -62,7 +69,11 @@ export default async function SubscriptionPage() {
           expYear: pm.card.exp_year,
         }
       }
-    } catch { /* カード情報取得失敗は無視 */ }
+      const sub = subscription as unknown as { current_period_end?: number } | null
+      if (status === 'active' && sub?.current_period_end) {
+        nextBillingDate = new Date(sub.current_period_end * 1000).toISOString()
+      }
+    } catch { /* 取得失敗は無視 */ }
   }
 
   const brandLabel: Record<string, string> = {
@@ -99,6 +110,12 @@ export default async function SubscriptionPage() {
                 {status === 'canceling' ? 'サービス終了日' : 'トライアル終了日'}
               </span>
               <span className="text-sm text-black dark:text-white">{formatDate(trialEndsAt)}</span>
+            </div>
+          )}
+          {nextBillingDate && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">次回更新日</span>
+              <span className="text-sm text-black dark:text-white">{formatDate(nextBillingDate)}</span>
             </div>
           )}
         </div>
