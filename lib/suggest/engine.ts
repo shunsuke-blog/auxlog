@@ -98,20 +98,27 @@ export function suggestMenu(input: SuggestInput): Suggestion[] {
 
   return exercises
     .filter(e => e.is_active)
-    .map(exercise => {
+    .flatMap(exercise => {
       const lastSession = getLastSessionForExercise(exercise.id, recentSessions)
       const daysSinceLast = lastSession
         ? diffDays(todayDate, new Date(lastSession.trained_at))
         : TRAINING.DAYS_SINCE_LAST_NEVER
-      const weeklyVolumeSets = calcWeeklyVolumeSets(exercise, recentSessions, todayDate)
+
       const lastSets = lastSession?.sets.filter(s => s.exercise_id === exercise.id) ?? []
+      const lastWorkingSets = lastSets.filter(s => !s.is_warmup)
+
+      // 種目・前回結果に応じた回復日数で除外
+      const minRecoveryDays = calcMinRecoveryDays(exercise, lastWorkingSets)
+      if (daysSinceLast < minRecoveryDays) return []
+
+      const weeklyVolumeSets = calcWeeklyVolumeSets(exercise, recentSessions, todayDate)
       const isStagnant = checkStagnation(exercise.id, recentSessions)
 
       const { weight, sets, reps, reason, setTargets } = proposeNextSet(
         lastSets, exercise, lastSession?.fatigue_level, isStagnant
       )
 
-      return {
+      return [{
         exercise,
         proposed_weight_kg: weight,
         proposed_sets: sets,
@@ -121,9 +128,8 @@ export function suggestMenu(input: SuggestInput): Suggestion[] {
         days_since_last: daysSinceLast,
         weekly_volume_sets: weeklyVolumeSets,
         volume_status: getVolumeStatus(weeklyVolumeSets),
-      }
+      }]
     })
-    .filter(s => s.days_since_last >= TRAINING.MIN_DAYS_BETWEEN_SESSIONS)     // 48時間未満は回復中のため除外
     .sort((a, b) => b.days_since_last - a.days_since_last)
 }
 
@@ -268,6 +274,28 @@ function checkStagnation(exerciseId: string, sessions: SessionWithSets[]): boole
   })
 
   return weights.every(w => w === weights[0])
+}
+
+/**
+ * 前回のセット内容と種目タイプから必要な回復日数を算出
+ * - コンパウンド + 限界 → 3日
+ * - アイソレーション + 限界 → 2日
+ * - 全セット余裕あり → 2日
+ * - それ以外（混在） → 2日（デフォルト）
+ */
+function calcMinRecoveryDays(exercise: import('@/types').UserExercise, lastWorkingSets: TrainingSet[]): number {
+  if (lastWorkingSets.length === 0) return TRAINING.MIN_DAYS_BETWEEN_SESSIONS
+
+  const anyFailure = lastWorkingSets.some(s => s.rir === false)
+  const allHadRoom = lastWorkingSets.every(s => s.rir === true)
+
+  if (anyFailure) {
+    return exercise.is_compound
+      ? TRAINING.RECOVERY_DAYS_COMPOUND_FAILURE
+      : TRAINING.RECOVERY_DAYS_ISOLATION_FAILURE
+  }
+  if (allHadRoom) return TRAINING.RECOVERY_DAYS_ALL_ROOM
+  return TRAINING.MIN_DAYS_BETWEEN_SESSIONS
 }
 
 function getVolumeStatus(weeklySets: number): VolumeStatus {

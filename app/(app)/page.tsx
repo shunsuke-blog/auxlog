@@ -11,7 +11,7 @@ export default async function HomePage() {
 
   const { data: exercises } = await supabase
     .from('user_exercises')
-    .select('*, exercise_master(name, target_muscle, is_bodyweight)')
+    .select('*, exercise_master(name, target_muscle, is_bodyweight, is_compound)')
     .eq('user_id', user.id)
     .eq('is_active', true)
     .order('sort_order')

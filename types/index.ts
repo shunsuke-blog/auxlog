@@ -27,6 +27,7 @@ export type ExerciseMaster = {
   target_muscle: TargetMuscle;
   sort_order: number;
   is_bodyweight: boolean;
+  is_compound: boolean;
   created_at: string;
 };
 
@@ -41,6 +42,7 @@ export type UserExercise = {
   sort_order: number;
   is_active: boolean;
   is_bodyweight: boolean;
+  is_compound: boolean;
   created_at: string;
   name: string;
   target_muscle: TargetMuscle;

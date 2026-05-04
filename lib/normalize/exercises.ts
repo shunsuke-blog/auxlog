@@ -18,7 +18,7 @@ export type RawUserExercise = {
   is_active: boolean
   is_bodyweight: boolean
   created_at: string
-  exercise_master: { name: string; target_muscle: string; is_bodyweight: boolean } | null
+  exercise_master: { name: string; target_muscle: string; is_bodyweight: boolean; is_compound?: boolean } | null
 }
 
 const VALID_MUSCLES = Object.keys(TARGET_MUSCLE_LABELS)
@@ -35,12 +35,15 @@ export function normalizeExercise(e: RawUserExercise): UserExercise {
     ? (rawMuscle as TargetMuscle)
     : 'chest'
 
+  const is_compound = e.exercise_master?.is_compound ?? false
+
   return {
     ...e,
     custom_target_muscle: e.custom_target_muscle as TargetMuscle | null,
     name,
     target_muscle,
     is_bodyweight: isBodyweight,
+    is_compound,
   }
 }
 

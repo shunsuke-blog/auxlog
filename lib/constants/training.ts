@@ -2,8 +2,14 @@
 export const TRAINING = {
   /** 記録なし時の経過日数（初回扱い） */
   DAYS_SINCE_LAST_NEVER: 999,
-  /** 48時間未満（回復中）の除外閾値（日数） */
+  /** デフォルトの最低回復日数 */
   MIN_DAYS_BETWEEN_SESSIONS: 2,
+  /** コンパウンド種目を限界まで行った場合の回復日数 */
+  RECOVERY_DAYS_COMPOUND_FAILURE: 3,
+  /** アイソレーション種目を限界まで行った場合の回復日数 */
+  RECOVERY_DAYS_ISOLATION_FAILURE: 2,
+  /** セット全体を通して余裕ありの場合の回復日数 */
+  RECOVERY_DAYS_ALL_ROOM: 2,
   /** 週ボリュームの最低ライン（セット数） */
   WEEKLY_VOLUME_LOW: 10,
   /** 週ボリュームの上限ライン（セット数） */

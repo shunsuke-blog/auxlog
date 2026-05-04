@@ -1,9 +1,19 @@
 'use client'
 
+import { Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Dumbbell } from 'lucide-react'
+import { Dumbbell, AlertCircle } from 'lucide-react'
 
-export default function LoginPage() {
+const ERROR_MESSAGES: Record<string, string> = {
+  auth: '認証に失敗しました。もう一度お試しください。',
+}
+
+function LoginContent() {
+  const searchParams = useSearchParams()
+  const errorKey = searchParams.get('error')
+  const errorMessage = errorKey ? (ERROR_MESSAGES[errorKey] ?? '予期しないエラーが発生しました。') : null
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
 
   const handleGoogleLogin = async () => {
@@ -34,6 +44,13 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {errorMessage && (
+            <div className="w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/40">
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+              <p className="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
+            </div>
+          )}
+
           <div className="w-full">
             <button
               onClick={handleGoogleLogin}
@@ -51,5 +68,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
   )
 }
