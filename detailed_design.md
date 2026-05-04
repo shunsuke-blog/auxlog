@@ -45,8 +45,13 @@
 │   │   ├── exercises/
 │   │   │   └── page.tsx          # 種目管理画面
 │   │   └── settings/
-│   │       ├── page.tsx          # 設定画面
-│   │       └── LogoutButton.tsx  # ログアウトボタン
+│   │       ├── page.tsx                    # 設定画面
+│   │       ├── LogoutButton.tsx            # ログアウトボタン（確認モーダル付き）
+│   │       ├── CancelButton.tsx            # サブスク解約ボタン
+│   │       └── subscription/
+│   │           ├── page.tsx                # サブスクリプション管理画面
+│   │           ├── ResumeButton.tsx        # 解約取り消しボタン
+│   │           └── ChangeCardButton.tsx    # カード変更ボタン（Portal遷移）
 │   ├── api/
 │   │   ├── suggest/
 │   │   │   └── route.ts          # メニュー提案API（GET）
@@ -61,16 +66,31 @@
 │   │   │   └── master/
 │   │   │       └── route.ts      # 種目マスタ一覧API（GET）
 │   │   ├── stripe/
-│   │   │   └── create-subscription/
-│   │   │       └── route.ts      # Stripeサブスク作成API
-│   │   └── webhooks/
-│   │       └── stripe/
-│   │           └── route.ts      # Stripe Webhookエンドポイント
+│   │   │   ├── create-subscription/
+│   │   │   │   └── route.ts      # トライアルサブスク作成API
+│   │   │   ├── cancel-subscription/
+│   │   │   │   └── route.ts      # サブスク解約API（period_end時に解約）
+│   │   │   ├── resume-subscription/
+│   │   │   │   └── route.ts      # 解約取り消しAPI
+│   │   │   ├── reactivate-subscription/
+│   │   │   │   └── route.ts      # 解約済みユーザーの再契約API
+│   │   │   └── create-portal-session/
+│   │   │       └── route.ts      # Stripe Customer Portal セッション作成API
+│   │   ├── webhooks/
+│   │   │   └── stripe/
+│   │   │       └── route.ts      # Stripe Webhookエンドポイント
+│   │   └── contact/
+│   │       └── route.ts          # お問い合わせメール送信API（POST、Resend使用）
 │   ├── auth/
 │   │   └── callback/
 │   │       └── route.ts          # OAuth認証コールバック
 │   ├── onboarding/
 │   │   └── page.tsx              # 初回種目選択画面
+│   ├── subscribe/
+│   │   └── page.tsx              # ペイウォール・再契約ページ
+│   ├── (app)/
+│   │   └── contact/
+│   │       └── page.tsx          # お問い合わせフォーム（カテゴリ・件名・本文）
 │   └── layout.tsx                # ルートレイアウト
 ├── components/
 │   ├── ui/                       # 汎用UIコンポーネント
@@ -112,6 +132,7 @@
 │       └── verify_rls.sql               # RLS検証クエリ
 ├── hooks/
 │   └── useToast.ts               # Toastフック
+├── middleware.ts                  # www.auxlog.com → auxlog.app リダイレクト
 └── types/
     └── index.ts                  # 型定義
 ```
@@ -130,8 +151,9 @@ CREATE TABLE users (
   stripe_customer_id TEXT,
   stripe_subscription_id TEXT,
   subscription_status TEXT DEFAULT 'trialing',
-  -- trialing / active / canceled / past_due
+  -- trialing / active / canceling / canceled / past_due
   trial_ends_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days'),
+  is_admin BOOLEAN DEFAULT false,  -- 管理者フラグ（請求スキップ、常にactive扱い）
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
@@ -145,6 +167,7 @@ CREATE TABLE exercise_master (
   -- chest / back / legs / shoulders / arms
   sort_order INTEGER NOT NULL DEFAULT 0,
   is_bodyweight BOOLEAN DEFAULT false,  -- 自重種目フラグ
+  is_compound BOOLEAN DEFAULT false,    -- コンパウンド種目フラグ（回復日数計算に使用）
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
@@ -433,7 +456,7 @@ CREATE INDEX idx_user_exercises_user
 | RIR・レップ判定 | トップセット（最大重量のセット）のみ |
 | 提案回数の基準 | 前回実績の最高回数（`bestTopReps`） |
 | ストール判定 | レップ達成済みの場合のみ適用 |
-| 48時間未満の種目 | 提案リストから除外（`MIN_DAYS_BETWEEN_SESSIONS = 2`） |
+| 回復日数 | 種目タイプ×前回RIRで算出（`calcMinRecoveryDays`） |
 | セット重量パターン | 前回のパターンを引き継ぐ（ピラミッド対応） |
 | 疲労モデル | セット数が変わる場合: 1セットごとに1回減少 |
 
@@ -441,22 +464,34 @@ CREATE INDEX idx_user_exercises_user
 
 ```typescript
 export const TRAINING = {
-  DAYS_SINCE_LAST_NEVER: 999,        // 記録なし時の経過日数（初回扱い）
-  MIN_DAYS_BETWEEN_SESSIONS: 2,      // 48時間未満は除外
-  WEEKLY_VOLUME_LOW: 10,             // 週ボリューム最低ライン
-  WEEKLY_VOLUME_HIGH: 20,            // 週ボリューム上限ライン
-  STAGNATION_SESSION_COUNT: 3,       // ストール判定に使う直近セッション数
-  WARMUP_WEIGHT_RATIO: 0.8,          // ウォームアップ判定閾値
-  FATIGUE_WEIGHT_REDUCTION: 0.95,    // 疲労時の重量削減率
-  FATIGUE_REPS_REDUCTION: 0.8,       // 自重・疲労時の回数削減率
-  WEIGHT_INCREMENT_KG: 2.5,          // 有酸素種目の重量増加量(kg)
-  BODYWEIGHT_REPS_INCREMENT: 2,      // 自重種目の余裕あり時回数増加量
+  DAYS_SINCE_LAST_NEVER: 999,              // 記録なし時の経過日数（初回扱い）
+  MIN_DAYS_BETWEEN_SESSIONS: 2,            // デフォルト最低回復日数
+  RECOVERY_DAYS_COMPOUND_FAILURE: 3,       // コンパウンド + 限界セットあり → 3日
+  RECOVERY_DAYS_ISOLATION_FAILURE: 2,      // アイソレーション + 限界セットあり → 2日
+  RECOVERY_DAYS_ALL_ROOM: 2,               // 全セット余裕あり → 2日
+  WEEKLY_VOLUME_LOW: 10,                   // 週ボリューム最低ライン
+  WEEKLY_VOLUME_HIGH: 20,                  // 週ボリューム上限ライン
+  STAGNATION_SESSION_COUNT: 3,             // ストール判定に使う直近セッション数
+  WARMUP_WEIGHT_RATIO: 0.8,                // ウォームアップ判定閾値
+  FATIGUE_WEIGHT_REDUCTION: 0.95,          // 疲労時の重量削減率
+  FATIGUE_REPS_REDUCTION: 0.8,             // 自重・疲労時の回数削減率
+  WEIGHT_INCREMENT_KG: 2.5,                // 重量増加量(kg)
+  BODYWEIGHT_REPS_INCREMENT: 2,            // 自重種目の余裕あり時回数増加量
 }
 ```
 
 ### 5.3 判定フロー
 
 ```
+入力: exercises, recentSessions, todayDate
+
+0. 種目ごとに回復日数チェック（calcMinRecoveryDays）→ 未満なら提案リストから除外
+   - コンパウンド + 限界セットあり → 3日
+   - アイソレーション + 限界セットあり → 2日
+   - 全ワーキングセット余裕あり → 2日
+   - 前回記録なし（初回） → 常に提案
+   提案リストを経過日数の降順でソート
+
 入力: lastSets（前回セット一覧）, exercise, lastFatigue, isStagnant
 
 1. lastSets が空 → 初回提案（default_sets × default_reps の疲労モデル付き直線セット）
@@ -494,11 +529,15 @@ export const TRAINING = {
 
 | 関数 | 役割 |
 |---|---|
+| `calcMinRecoveryDays(exercise, lastWorkingSets)` | 種目タイプ × 前回RIRから最低回復日数を算出 |
 | `isHighFatigue(fatigue)` | 疲労度 >= 4 の判定 |
 | `separateSets(sets)` | ウォームアップとワーキングセットを分離 |
 | `getTopSetMetrics(workingSets)` | トップセットの重量・回数・RIRを算出 |
 | `generateWorkingSetTargets(...)` | ワーキングセットの目標を生成（前回パターン引き継ぎ or 疲労モデル） |
 | `buildWarmupTargets(warmupSets)` | ウォームアップセットは前回の重量・回数を維持 |
+| `calcWeeklyVolumeSets(exercise, sessions, today)` | 過去7日間のワーキングセット数を集計 |
+| `checkStagnation(exerciseId, sessions)` | 直近3セッションの最大重量が同一か判定 |
+| `getVolumeStatus(weeklySets)` | 週セット数から low/optimal/high を返す |
 
 ### 5.5 SetTarget 型（提案セット詳細）
 
@@ -570,8 +609,12 @@ export type SetData = {
 
 ### 6.3 記録編集画面（app/(app)/record/edit/[sessionId]/page.tsx）
 
-- `?exerciseId=[id]` クエリで種目を絞り込み表示
-- セッション削除ボタン（Trash2アイコン）
+- `?exerciseId=[id]` クエリで種目を絞り込み表示（個別編集モード）
+- 全体編集モードでは CircleCheck で各種目の有効/無効を切り替え可能
+- 全体編集モードでは「種目を追加」モーダルを表示可能
+- `?merge=id1,id2` クエリで複数セッションを統合編集（保存時に余分なセッションを削除）
+- 個別編集モードでは対象外種目のセットを `preservedSets` に保持し保存時に再結合
+- セッション削除ボタン（Trash2アイコン、確認なし）
 - `PATCH /api/sessions/[sessionId]` で保存（RPC優先）
 - `DELETE /api/sessions/[sessionId]` で削除
 
@@ -589,10 +632,18 @@ export type SetData = {
 
 **SessionList.tsx**
 - 種目ごとに展開/折り畳み（`ChevronDown` トグル）
+- 同一日に複数セッションがある場合は `allIds` で管理し `?merge=id1,id2` クエリで全体編集へ遷移
 - 編集ボタン（Pencil）→ セッション全体編集
 - 種目ごとの編集ボタン（PenLine）→ `?exerciseId=[id]` クエリ付きで遷移
+- ウォームアップセットのRIR表示は `—`（ダッシュ）で非表示
 - 自重種目の表示: ウォームアップ除外の合計回数
 - 有酸素種目: ボリューム（重量×回数）を kg で表示
+
+**VolumeChart.tsx**
+- メトリクス切り替え: 最大重量 / 総挙上量 / 推定1RM（Epley式: `weight × (1 + reps / 30)`）
+- 自重種目は回数推移のみ表示（メトリクス切り替えUI非表示）
+- 種目切り替えはカスタムアイコン（`ChevronsUpDown`）付き `select` で表示
+- ダークモード対応: `matchMedia` で `isDark` を検知してグラフ色を切り替え
 
 ---
 
@@ -614,6 +665,7 @@ export type ExerciseMaster = {
   target_muscle: TargetMuscle;
   sort_order: number;
   is_bodyweight: boolean;
+  is_compound: boolean;    // コンパウンド種目フラグ
   created_at: string;
 };
 
@@ -628,6 +680,7 @@ export type UserExercise = {
   sort_order: number;
   is_active: boolean;
   is_bodyweight: boolean;
+  is_compound: boolean;    // exercise_master から正規化
   created_at: string;
   name: string;            // JOINして正規化
   target_muscle: TargetMuscle;  // JOINして正規化
@@ -734,6 +787,7 @@ export function normalizeExercises(rows: RawUserExercise[]): UserExercise[]
 
 - `custom_name` があればカスタム種目、なければ `exercise_master` から取得
 - `is_bodyweight` はカスタム種目なら `user_exercises` から、マスタ種目なら `exercise_master` から取得
+- `is_compound` は `exercise_master.is_compound` から取得（カスタム種目はデフォルト `false`）
 - 不正な筋群値は `'chest'` にフォールバック（DB不整合対策）
 
 ---
@@ -749,6 +803,7 @@ STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+RESEND_API_KEY=          # お問い合わせメール送信（Resend）
 ```
 
 ---
@@ -757,25 +812,104 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ### 11.1 トライアル開始フロー
 1. Google認証でサインアップ
-2. `users` テーブルにレコード作成（`subscription_status: 'trialing'`）
-3. Stripe Customerを作成、`stripe_customer_id` を保存
-4. Stripe Subscriptionをトライアル付きで作成
-5. トライアル期間中は全機能利用可能
+2. `users` テーブルにレコード作成（`subscription_status: null`）
+3. `POST /api/stripe/create-subscription` を呼び出し
+   - Stripe Customerを作成（`stripe_customer_id` を保存）
+   - `trial_period_days: 30`、`payment_behavior: 'default_incomplete'` でサブスク作成
+   - `subscription_status: 'trialing'`、`trial_ends_at` を保存
+4. トライアル期間中（30日）は全機能利用可能・カード登録不要
 
-### 11.2 トライアル終了後
-- Stripeのwebhookで`customer.subscription.updated` を受信
-- `subscription_status` を `active` または `canceled` に更新
-- `canceled` の場合：記録閲覧のみ可能
+### 11.2 解約フロー
+- `POST /api/stripe/cancel-subscription` → `cancel_at_period_end: true` に設定
+- `subscription_status: 'canceling'`、`trial_ends_at: current_period_end` に更新
+- `canceling` 中は `trial_ends_at` まで全機能利用可能
 
-### 11.3 Webhookエンドポイント
-**POST /api/webhooks/stripe**
-- `customer.subscription.updated`
-- `customer.subscription.deleted`
-- `invoice.payment_failed`
+### 11.3 解約取り消しフロー
+- `POST /api/stripe/resume-subscription` → `cancel_at_period_end: false` に戻す
+- `subscription_status: 'trialing'` に更新（または `'active'`）
+
+### 11.4 再契約フロー（canceled ユーザー）
+1. `/subscribe?reason=canceled` ページを表示
+2. 「カードを登録して再開する」→ `POST /api/stripe/create-portal-session?returnPath=/subscribe?step=activate`
+3. Stripe Customer Portalでカード登録
+4. Portal完了後 `/subscribe?step=activate` にリダイレクト
+5. `POST /api/stripe/reactivate-subscription` → トライアルなし新規サブスク作成
+6. `subscription_status: 'active'` に更新 → ホームへリダイレクト
+
+### 11.5 カード変更フロー
+- `POST /api/stripe/create-portal-session` → Stripe Customer Portalへリダイレクト
+- Portalでカード情報変更、`returnPath` に指定したパスへ戻る
+
+### 11.6 Webhookエンドポイント
+**POST /api/webhooks/stripe**（署名検証あり）
+
+| イベント | 処理 |
+|---------|------|
+| `customer.subscription.created` | status/trial_ends_at を同期 |
+| `customer.subscription.updated` | status/trial_ends_at を同期 |
+| `customer.subscription.deleted` | `status: 'canceled'` に更新 |
+| `customer.subscription.trial_will_end` | （通知のみ、Stripeが自動でメール送信） |
+| `invoice.payment_failed` | `status: 'past_due'` に更新 |
+
+### 11.7 アクセス制御（app/(app)/layout.tsx）
+- `is_admin = true` → チェックスキップ、常にアクセス許可
+- `status = null` → 新規ユーザー、`create-subscription` を呼んでトライアル開始
+- `status = 'trialing' | 'canceling'` → `trial_ends_at` が未来なら許可
+- `status = 'active'` → 許可
+- `status = 'canceled' | 'past_due'` → `/subscribe?reason=...` にリダイレクト
+- トライアル期限切れ → `/subscribe?reason=trial_ended` にリダイレクト
+
+### 11.8 サブスクリプション状態の表示（settings/subscription/page.tsx）
+- Stripe API（サーバーサイド）からカード情報・次回請求日を取得
+- `active` 状態のみ次回更新日を表示
+- `is_admin` の場合はステータスに「（管理者）」を付記、課金操作ボタンを非表示
 
 ---
 
-## 12. エラーハンドリング方針
+## 12. デザインシステム
+
+### 12.1 カラー（globals.css）
+
+```css
+:root {
+  --background: #ffffff;
+  --foreground: #000000;
+  --my-accent: #B8CC00;   /* ライトモードアクセント */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0A0A0A;
+    --foreground: #ffffff;
+    --my-accent: #E8FF00;           /* ダークモードアクセント */
+    --color-zinc-950: #141414;      /* カード背景 */
+    --color-zinc-900: #1A1A1A;      /* セカンダリ背景 */
+    --color-zinc-800: #222222;      /* ボーダー */
+  }
+}
+```
+
+### 12.2 共通スタイルパターン
+
+| 要素 | クラス |
+|------|--------|
+| ページ背景 | `bg-white dark:bg-black` |
+| カード | `bg-white dark:bg-zinc-950 rounded-3xl shadow-[0_2px_16px_rgba(0,0,0,0.06)]` |
+| 固定ヘッダー | `sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b ... py-5` |
+| プライマリボタン | `bg-black dark:bg-white text-white dark:text-black rounded-xl py-4 font-semibold` |
+| アクセントバッジ | `text-accent bg-accent/10 rounded-full` |
+| アクセントボーダー | `border-accent` |
+
+### 12.3 ルーティング
+
+| ミドルウェア | 処理 |
+|------------|------|
+| `www.auxlog.com/*` → `auxlog.app/*` | 308 Permanent Redirect（middleware.ts） |
+| `NEXT_PUBLIC_APP_URL=https://auxlog.app` | OAuth コールバックURLに使用 |
+
+---
+
+## 13. エラーハンドリング方針
 
 | エラー種別 | 対応 |
 |-----------|------|
@@ -789,7 +923,7 @@ APIのエラーメッセージは汎用化し、内部情報（DBエラー詳細
 
 ---
 
-## 13. パフォーマンス方針
+## 14. パフォーマンス方針
 
 - ホーム画面の提案データはサーバーコンポーネントでSSR（初回表示を高速化）
 - 履歴画面もサーバーコンポーネントで初期データ取得、インタラクションはクライアント
