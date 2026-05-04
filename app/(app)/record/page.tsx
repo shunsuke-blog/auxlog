@@ -10,6 +10,7 @@ import type { UserExercise, Suggestion, TargetMuscle } from '@/types'
 import { TARGET_MUSCLE_LABELS } from '@/types'
 import { todayLocalDate } from '@/lib/utils/date'
 import SaveComplete from '@/components/ui/SaveComplete'
+import { useNavigationGuard } from '@/lib/contexts/NavigationGuard'
 
 type ExerciseSets = {
   exercise: UserExercise
@@ -26,6 +27,8 @@ function RecordContent() {
   const exerciseId = searchParams.get('exerciseId')
   // ホームカードから来た場合は exerciseId あり → CircleCheck 不要
   const fromHome = exerciseId !== null
+
+  const { setIsDirty, guardedPush } = useNavigationGuard()
 
   const [fatigueLevel, setFatigueLevel] = useState(3)
   const [memo, setMemo] = useState('')
@@ -138,6 +141,7 @@ function RecordContent() {
   }, [exerciseId])
 
   const updateSet = (exIdx: number, setIdx: number, data: SetData) => {
+    if (data.done) setIsDirty(true)
     setExerciseSets(prev => {
       const next = [...prev]
       next[exIdx] = {
@@ -252,6 +256,7 @@ function RecordContent() {
     })
 
     if (res.ok) {
+      setIsDirty(false)
       setSaved(true)
     } else {
       setErrorMessage('保存に失敗しました。再試行してください')
@@ -273,7 +278,7 @@ function RecordContent() {
     <div className="min-h-screen bg-white dark:bg-black">
       <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-4 py-5 z-10 flex items-center gap-2">
         <button
-          onClick={() => router.back()}
+          onClick={() => guardedPush('/')}
           className="p-1.5 -ml-1.5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
         >
           <ChevronLeft className="w-5 h-5" />

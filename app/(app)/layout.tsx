@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import BottomNav from '@/components/ui/BottomNav'
 import { canUseApp } from '@/lib/subscription'
+import { NavigationGuardProvider } from '@/lib/contexts/NavigationGuard'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -34,9 +35,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
-      <main>{children}</main>
-      <BottomNav />
-    </div>
+    <NavigationGuardProvider>
+      <div className="min-h-screen bg-white dark:bg-black" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
+        <main>{children}</main>
+        <BottomNav />
+      </div>
+    </NavigationGuardProvider>
   )
 }

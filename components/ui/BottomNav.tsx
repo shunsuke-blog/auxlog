@@ -1,8 +1,8 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, PenLine, BarChart2, Settings } from 'lucide-react'
+import { useNavigationGuard } from '@/lib/contexts/NavigationGuard'
 
 const tabs = [
   { href: '/', label: 'ホーム', icon: Home },
@@ -13,6 +13,7 @@ const tabs = [
 
 export default function BottomNav() {
   const pathname = usePathname()
+  const { guardedPush } = useNavigationGuard()
 
   return (
     <nav
@@ -23,9 +24,9 @@ export default function BottomNav() {
         {tabs.map(({ href, label, icon: Icon }) => {
           const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href)
           return (
-            <Link
+            <button
               key={href}
-              href={href}
+              onClick={() => guardedPush(href)}
               className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2.5"
             >
               <Icon
@@ -45,7 +46,7 @@ export default function BottomNav() {
               >
                 {label}
               </span>
-            </Link>
+            </button>
           )
         })}
       </div>
