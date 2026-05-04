@@ -4,11 +4,13 @@ import Link from 'next/link'
 import { ChevronRight, Dumbbell } from 'lucide-react'
 import LogoutButton from './LogoutButton'
 import PortalButton from './PortalButton'
+import CancelButton from './CancelButton'
 
 function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     trialing: 'トライアル中',
     active: '有効',
+    canceling: '解約予定',
     canceled: 'キャンセル済み',
     past_due: '支払い遅延',
   }
@@ -34,7 +36,9 @@ export default async function SettingsPage() {
 
   const status = userData?.subscription_status ?? null
   const trialEndsAt = userData?.trial_ends_at ?? ''
-  const daysLeft = status === 'trialing' && trialEndsAt ? getTrialDaysLeft(trialEndsAt) : null
+  const daysLeft = (status === 'trialing' || status === 'canceling') && trialEndsAt
+    ? getTrialDaysLeft(trialEndsAt)
+    : null
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
@@ -55,6 +59,7 @@ export default async function SettingsPage() {
             <span className={`text-sm font-medium ${
               status === 'active' ? 'text-emerald-500' :
               status === 'trialing' ? 'text-amber-500' :
+              status === 'canceling' ? 'text-orange-500' :
               status === null ? 'text-zinc-400' :
               'text-red-500'
             }`}>
@@ -63,7 +68,9 @@ export default async function SettingsPage() {
           </div>
           {daysLeft !== null && (
             <div className="flex items-center justify-between">
-              <span className="text-sm text-zinc-500 dark:text-zinc-400">トライアル残り</span>
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                {status === 'canceling' ? 'サービス終了まで' : 'トライアル残り'}
+              </span>
               <span className="text-sm text-black dark:text-white">{daysLeft}日</span>
             </div>
           )}
@@ -74,6 +81,7 @@ export default async function SettingsPage() {
         </div>
 
         {status !== 'canceled' && <PortalButton status={status ?? 'trialing'} />}
+        {(status === 'active' || status === 'trialing') && <CancelButton />}
 
         <Link
           href="/exercises"
