@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? '入力値が不正です' }, { status: 400 })
   }
-  const { exercise_master_id, custom_name, custom_target_muscle, default_sets, default_reps } = parsed.data
+  const { exercise_master_id, custom_name, custom_target_muscle, default_sets, default_reps, is_compound } = parsed.data
 
   const { data: existing } = await supabase
     .from('user_exercises')
@@ -51,6 +51,7 @@ export async function POST(request: Request) {
       default_sets: default_sets ?? 3,
       default_reps: default_reps ?? 8,
       sort_order: nextSortOrder,
+      is_compound: exercise_master_id ? undefined : (is_compound ?? false),
     })
     .select()
     .single()

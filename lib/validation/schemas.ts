@@ -31,6 +31,7 @@ export const CreateExerciseSchema = z.object({
   custom_target_muscle: z.enum(TARGET_MUSCLES).nullable().optional(),
   default_sets: z.number().int().min(1).max(20).optional(),
   default_reps: z.number().int().min(1).max(100).optional(),
+  is_compound: z.boolean().optional().default(false),
 }).refine(
   d => d.exercise_master_id != null || (d.custom_name != null && d.custom_name.length > 0),
   { message: 'exercise_master_id またはカスタム種目名が必要です' }

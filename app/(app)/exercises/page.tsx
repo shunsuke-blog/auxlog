@@ -20,6 +20,7 @@ function AddModal({ onClose, onAdd, registeredMasterIds }: AddModalProps) {
   const [masters, setMasters] = useState<ExerciseMaster[]>([])
   const [customName, setCustomName] = useState('')
   const [customMuscle, setCustomMuscle] = useState<TargetMuscle>('chest')
+  const [customIsCompound, setCustomIsCompound] = useState(false)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -53,7 +54,7 @@ function AddModal({ onClose, onAdd, registeredMasterIds }: AddModalProps) {
     await fetch('/api/exercises', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ custom_name: customName.trim(), custom_target_muscle: customMuscle }),
+      body: JSON.stringify({ custom_name: customName.trim(), custom_target_muscle: customMuscle, is_compound: customIsCompound }),
     })
     onAdd()
     onClose()
@@ -62,7 +63,7 @@ function AddModal({ onClose, onAdd, registeredMasterIds }: AddModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-white dark:bg-zinc-950 rounded-t-2xl max-h-[80vh] flex flex-col">
+      <div className="relative w-full max-w-lg bg-white dark:bg-zinc-950 rounded-t-2xl h-[80vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-900">
           <h2 className="text-base font-semibold text-black dark:text-white">種目を追加</h2>
           <button onClick={onClose}>
@@ -142,6 +143,25 @@ function AddModal({ onClose, onAdd, registeredMasterIds }: AddModalProps) {
                   ))}
                 </div>
               </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-500 mb-1.5">種目タイプ</label>
+                <div className="flex gap-2">
+                  {[{ value: false, label: 'アイソレーション', sub: '単関節' }, { value: true, label: 'コンパウンド', sub: '多関節' }].map(opt => (
+                    <button
+                      key={String(opt.value)}
+                      onClick={() => setCustomIsCompound(opt.value)}
+                      className={`flex-1 py-3 rounded-xl border text-center transition-colors ${
+                        customIsCompound === opt.value
+                          ? 'border-black dark:border-white bg-black dark:bg-white'
+                          : 'border-zinc-200 dark:border-zinc-800'
+                      }`}
+                    >
+                      <p className={`text-xs font-semibold ${customIsCompound === opt.value ? 'text-white dark:text-black' : 'text-black dark:text-white'}`}>{opt.label}</p>
+                      <p className={`text-[10px] mt-0.5 ${customIsCompound === opt.value ? 'text-white/60 dark:text-black/50' : 'text-zinc-400'}`}>{opt.sub}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <button
                 onClick={addCustom}
                 disabled={!customName.trim() || saving}
@@ -160,6 +180,7 @@ function AddModal({ onClose, onAdd, registeredMasterIds }: AddModalProps) {
 export default function ExercisesPage() {
   const [exercises, setExercises] = useState<UserExercise[]>([])
   const [showModal, setShowModal] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
   const { toast, showToast } = useToast()
 
   const loadExercises = useCallback(async () => {
@@ -170,8 +191,10 @@ export default function ExercisesPage() {
 
   useEffect(() => { loadExercises() }, [loadExercises])
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`「${name}」を削除しますか？\nこの種目のトレーニング履歴もすべて削除されます。`)) return
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return
+    const { id } = deleteTarget
+    setDeleteTarget(null)
     setExercises(prev => prev.filter(e => e.id !== id))
     await fetch(`/api/exercises/${id}`, { method: 'DELETE' })
     showToast('種目と履歴を削除しました')
@@ -220,7 +243,7 @@ export default function ExercisesPage() {
                         {ex.name}
                       </span>
                       <button
-                        onClick={() => handleDelete(ex.id, ex.name)}
+                        onClick={() => setDeleteTarget({ id: ex.id, name: ex.name })}
                         className="text-zinc-300 dark:text-zinc-700 hover:text-red-400 transition-colors shrink-0"
                       >
                         <X className="w-4 h-4" />
@@ -240,6 +263,32 @@ export default function ExercisesPage() {
           onAdd={loadExercises}
           registeredMasterIds={new Set(exercises.map(e => e.exercise_master_id).filter(Boolean) as string[])}
         />
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setDeleteTarget(null)} />
+          <div className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
+            <p className="text-base font-semibold text-black dark:text-white">「{deleteTarget.name}」を削除しますか？</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              この種目のトレーニング履歴もすべて削除されます。
+            </p>
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-sm font-medium text-white"
+              >
+                削除する
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <Toast message={toast} />

@@ -17,6 +17,7 @@ export type RawUserExercise = {
   sort_order: number
   is_active: boolean
   is_bodyweight: boolean
+  is_compound?: boolean
   created_at: string
   exercise_master: { name: string; target_muscle: string; is_bodyweight: boolean; is_compound?: boolean } | null
 }
@@ -35,7 +36,10 @@ export function normalizeExercise(e: RawUserExercise): UserExercise {
     ? (rawMuscle as TargetMuscle)
     : 'chest'
 
-  const is_compound = e.exercise_master?.is_compound ?? false
+  // カスタム種目は user_exercises.is_compound、マスタ種目は exercise_master.is_compound を使用
+  const is_compound = e.custom_name
+    ? (e.is_compound ?? false)
+    : (e.exercise_master?.is_compound ?? false)
 
   return {
     ...e,
