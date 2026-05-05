@@ -24,7 +24,7 @@ export async function POST() {
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
-  // 既存CustomerがあればそのまM利用、なければ新規作成（カード不要）
+  // 既存Customerがあればそのまま利用、なければ新規作成（カード不要）
   let customerId = userData?.stripe_customer_id ?? null
   if (!customerId) {
     const customer = await stripe.customers.create({
@@ -32,6 +32,11 @@ export async function POST() {
       metadata: { supabase_user_id: user.id },
     })
     customerId = customer.id
+    // Customer作成直後にDBへ保存（以降の処理が失敗してもIDが失われない）
+    await supabase
+      .from('users')
+      .update({ stripe_customer_id: customerId })
+      .eq('id', user.id)
   }
 
   let subscription
