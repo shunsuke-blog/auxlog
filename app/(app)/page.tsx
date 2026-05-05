@@ -4,6 +4,7 @@ import HomeMenu from '@/components/home/HomeMenu'
 import { redirect } from 'next/navigation'
 import { normalizeExercises } from '@/lib/normalize/exercises'
 import type { TrainingLevel } from '@/types'
+import { todayInJST } from '@/lib/utils/date'
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -45,7 +46,7 @@ export default async function HomePage() {
   }))
 
   const suggestions = normalizedExercises.length > 0
-    ? suggestMenu({ exercises: normalizedExercises, recentSessions: normalizedSessions, todayDate: new Date(), trainingLevel })
+    ? suggestMenu({ exercises: normalizedExercises, recentSessions: normalizedSessions, todayDate: todayInJST(), trainingLevel })
     : []
 
   return (

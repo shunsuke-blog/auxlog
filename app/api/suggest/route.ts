@@ -4,6 +4,7 @@ import { normalizeExercises } from '@/lib/normalize/exercises'
 import { NextResponse } from 'next/server'
 import type { TrainingLevel } from '@/types'
 import { VOLUME_TARGETS } from '@/lib/constants/training'
+import { todayInJST } from '@/lib/utils/date'
 
 export async function GET() {
   const supabase = await createClient()
@@ -46,7 +47,7 @@ export async function GET() {
   const suggestions = suggestMenu({
     exercises: normalizedExercises,
     recentSessions: normalizedSessions,
-    todayDate: new Date(),
+    todayDate: todayInJST(),
     trainingLevel,
   })
 
