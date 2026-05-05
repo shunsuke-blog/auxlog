@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, ChevronRight } from 'lucide-react'
 import type { Suggestion, UserExercise } from '@/types'
 import { TARGET_MUSCLE_LABELS } from '@/types'
 import SwipeableExerciseCard from './SwipeableExerciseCard'
@@ -45,9 +45,10 @@ function removeHiddenId(exerciseId: string) {
 type Props = {
   initialSuggestions: Suggestion[]
   allExercises: UserExercise[]
+  trialDaysLeft: number | null
 }
 
-export default function HomeMenu({ initialSuggestions, allExercises }: Props) {
+export default function HomeMenu({ initialSuggestions, allExercises, trialDaysLeft }: Props) {
   const today = new Date().toLocaleDateString('ja-JP', {
     year: 'numeric',
     month: 'long',
@@ -121,6 +122,28 @@ export default function HomeMenu({ initialSuggestions, allExercises }: Props) {
           </button>
         )}
       </div>
+
+      {/* トライアル終了バナー */}
+      {trialDaysLeft !== null && trialDaysLeft <= 7 && trialDaysLeft > 0 && (
+        <Link
+          href="/settings/subscription"
+          className={`mx-5 mt-4 flex items-center justify-between px-4 py-3 rounded-2xl ${
+            trialDaysLeft <= 3
+              ? 'bg-red-500/10 border border-red-500/30'
+              : 'bg-accent/10 border border-accent/30'
+          }`}
+        >
+          <div>
+            <p className={`text-sm font-semibold ${trialDaysLeft <= 3 ? 'text-red-500' : 'text-accent'}`}>
+              トライアルがあと{trialDaysLeft}日で終了します
+            </p>
+            {trialDaysLeft <= 3 && (
+              <p className="text-xs text-red-400 mt-0.5">継続利用にはカード登録が必要です</p>
+            )}
+          </div>
+          <ChevronRight className={`w-4 h-4 shrink-0 ${trialDaysLeft <= 3 ? 'text-red-400' : 'text-accent'}`} />
+        </Link>
+      )}
 
       {/* カードリスト */}
       <div className="px-5 py-6 space-y-4">

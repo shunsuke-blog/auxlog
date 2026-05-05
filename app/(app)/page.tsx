@@ -12,7 +12,7 @@ export default async function HomePage() {
   if (!user) return null
 
   const [{ data: userData }, { data: exercises }] = await Promise.all([
-    supabase.from('users').select('training_level').eq('id', user.id).single(),
+    supabase.from('users').select('training_level, subscription_status, trial_ends_at, is_admin, is_free, free_until').eq('id', user.id).single(),
     supabase
       .from('user_exercises')
       .select('*, exercise_master(name, target_muscle, is_bodyweight, is_compound)')
@@ -22,6 +22,17 @@ export default async function HomePage() {
   ])
 
   const trainingLevel: TrainingLevel = (userData?.training_level as TrainingLevel) ?? 'intermediate'
+
+  // トライアル終了バナーの残り日数を計算（trialing のみ対象）
+  const isAdmin = userData?.is_admin ?? false
+  const isFree = userData?.is_free ?? false
+  const freeUntil = userData?.free_until ?? null
+  const freeActive = isFree && (!freeUntil || new Date(freeUntil) > new Date())
+  const status = userData?.subscription_status ?? null
+  const trialEndsAt = userData?.trial_ends_at ?? null
+  const trialDaysLeft = (status === 'trialing' && trialEndsAt && !isAdmin && !freeActive)
+    ? Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null
 
   if (!exercises || exercises.length === 0) {
     redirect('/onboarding')
@@ -54,6 +65,7 @@ export default async function HomePage() {
       <HomeMenu
         initialSuggestions={suggestions}
         allExercises={normalizedExercises}
+        trialDaysLeft={trialDaysLeft}
       />
     </div>
   )
