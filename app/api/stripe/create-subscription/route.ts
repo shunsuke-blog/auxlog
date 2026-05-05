@@ -58,10 +58,10 @@ export async function POST() {
     ? new Date(subscription.trial_end * 1000).toISOString()
     : null
 
+  // Subscription作成直後にDBへ保存（以降の処理が失敗してもIDが失われない）
   await supabase
     .from('users')
     .update({
-      stripe_customer_id: customerId,
       stripe_subscription_id: subscription.id,
       subscription_status: subscription.status,
       ...(trialEnd ? { trial_ends_at: trialEnd } : {}),
