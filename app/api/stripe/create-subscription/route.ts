@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
+import { Resend } from 'resend'
 
 export async function POST() {
   if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_PRICE_ID) {
@@ -61,6 +62,19 @@ export async function POST() {
       ...(trialEnd ? { trial_ends_at: trialEnd } : {}),
     })
     .eq('id', user.id)
+
+  // 新規登録通知
+  if (process.env.RESEND_API_KEY) {
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    const newUserEmail = userData?.email ?? user.email ?? '不明'
+    const registeredAt = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
+    resend.emails.send({
+      from: 'Auxlog <noreply@bloomines.com>',
+      to: 'auxlog.support@gmail.com',
+      subject: '【Auxlog】新規ユーザー登録',
+      text: `新規ユーザーが登録しました。\n\nメールアドレス: ${newUserEmail}\n登録日時: ${registeredAt}`,
+    }).catch(() => { /* 通知失敗はメイン処理に影響させない */ })
+  }
 
   return NextResponse.json({ subscription_id: subscription.id })
 }
