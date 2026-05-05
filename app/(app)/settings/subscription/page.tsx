@@ -116,7 +116,7 @@ export default async function SubscriptionPage() {
               <span className="text-sm text-black dark:text-white">{formatDate(freeUntil)}</span>
             </div>
           )}
-          {trialEndsAt && (status === 'trialing' || status === 'canceling') && (
+          {trialEndsAt && (status === 'trialing' || status === 'canceling') && !freeActive && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-zinc-500 dark:text-zinc-400">
                 {status === 'canceling' ? 'サービス終了日' : 'トライアル終了日'}
