@@ -91,7 +91,7 @@ export default async function SettingsPage() {
               <span className="text-sm text-black dark:text-white">{daysLeft}日</span>
             </div>
           )}
-          {!isAdmin && !freeActive && (
+          {!isAdmin && !freeActive && status !== 'trialing' && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-zinc-500 dark:text-zinc-400">料金</span>
               <span className="text-sm text-black dark:text-white">¥480/月</span>
