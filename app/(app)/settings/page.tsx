@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ChevronRight, Dumbbell, Mail } from 'lucide-react'
 import LogoutButton from './LogoutButton'
 import TrainingLevelSelector from './TrainingLevelSelector'
+import AddToHomeScreenSection from '@/components/ui/AddToHomeScreenSection'
 import type { TrainingLevel } from '@/types'
 
 function getStatusLabel(status: string): string {
@@ -122,6 +123,8 @@ export default async function SettingsPage() {
           </div>
           <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
         </Link>
+
+        <AddToHomeScreenSection />
 
         <LogoutButton />
       </div>

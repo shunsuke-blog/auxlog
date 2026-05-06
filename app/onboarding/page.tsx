@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check } from 'lucide-react'
+import { Check, Smartphone } from 'lucide-react'
 import type { ExerciseMaster, TargetMuscle, TrainingLevel } from '@/types'
 import { TARGET_MUSCLE_LABELS, TRAINING_LEVEL_LABELS } from '@/types'
 
-type Step = 'level' | 'exercises'
+type Step = 'level' | 'exercises' | 'install'
 
 type LevelOption = {
   value: TrainingLevel
@@ -78,14 +78,82 @@ export default function OnboardingPage() {
       ),
       fetch('/api/stripe/create-subscription', { method: 'POST' }),
     ])
+    setStep('install')
+  }
+
+  const handleFinish = () => {
     router.push('/')
+  }
+
+  if (step === 'install') {
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+    const isIOS = /iPhone|iPad|iPod/i.test(ua)
+    const isAndroid = /Android/i.test(ua)
+    const isMobile = isIOS || isAndroid
+
+    return (
+      <div className="min-h-screen bg-white dark:bg-black flex flex-col">
+        <div className="px-6 py-5 border-b border-zinc-100 dark:border-zinc-900">
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 3 / 3</p>
+          <h1 className="text-xl font-semibold text-black dark:text-white">
+            ホーム画面に追加する
+          </h1>
+        </div>
+
+        <div className="flex-1 px-6 py-10 space-y-6">
+          <div className="flex items-center justify-center">
+            <div className="w-20 h-20 rounded-2xl bg-black dark:bg-white flex items-center justify-center">
+              <Smartphone className="w-10 h-10 text-white dark:text-black" />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-base font-semibold text-black dark:text-white text-center">
+              アプリとして使うと便利です
+            </p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center leading-relaxed">
+              ホーム画面に追加すると、次回からアイコンをタップするだけで開けます。
+            </p>
+          </div>
+
+          {isMobile && (
+            <div className="bg-zinc-50 dark:bg-zinc-900 rounded-2xl p-5 space-y-3">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">追加方法</p>
+              <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                {isIOS
+                  ? '画面下の共有ボタン（↑）をタップ → 「ホーム画面に追加」を選択'
+                  : 'ブラウザメニュー（⋮）をタップ → 「ホーム画面に追加」を選択'}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div
+          className="p-6 space-y-3 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900"
+          style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}
+        >
+          <button
+            onClick={handleFinish}
+            className="w-full py-4 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold"
+          >
+            はじめる
+          </button>
+          <button
+            onClick={handleFinish}
+            className="w-full py-3 text-sm text-zinc-400 dark:text-zinc-500"
+          >
+            スキップ
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (step === 'level') {
     return (
       <div className="min-h-screen bg-white dark:bg-black pb-32">
         <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 1 / 2</p>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 1 / 3</p>
           <h1 className="text-xl font-semibold text-black dark:text-white">
             あなたのトレーニング歴は？
           </h1>
@@ -144,7 +212,7 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-black pb-24">
       <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
-        <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 2 / 2</p>
+        <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 2 / 3</p>
         <h1 className="text-xl font-semibold text-black dark:text-white">
           あなたが行っている種目を選択してください
         </h1>
