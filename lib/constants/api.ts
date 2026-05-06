@@ -1,0 +1,5 @@
+export const API = {
+  SESSION_HISTORY_MAX: 100,
+  PAGINATION_DEFAULT: 20,
+  PAGINATION_MAX: 100,
+} as const

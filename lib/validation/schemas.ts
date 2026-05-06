@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TARGET_MUSCLE_LABELS } from '@/types'
 
 const SetSchema = z.object({
   exercise_id: z.string().uuid(),
@@ -23,7 +24,7 @@ export const UpdateSessionSchema = z.object({
   sets: z.array(SetSchema).min(1, 'セットが1つ以上必要です'),
 })
 
-const TARGET_MUSCLES = ['chest', 'back', 'legs', 'shoulders', 'arms'] as const
+const TARGET_MUSCLES = Object.keys(TARGET_MUSCLE_LABELS) as [string, ...string[]]
 
 export const CreateExerciseSchema = z.object({
   exercise_master_id: z.string().uuid().nullable().optional(),

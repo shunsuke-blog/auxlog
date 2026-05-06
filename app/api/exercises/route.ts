@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { normalizeExercises } from '@/lib/normalize/exercises'
 import { CreateExerciseSchema } from '@/lib/validation/schemas'
+import { validationError, dbError } from '@/lib/api/errors'
 
 export async function GET() {
   const supabase = await createClient()
@@ -15,7 +16,7 @@ export async function GET() {
     .eq('is_active', true)
     .order('sort_order')
 
-  if (error) return NextResponse.json({ error: '種目の取得に失敗しました' }, { status: 500 })
+  if (error) return dbError('種目の取得に失敗しました', error)
 
   return NextResponse.json({ exercises: normalizeExercises(data ?? []) })
 }
@@ -27,9 +28,7 @@ export async function POST(request: Request) {
 
   const body = await request.json()
   const parsed = CreateExerciseSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? '入力値が不正です' }, { status: 400 })
-  }
+  if (!parsed.success) return validationError(parsed.error)
   const { exercise_master_id, custom_name, custom_target_muscle, default_sets, default_reps, is_compound } = parsed.data
 
   const { data: existing } = await supabase
@@ -56,7 +55,7 @@ export async function POST(request: Request) {
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: '種目の追加に失敗しました' }, { status: 500 })
+  if (error) return dbError('種目の追加に失敗しました', error)
 
   return NextResponse.json({ exercise: data })
 }

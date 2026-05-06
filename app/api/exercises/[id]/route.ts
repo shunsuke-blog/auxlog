@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { UpdateExerciseSchema } from '@/lib/validation/schemas'
+import { validationError, dbError, notFound } from '@/lib/api/errors'
 
 export async function PATCH(
   request: Request,
@@ -13,9 +14,7 @@ export async function PATCH(
   const { id } = await params
   const body = await request.json()
   const parsed = UpdateExerciseSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? '入力値が不正です' }, { status: 400 })
-  }
+  if (!parsed.success) return validationError(parsed.error)
 
   const updates: Record<string, number> = {}
   if (parsed.data.default_sets !== undefined) updates.default_sets = parsed.data.default_sets
@@ -31,7 +30,7 @@ export async function PATCH(
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: '種目の更新に失敗しました' }, { status: 500 })
+  if (error) return dbError('種目の更新に失敗しました', error)
 
   return NextResponse.json({ exercise: data })
 }
@@ -54,7 +53,7 @@ export async function DELETE(
     .eq('user_id', user.id)
     .single()
 
-  if (!exercise) return NextResponse.json({ error: '種目が見つかりません' }, { status: 404 })
+  if (!exercise) return notFound('種目が見つかりません')
 
   // 該当種目のトレーニング記録を削除してから種目を論理削除
   const { error: setsError } = await supabase
@@ -62,7 +61,7 @@ export async function DELETE(
     .delete()
     .eq('exercise_id', id)
 
-  if (setsError) return NextResponse.json({ error: '履歴の削除に失敗しました' }, { status: 500 })
+  if (setsError) return dbError('履歴の削除に失敗しました', setsError)
 
   const { error } = await supabase
     .from('user_exercises')
@@ -70,7 +69,7 @@ export async function DELETE(
     .eq('id', id)
     .eq('user_id', user.id)
 
-  if (error) return NextResponse.json({ error: '種目の削除に失敗しました' }, { status: 500 })
+  if (error) return dbError('種目の削除に失敗しました', error)
 
   return NextResponse.json({ success: true })
 }

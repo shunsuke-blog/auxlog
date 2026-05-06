@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { CreateSessionSchema } from '@/lib/validation/schemas'
+import { validationError, dbError } from '@/lib/api/errors'
+import { API } from '@/lib/constants/api'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -9,9 +11,7 @@ export async function POST(request: Request) {
 
   const body = await request.json()
   const parsed = CreateSessionSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? '入力値が不正です' }, { status: 400 })
-  }
+  if (!parsed.success) return validationError(parsed.error)
   const { trained_at, fatigue_level, memo, sets } = parsed.data
 
   const { data: session, error: sessionError } = await supabase
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     .select()
     .single()
 
-  if (sessionError) return NextResponse.json({ error: 'セッションの保存に失敗しました' }, { status: 500 })
+  if (sessionError) return dbError('セッションの保存に失敗しました', sessionError)
 
   const setsToInsert = sets.map(s => ({
     session_id: session.id,
@@ -50,9 +50,9 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  const rawLimit = parseInt(searchParams.get('limit') ?? '20', 10)
+  const rawLimit = parseInt(searchParams.get('limit') ?? String(API.PAGINATION_DEFAULT), 10)
   const rawOffset = parseInt(searchParams.get('offset') ?? '0', 10)
-  const limit = Math.min(Math.max(1, isNaN(rawLimit) ? 20 : rawLimit), 100)
+  const limit = Math.min(Math.max(1, isNaN(rawLimit) ? API.PAGINATION_DEFAULT : rawLimit), API.PAGINATION_MAX)
   const offset = Math.max(0, isNaN(rawOffset) ? 0 : rawOffset)
 
   const { data: sessions, error, count } = await supabase
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
     .order('trained_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
-  if (error) return NextResponse.json({ error: 'セッションの取得に失敗しました' }, { status: 500 })
+  if (error) return dbError('セッションの取得に失敗しました', error)
 
   const sessionsWithVolume = (sessions ?? []).map(s => {
     const sets = s.training_sets ?? []

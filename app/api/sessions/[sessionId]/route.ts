@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { UpdateSessionSchema } from '@/lib/validation/schemas'
+import { validationError, dbError, notFound } from '@/lib/api/errors'
 
 export async function GET(
   _request: Request,
@@ -25,7 +26,7 @@ export async function GET(
     .eq('user_id', user.id)
     .single()
 
-  if (error || !session) return NextResponse.json({ error: 'セッションが見つかりません' }, { status: 404 })
+  if (error || !session) return notFound('セッションが見つかりません')
 
   return NextResponse.json({ session })
 }
@@ -41,9 +42,7 @@ export async function PATCH(
   const { sessionId } = await params
   const body = await request.json()
   const parsed = UpdateSessionSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? '入力値が不正です' }, { status: 400 })
-  }
+  if (!parsed.success) return validationError(parsed.error)
   const { trained_at, fatigue_level, memo, sets } = parsed.data
 
   // update_session_with_sets RPC でアトミックに更新
@@ -65,7 +64,7 @@ export async function PATCH(
       .eq('id', sessionId)
       .eq('user_id', user.id)
 
-    if (sessionError) return NextResponse.json({ error: 'セッションの更新に失敗しました' }, { status: 500 })
+    if (sessionError) return dbError('セッションの更新に失敗しました', sessionError)
 
     await supabase.from('training_sets').delete().eq('session_id', sessionId)
     await supabase.from('training_sets').insert(
@@ -100,7 +99,7 @@ export async function DELETE(
     .eq('id', sessionId)
     .eq('user_id', user.id)
 
-  if (error) return NextResponse.json({ error: 'セッションの削除に失敗しました' }, { status: 500 })
+  if (error) return dbError('セッションの削除に失敗しました', error)
 
   return NextResponse.json({ success: true })
 }
