@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
+import PwaInstallBanner from "@/components/ui/PwaInstallBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,6 +33,7 @@ export default function RootLayout({
     >
       <body className="min-h-full font-sans bg-white dark:bg-black text-black dark:text-white">
         {children}
+        <PwaInstallBanner />
       </body>
     </html>
   );
