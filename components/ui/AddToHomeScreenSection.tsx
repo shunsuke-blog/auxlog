@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Smartphone } from "lucide-react";
 
-type Platform = "ios" | "android" | null;
+type Platform = "ios-safari" | "ios-chrome" | "android" | null;
 
 export default function AddToHomeScreenSection() {
   const [platform, setPlatform] = useState<Platform>(null);
@@ -17,8 +17,11 @@ export default function AddToHomeScreenSection() {
         (navigator as { standalone?: boolean }).standalone === true);
     setStandalone(isStandalone);
 
-    if (/iPhone|iPad|iPod/i.test(ua)) setPlatform("ios");
-    else if (/Android/i.test(ua)) setPlatform("android");
+    if (/iPhone|iPad|iPod/i.test(ua)) {
+      setPlatform(/CriOS/i.test(ua) ? "ios-chrome" : "ios-safari");
+    } else if (/Android/i.test(ua)) {
+      setPlatform("android");
+    }
   }, []);
 
   if (!platform) return null;
@@ -47,8 +50,10 @@ export default function AddToHomeScreenSection() {
       <div className="flex items-start gap-3">
         <Smartphone className="w-4 h-4 text-zinc-400 mt-0.5 shrink-0" />
         <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-          {platform === "ios"
+          {platform === "ios-safari"
             ? "画面下の共有ボタン（↑）→「ホーム画面に追加」をタップすると、アプリとしてすぐ開けます。"
+            : platform === "ios-chrome"
+            ? "右上の共有ボタン（↑）→「ホーム画面に追加」をタップすると、アプリとしてすぐ開けます。"
             : "ブラウザメニュー（⋮）→「ホーム画面に追加」をタップすると、アプリとしてすぐ開けます。"}
         </p>
       </div>

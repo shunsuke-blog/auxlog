@@ -88,6 +88,7 @@ export default function OnboardingPage() {
   if (step === 'install') {
     const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
     const isIOS = /iPhone|iPad|iPod/i.test(ua)
+    const isIOSChrome = isIOS && /CriOS/i.test(ua)
     const isAndroid = /Android/i.test(ua)
     const isMobile = isIOS || isAndroid
 
@@ -121,7 +122,9 @@ export default function OnboardingPage() {
               <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">追加方法</p>
               <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                 {isIOS
-                  ? '画面下の共有ボタン（↑）をタップ → 「ホーム画面に追加」を選択'
+                  ? isIOSChrome
+                    ? '右上の共有ボタン（↑）をタップ → 「ホーム画面に追加」を選択'
+                    : '画面下の共有ボタン（↑）をタップ → 「ホーム画面に追加」を選択'
                   : 'ブラウザメニュー（⋮）をタップ → 「ホーム画面に追加」を選択'}
               </p>
             </div>
