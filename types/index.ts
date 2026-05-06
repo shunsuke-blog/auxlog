@@ -47,6 +47,7 @@ export type UserExercise = {
   custom_target_muscle: TargetMuscle | null;
   default_sets: number;
   default_reps: number;
+  weight_increment_kg: number;
   sort_order: number;
   is_active: boolean;
   is_bodyweight: boolean;

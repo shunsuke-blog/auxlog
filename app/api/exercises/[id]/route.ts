@@ -20,6 +20,7 @@ export async function PATCH(
   const updates: Record<string, number> = {}
   if (parsed.data.default_sets !== undefined) updates.default_sets = parsed.data.default_sets
   if (parsed.data.default_reps !== undefined) updates.default_reps = parsed.data.default_reps
+  if (parsed.data.weight_increment_kg !== undefined) updates.weight_increment_kg = parsed.data.weight_increment_kg
   if (parsed.data.sort_order !== undefined) updates.sort_order = parsed.data.sort_order
 
   const { data, error } = await supabase

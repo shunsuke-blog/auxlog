@@ -40,5 +40,6 @@ export const CreateExerciseSchema = z.object({
 export const UpdateExerciseSchema = z.object({
   default_sets: z.number().int().min(1).max(20).optional(),
   default_reps: z.number().int().min(1).max(100).optional(),
+  weight_increment_kg: z.number().min(0.5).max(50).optional(),
   sort_order: z.number().int().min(0).optional(),
 })

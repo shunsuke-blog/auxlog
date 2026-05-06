@@ -22,10 +22,14 @@ export const TRAINING = {
   FATIGUE_WEIGHT_REDUCTION: 0.95,
   /** 自重種目で疲労度高の場合の回数削減率 */
   FATIGUE_REPS_REDUCTION: 0.8,
-  /** 有酸素種目のプログレッシブオーバーロード重量増加量 (kg) */
-  WEIGHT_INCREMENT_KG: 2.5,
+  /** コンパウンド種目のデフォルト重量増加量 (kg) */
+  COMPOUND_WEIGHT_INCREMENT_KG: 5.0,
+  /** アイソレーション種目のデフォルト重量増加量 (kg) */
+  ISOLATION_WEIGHT_INCREMENT_KG: 2.0,
   /** 自重種目で余裕ありの場合の回数増加量 */
   BODYWEIGHT_REPS_INCREMENT: 2,
+  /** 回数上限 = default_reps + このオフセット。到達時に重量UPへ切り替え */
+  MAX_REPS_OFFSET: 5,
 } as const
 
 import type { TrainingLevel } from '@/types'

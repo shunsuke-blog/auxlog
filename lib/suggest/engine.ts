@@ -163,6 +163,8 @@ function proposeNextSet(
   const workingStart = warmupCount + 1
   const combine = (w: SetTarget[]) => [...warmupTargets, ...w]
 
+  const inc = exercise.weight_increment_kg
+
   // ── 疲労度高 → 回復セッション ────────────────────────────────
   if (isHighFatigue(lastFatigue)) {
     if (lastWeight(effectiveSets) === 0) {
@@ -173,11 +175,27 @@ function proposeNextSet(
         setTargets: combine(generateWorkingSetTargets(lastSetsCount, 0, reps, [], 0, workingStart)),
       }
     }
-    const weight = Math.round((topWeight * TRAINING.FATIGUE_WEIGHT_REDUCTION) / 2.5) * 2.5
+    const weight = Math.round((topWeight * TRAINING.FATIGUE_WEIGHT_REDUCTION) / inc) * inc
     return {
       weight, sets: warmupCount + lastSetsCount, reps: bestTopReps,
       reason: '前回の疲労度が高いため重量を5%減',
       setTargets: combine(generateWorkingSetTargets(lastSetsCount, weight, bestTopReps, [], 0, workingStart)),
+    }
+  }
+
+  // ── 回数上限到達 → 1RM基準で重量UP・回数リセット ──────────────
+  const maxReps = exercise.default_reps + TRAINING.MAX_REPS_OFFSET
+  if (!exercise.is_bodyweight && bestTopReps >= maxReps) {
+    const estimated1RM = topWeight * (1 + 0.025 * bestTopReps)
+    const newWeight = topWeight + inc
+    const targetReps = Math.max(
+      Math.floor((estimated1RM / newWeight - 1) / 0.025),
+      exercise.default_reps
+    )
+    return {
+      weight: newWeight, sets: warmupCount + lastSetsCount, reps: targetReps,
+      reason: `${bestTopReps}回達成・上限到達のため重量+${inc}kg（推定1RM ${Math.round(estimated1RM)}kg基準）`,
+      setTargets: combine(generateWorkingSetTargets(lastSetsCount, newWeight, targetReps, [], 0, workingStart)),
     }
   }
 
@@ -201,30 +219,22 @@ function proposeNextSet(
         setTargets: combine(generateWorkingSetTargets(lastSetsCount, 0, reps, effectiveSets, +2, workingStart)),
       }
     }
-    const weight = topWeight + TRAINING.WEIGHT_INCREMENT_KG
+    const weight = topWeight + inc
     const reps = exercise.default_reps
     return {
       weight, sets: warmupCount + lastSetsCount, reps,
-      reason: '前回余裕あり・全セット達成のため重量+2.5kg',
+      reason: `前回余裕あり・全セット達成のため重量+${inc}kg`,
       setTargets: combine(generateWorkingSetTargets(lastSetsCount, weight, reps, [], 0, workingStart)),
     }
   }
 
-  // ── ストール → セット数+1 ─────────────────────────────────────
+  // ── ストール → 回数+1 ─────────────────────────────────────────
   if (isStagnant) {
-    const newWorkingCount = lastSetsCount + 1
-    const baseTargets = generateWorkingSetTargets(lastSetsCount, topWeight, bestTopReps, effectiveSets, 0, workingStart)
-    const lastT = baseTargets[baseTargets.length - 1]
-    const extra: SetTarget = {
-      set_number: workingStart + lastSetsCount,
-      weight_kg: lastT.weight_kg,
-      reps: Math.max(1, lastT.reps - 1),
-      is_warmup: false,
-    }
+    const nextReps = bestTopReps + 1
     return {
-      weight: topWeight, sets: warmupCount + newWorkingCount, reps: bestTopReps,
-      reason: '3週間停滞のためセット数+1',
-      setTargets: combine([...baseTargets, extra]),
+      weight: topWeight, sets: warmupCount + lastSetsCount, reps: nextReps,
+      reason: `3セッション停滞のため回数+1（${bestTopReps}回→${nextReps}回に挑戦）`,
+      setTargets: combine(generateWorkingSetTargets(lastSetsCount, topWeight, nextReps, effectiveSets, +1, workingStart)),
     }
   }
 
@@ -268,14 +278,17 @@ function checkStagnation(exerciseId: string, sessions: SessionWithSets[]): boole
     .filter(s => s.sets.some(set => set.exercise_id === exerciseId && !set.is_warmup))
     .slice(0, TRAINING.STAGNATION_SESSION_COUNT)
 
-  if (exerciseSessions.length < 3) return false
+  if (exerciseSessions.length < TRAINING.STAGNATION_SESSION_COUNT) return false
 
-  const weights = exerciseSessions.map(s => {
+  const metrics = exerciseSessions.map(s => {
     const ws = s.sets.filter(set => set.exercise_id === exerciseId && !set.is_warmup)
-    return ws.length > 0 ? Math.max(...ws.map(set => set.weight_kg)) : 0
+    return {
+      weight: ws.length > 0 ? Math.max(...ws.map(set => set.weight_kg)) : 0,
+      reps:   ws.length > 0 ? Math.max(...ws.map(set => set.reps)) : 0,
+    }
   })
 
-  return weights.every(w => w === weights[0])
+  return metrics.every(m => m.weight === metrics[0].weight && m.reps === metrics[0].reps)
 }
 
 /**

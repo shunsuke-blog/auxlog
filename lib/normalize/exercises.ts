@@ -1,5 +1,6 @@
 import type { UserExercise, TargetMuscle } from '@/types'
 import { TARGET_MUSCLE_LABELS } from '@/types'
+import { TRAINING } from '@/lib/constants/training'
 
 /**
  * Supabase から取得した生データを UserExercise 型に正規化する
@@ -14,6 +15,7 @@ export type RawUserExercise = {
   custom_target_muscle: string | null
   default_sets: number
   default_reps: number
+  weight_increment_kg?: number | null
   sort_order: number
   is_active: boolean
   is_bodyweight: boolean
@@ -41,6 +43,13 @@ export function normalizeExercise(e: RawUserExercise): UserExercise {
     ? (e.is_compound ?? false)
     : (e.exercise_master?.is_compound ?? false)
 
+  // DB値があればそれを使用、なければ is_compound でデフォルトを決定
+  const weight_increment_kg = e.weight_increment_kg != null
+    ? e.weight_increment_kg
+    : is_compound
+      ? TRAINING.COMPOUND_WEIGHT_INCREMENT_KG
+      : TRAINING.ISOLATION_WEIGHT_INCREMENT_KG
+
   return {
     ...e,
     custom_target_muscle: e.custom_target_muscle as TargetMuscle | null,
@@ -48,6 +57,7 @@ export function normalizeExercise(e: RawUserExercise): UserExercise {
     target_muscle,
     is_bodyweight: isBodyweight,
     is_compound,
+    weight_increment_kg,
   }
 }
 
