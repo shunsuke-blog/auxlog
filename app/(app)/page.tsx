@@ -38,14 +38,10 @@ export default async function HomePage() {
     redirect('/onboarding')
   }
 
-  const fourWeeksAgo = new Date()
-  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28)
-
   const { data: sessions } = await supabase
     .from('training_sessions')
     .select('*, training_sets(id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup, created_at)')
     .eq('user_id', user.id)
-    .gte('trained_at', fourWeeksAgo.toISOString().split('T')[0])
     .order('trained_at', { ascending: false })
     .limit(100)
 
