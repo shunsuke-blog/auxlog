@@ -478,14 +478,16 @@ export const TRAINING = {
   RECOVERY_DAYS_COMPOUND_FAILURE: 3,       // コンパウンド + 限界セットあり → 3日
   RECOVERY_DAYS_ISOLATION_FAILURE: 2,      // アイソレーション + 限界セットあり → 2日
   RECOVERY_DAYS_ALL_ROOM: 2,               // 全セット余裕あり → 2日
-  WEEKLY_VOLUME_LOW: 10,                   // 週ボリューム最低ライン
-  WEEKLY_VOLUME_HIGH: 20,                  // 週ボリューム上限ライン
+  WEEKLY_VOLUME_LOW: 12,                   // 週ボリューム最低ライン（セット数）
+  WEEKLY_VOLUME_HIGH: 16,                  // 週ボリューム上限ライン（セット数）
   STAGNATION_SESSION_COUNT: 3,             // ストール判定に使う直近セッション数
   WARMUP_WEIGHT_RATIO: 0.8,                // ウォームアップ判定閾値
   FATIGUE_WEIGHT_REDUCTION: 0.95,          // 疲労時の重量削減率
   FATIGUE_REPS_REDUCTION: 0.8,             // 自重・疲労時の回数削減率
-  WEIGHT_INCREMENT_KG: 2.5,                // 重量増加量(kg)
+  COMPOUND_WEIGHT_INCREMENT_KG: 5.0,       // コンパウンド種目のデフォルト重量増加量 (kg)
+  ISOLATION_WEIGHT_INCREMENT_KG: 2.0,      // アイソレーション種目のデフォルト重量増加量 (kg)
   BODYWEIGHT_REPS_INCREMENT: 2,            // 自重種目の余裕あり時回数増加量
+  MAX_REPS_OFFSET: 5,                      // 回数上限 = default_reps + この値。到達時に重量UPへ切り替え
 }
 ```
 
@@ -518,20 +520,26 @@ export const TRAINING = {
 
 4. 疲労度 >= 4（isHighFatigue）
    → 自重: reps = bestTopReps × 0.8（20%減）
-   → 有酸素: weight = topWeight × 0.95（2.5kg丸め）, reps = bestTopReps
+   → 有酸素: weight = topWeight × 0.95（weight_increment_kgで丸め）, reps = bestTopReps
 
-5. reachedTarget = false（レップ未達）
+5. bestTopReps >= default_reps + MAX_REPS_OFFSET かつ is_bodyweight = false（回数上限到達）
+   → 推定1RM = topWeight × (1 + 0.025 × bestTopReps)（Epley式）
+   → newWeight = topWeight + weight_increment_kg
+   → targetReps = max(floor((estimated1RM / newWeight - 1) / 0.025), default_reps)
+   ※ 1RMから次重量での達成可能回数を逆算して回数リセット
+
+6. reachedTarget = false（レップ未達）
    → weight 維持, reps = min(bestTopReps + 1, default_reps)
    ※ ストール判定は適用しない
 
-6. allTopSetsHadRoom = true（全トップセット余裕あり）かつ reachedTarget
-   → 自重: reps = bestTopReps + 2
-   → 有酸素: weight + 2.5kg, reps = default_reps（新重量でリセット）
+7. allTopSetsHadRoom = true（全トップセット余裕あり）かつ reachedTarget
+   → 自重: reps = bestTopReps + BODYWEIGHT_REPS_INCREMENT（+2）
+   → 有酸素: weight + weight_increment_kg, reps = default_reps（新重量でリセット）
 
-7. isStagnant = true（直近3セッション重量変化なし・レップ達成時のみ）
-   → weight 維持, sets + 1, reps = bestTopReps
+8. isStagnant = true（直近3セッション重量・回数ともに同一・レップ達成時のみ）
+   → weight 維持, reps = bestTopReps + 1
 
-8. ギリギリ達成（余裕なし・レップ達成）
+9. ギリギリ達成（余裕なし・レップ達成）
    → weight 維持, sets 維持, reps = bestTopReps
 ```
 
@@ -562,8 +570,9 @@ export type SetTarget = {
 
 ### 5.6 ストール（停滞）判定
 
-直近3セッションのトップセット最大重量がすべて同一の場合に `isStagnant = true` とする。
-ただし `proposeNextSet` 内でレップ未達の場合は適用しない（未達は漸進中のため）。
+直近3セッションのトップセット最大重量 **および** 最高回数がすべて同一の場合に `isStagnant = true` とする。
+重量のみ同一・回数が伸びている場合はストールとみなさない（漸進継続中のため）。
+また `proposeNextSet` 内でレップ未達の場合は適用しない（未達は漸進中のため）。
 
 ### 5.7 週ボリューム状態
 
