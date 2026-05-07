@@ -180,9 +180,7 @@ export default function WeekCalendar({ sessionDates, selectedDate, onSelectDate,
               <span
                 className={`w-1 h-1 rounded-full transition-colors ${
                   hasSession
-                    ? isSelected
-                      ? 'bg-white dark:bg-black'
-                      : 'bg-black dark:bg-white'
+                    ? 'bg-black dark:bg-white'
                     : 'bg-transparent'
                 }`}
               />

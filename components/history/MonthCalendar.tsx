@@ -111,9 +111,7 @@ export default function MonthCalendar({ sessionDates, selectedDate, onSelectDate
                   {day.getDate()}
                 </span>
                 <span className={`w-1 h-1 rounded-full ${
-                  hasSession
-                    ? isSelected ? 'bg-white dark:bg-black' : 'bg-black dark:bg-white'
-                    : 'bg-transparent'
+                  hasSession ? 'bg-black dark:bg-white' : 'bg-transparent'
                 }`} />
               </button>
             )
