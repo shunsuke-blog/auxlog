@@ -293,7 +293,7 @@ function RecordContent() {
           value={trainedAt}
           max={todayLocalDate()}
           onChange={e => setTrainedAt(e.target.value)}
-          className="text-sm text-zinc-500 dark:text-zinc-400 bg-transparent shrink-0 outline-none cursor-pointer"
+          className="text-base font-semibold text-black dark:text-white bg-transparent shrink-0 outline-none cursor-pointer"
         />
       </div>
 
