@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation'
 import { normalizeExercises } from '@/lib/normalize/exercises'
 import type { TrainingLevel } from '@/types'
 import { todayInJST } from '@/lib/utils/date'
+import { isFreeActive, calculateTrialDaysLeft } from '@/lib/business/userStatus'
+import { userExercisesQuery } from '@/lib/api/queries'
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -13,26 +15,19 @@ export default async function HomePage() {
 
   const [{ data: userData }, { data: exercises }] = await Promise.all([
     supabase.from('users').select('training_level, subscription_status, trial_ends_at, is_admin, is_free, free_until').eq('id', user.id).single(),
-    supabase
-      .from('user_exercises')
-      .select('*, exercise_master(name, target_muscle, is_bodyweight, is_compound)')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .order('sort_order'),
+    userExercisesQuery(supabase, user.id),
   ])
 
   const trainingLevel: TrainingLevel = (userData?.training_level as TrainingLevel) ?? 'intermediate'
 
-  // トライアル終了バナーの残り日数を計算（trialing のみ対象）
   const isAdmin = userData?.is_admin ?? false
-  const isFree = userData?.is_free ?? false
-  const freeUntil = userData?.free_until ?? null
-  const freeActive = isFree && (!freeUntil || new Date(freeUntil) > new Date())
-  const status = userData?.subscription_status ?? null
-  const trialEndsAt = userData?.trial_ends_at ?? null
-  const trialDaysLeft = (status === 'trialing' && trialEndsAt && !isAdmin && !freeActive)
-    ? Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-    : null
+  const freeActive = isFreeActive(userData?.is_free ?? false, userData?.free_until ?? null)
+  const trialDaysLeft = calculateTrialDaysLeft(
+    userData?.subscription_status ?? null,
+    userData?.trial_ends_at ?? null,
+    isAdmin,
+    freeActive
+  )
 
   if (!exercises || exercises.length === 0) {
     redirect('/onboarding')

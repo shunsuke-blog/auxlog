@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import type { TrainingLevel } from '@/types'
 import { VOLUME_TARGETS } from '@/lib/constants/training'
 import { todayInJST } from '@/lib/utils/date'
+import { userExercisesQuery } from '@/lib/api/queries'
 
 export async function GET() {
   const supabase = await createClient()
@@ -13,12 +14,7 @@ export async function GET() {
 
   const [{ data: userData }, { data: exercises }] = await Promise.all([
     supabase.from('users').select('training_level').eq('id', user.id).single(),
-    supabase
-      .from('user_exercises')
-      .select('*, exercise_master(name, target_muscle, is_bodyweight, is_compound)')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .order('sort_order'),
+    userExercisesQuery(supabase, user.id),
   ])
 
   const trainingLevel: TrainingLevel = (userData?.training_level as TrainingLevel) ?? 'intermediate'
