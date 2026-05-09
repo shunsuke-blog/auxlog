@@ -298,13 +298,6 @@ function RecordContent() {
       </div>
 
       <div className="px-6 py-6 space-y-6 pb-40">
-        <div>
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-            疲労度
-          </h2>
-          <FatigueSelector value={fatigueLevel} onChange={setFatigueLevel} />
-        </div>
-
         {(() => {
           // 部位ごとにグループ化して表示（ホームからの単一種目表示時はグループなし）
           const muscleOrder: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arms']
@@ -399,6 +392,13 @@ function RecordContent() {
             種目を追加
           </button>
         )}
+
+        <div>
+          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+            消耗度
+          </h2>
+          <FatigueSelector value={fatigueLevel} onChange={setFatigueLevel} />
+        </div>
 
         <div>
           <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">

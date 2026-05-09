@@ -12,9 +12,9 @@ type SuggestInput = {
 // ヘルパー関数群
 // ────────────────────────────────────────────────────────────────
 
-/** 疲労度が高い（回復優先セッションが必要）か判定 */
-function isHighFatigue(fatigue?: number): boolean {
-  return fatigue !== undefined && fatigue >= 4
+/** セッション消耗度が高いか判定（事後入力の消耗度 >= 4） */
+function isHighExhaustion(exhaustion?: number): boolean {
+  return exhaustion !== undefined && exhaustion >= 4
 }
 
 /** ウォームアップとワーキングセットを分離 */
@@ -109,14 +109,14 @@ export function suggestMenu(input: SuggestInput): Suggestion[] {
       const lastWorkingSets = lastSets.filter(s => !s.is_warmup)
 
       // 種目・前回結果に応じた回復日数で除外
-      const minRecoveryDays = calcMinRecoveryDays(exercise, lastWorkingSets)
+      const minRecoveryDays = calcMinRecoveryDays(exercise, lastWorkingSets, lastSession?.fatigue_level)
       if (daysSinceLast < minRecoveryDays) return []
 
       const weeklyVolumeSets = calcWeeklyVolumeSets(exercise, recentSessions, todayDate)
       const isStagnant = checkStagnation(exercise.id, recentSessions)
 
       const { weight, sets, reps, reason, setTargets } = proposeNextSet(
-        lastSets, exercise, lastSession?.fatigue_level, isStagnant
+        lastSets, exercise, isStagnant
       )
 
       return [{
@@ -137,7 +137,6 @@ export function suggestMenu(input: SuggestInput): Suggestion[] {
 function proposeNextSet(
   lastSets: TrainingSet[],
   exercise: UserExercise,
-  lastFatigue?: number,
   isStagnant?: boolean
 ): { weight: number; sets: number; reps: number; reason: string; setTargets: SetTarget[] } {
   // ── 初回 ──────────────────────────────────────────────────────
@@ -164,24 +163,6 @@ function proposeNextSet(
   const combine = (w: SetTarget[]) => [...warmupTargets, ...w]
 
   const inc = exercise.weight_increment_kg
-
-  // ── 疲労度高 → 回復セッション ────────────────────────────────
-  if (isHighFatigue(lastFatigue)) {
-    if (lastWeight(effectiveSets) === 0) {
-      const reps = Math.max(1, Math.round(bestTopReps * TRAINING.FATIGUE_REPS_REDUCTION))
-      return {
-        weight: 0, sets: warmupCount + lastSetsCount, reps,
-        reason: '前回の疲労度が高いため回数を20%減',
-        setTargets: combine(generateWorkingSetTargets(lastSetsCount, 0, reps, [], 0, workingStart)),
-      }
-    }
-    const weight = Math.round((topWeight * TRAINING.FATIGUE_WEIGHT_REDUCTION) / inc) * inc
-    return {
-      weight, sets: warmupCount + lastSetsCount, reps: bestTopReps,
-      reason: '前回の疲労度が高いため重量を5%減',
-      setTargets: combine(generateWorkingSetTargets(lastSetsCount, weight, bestTopReps, [], 0, workingStart)),
-    }
-  }
 
   // ── 回数上限到達 → 1RM基準で重量UP・回数リセット ──────────────
   const maxReps = exercise.default_reps + TRAINING.MAX_REPS_OFFSET
@@ -298,19 +279,28 @@ function checkStagnation(exerciseId: string, sessions: SessionWithSets[]): boole
  * - 全セット余裕あり → 2日
  * - それ以外（混在） → 2日（デフォルト）
  */
-function calcMinRecoveryDays(exercise: import('@/types').UserExercise, lastWorkingSets: TrainingSet[]): number {
+function calcMinRecoveryDays(exercise: import('@/types').UserExercise, lastWorkingSets: TrainingSet[], lastExhaustion?: number): number {
   if (lastWorkingSets.length === 0) return TRAINING.MIN_DAYS_BETWEEN_SESSIONS
 
   const anyFailure = lastWorkingSets.some(s => s.rir === false)
   const allHadRoom = lastWorkingSets.every(s => s.rir === true)
 
+  let baseDays: number
   if (anyFailure) {
-    return exercise.is_compound
+    baseDays = exercise.is_compound
       ? TRAINING.RECOVERY_DAYS_COMPOUND_FAILURE
       : TRAINING.RECOVERY_DAYS_ISOLATION_FAILURE
+  } else if (allHadRoom) {
+    baseDays = TRAINING.RECOVERY_DAYS_ALL_ROOM
+  } else {
+    baseDays = TRAINING.MIN_DAYS_BETWEEN_SESSIONS
   }
-  if (allHadRoom) return TRAINING.RECOVERY_DAYS_ALL_ROOM
-  return TRAINING.MIN_DAYS_BETWEEN_SESSIONS
+
+  if (isHighExhaustion(lastExhaustion)) {
+    baseDays += TRAINING.RECOVERY_DAYS_HIGH_EXHAUSTION_BONUS
+  }
+
+  return baseDays
 }
 
 function getVolumeStatus(weeklySets: number, level: TrainingLevel): VolumeStatus {

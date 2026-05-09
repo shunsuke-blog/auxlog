@@ -7,9 +7,11 @@ export const TRAINING = {
   /** コンパウンド種目を限界まで行った場合の回復日数 */
   RECOVERY_DAYS_COMPOUND_FAILURE: 3,
   /** アイソレーション種目を限界まで行った場合の回復日数 */
-  RECOVERY_DAYS_ISOLATION_FAILURE: 2,
+  RECOVERY_DAYS_ISOLATION_FAILURE: 3,
   /** セット全体を通して余裕ありの場合の回復日数 */
   RECOVERY_DAYS_ALL_ROOM: 2,
+  /** セッション消耗度が高い場合の回復日数ボーナス */
+  RECOVERY_DAYS_HIGH_EXHAUSTION_BONUS: 1,
   /** 週ボリュームの最低ライン（セット数）※固定値フォールバック用 */
   WEEKLY_VOLUME_LOW: 12,
   /** 週ボリュームの上限ライン（セット数）※固定値フォールバック用 */
@@ -18,10 +20,6 @@ export const TRAINING = {
   STAGNATION_SESSION_COUNT: 3,
   /** ウォームアップ判定の閾値（最大重量に対する割合） */
   WARMUP_WEIGHT_RATIO: 0.8,
-  /** 疲労度高の場合の重量削減率 */
-  FATIGUE_WEIGHT_REDUCTION: 0.95,
-  /** 自重種目で疲労度高の場合の回数削減率 */
-  FATIGUE_REPS_REDUCTION: 0.8,
   /** コンパウンド種目のデフォルト重量増加量 (kg) */
   COMPOUND_WEIGHT_INCREMENT_KG: 5.0,
   /** アイソレーション種目のデフォルト重量増加量 (kg) */

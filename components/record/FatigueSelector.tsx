@@ -1,11 +1,11 @@
 'use client'
 
 const LABELS: Record<number, string> = {
-  1: '最悪',
-  2: '',
+  1: '楽勝',
+  2: '余裕あり',
   3: '普通',
-  4: '',
-  5: '最高',
+  4: 'きつい',
+  5: 'ヘトヘト',
 }
 
 type Props = {

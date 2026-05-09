@@ -104,7 +104,7 @@
 │   ├── record/
 │   │   ├── SetRow.tsx            # セット行（done/is_warmup/RIRトグル含む）
 │   │   ├── RirToggle.tsx         # RIRトグル
-│   │   └── FatigueSelector.tsx   # 疲労度選択
+│   │   └── FatigueSelector.tsx   # 消耗度選択（セッション後に入力、1=楽勝〜5=ヘトヘト）
 │   └── history/
 │       ├── HistoryClient.tsx     # 履歴クライアントコンポーネント
 │       ├── WeekCalendar.tsx      # 週次カレンダー
@@ -475,19 +475,18 @@ export const VOLUME_TARGETS = {
 export const TRAINING = {
   DAYS_SINCE_LAST_NEVER: 999,              // 記録なし時の経過日数（初回扱い）
   MIN_DAYS_BETWEEN_SESSIONS: 2,            // デフォルト最低回復日数
-  RECOVERY_DAYS_COMPOUND_FAILURE: 3,       // コンパウンド + 限界セットあり → 3日
-  RECOVERY_DAYS_ISOLATION_FAILURE: 2,      // アイソレーション + 限界セットあり → 2日
-  RECOVERY_DAYS_ALL_ROOM: 2,               // 全セット余裕あり → 2日
-  WEEKLY_VOLUME_LOW: 12,                   // 週ボリューム最低ライン（セット数）
-  WEEKLY_VOLUME_HIGH: 16,                  // 週ボリューム上限ライン（セット数）
-  STAGNATION_SESSION_COUNT: 3,             // ストール判定に使う直近セッション数
-  WARMUP_WEIGHT_RATIO: 0.8,                // ウォームアップ判定閾値
-  FATIGUE_WEIGHT_REDUCTION: 0.95,          // 疲労時の重量削減率
-  FATIGUE_REPS_REDUCTION: 0.8,             // 自重・疲労時の回数削減率
-  COMPOUND_WEIGHT_INCREMENT_KG: 5.0,       // コンパウンド種目のデフォルト重量増加量 (kg)
-  ISOLATION_WEIGHT_INCREMENT_KG: 2.0,      // アイソレーション種目のデフォルト重量増加量 (kg)
-  BODYWEIGHT_REPS_INCREMENT: 2,            // 自重種目の余裕あり時回数増加量
-  MAX_REPS_OFFSET: 5,                      // 回数上限 = default_reps + この値。到達時に重量UPへ切り替え
+  RECOVERY_DAYS_COMPOUND_FAILURE: 3,          // コンパウンド + 限界セットあり → 3日
+  RECOVERY_DAYS_ISOLATION_FAILURE: 3,         // アイソレーション + 限界セットあり → 3日
+  RECOVERY_DAYS_ALL_ROOM: 2,                  // 全セット余裕あり → 2日
+  RECOVERY_DAYS_HIGH_EXHAUSTION_BONUS: 1,     // 消耗度 >= 4 の場合の回復日数ボーナス
+  WEEKLY_VOLUME_LOW: 12,                      // 週ボリューム最低ライン（セット数）
+  WEEKLY_VOLUME_HIGH: 16,                     // 週ボリューム上限ライン（セット数）
+  STAGNATION_SESSION_COUNT: 3,                // ストール判定に使う直近セッション数
+  WARMUP_WEIGHT_RATIO: 0.8,                   // ウォームアップ判定閾値
+  COMPOUND_WEIGHT_INCREMENT_KG: 5.0,          // コンパウンド種目のデフォルト重量増加量 (kg)
+  ISOLATION_WEIGHT_INCREMENT_KG: 2.0,         // アイソレーション種目のデフォルト重量増加量 (kg)
+  BODYWEIGHT_REPS_INCREMENT: 2,               // 自重種目の余裕あり時回数増加量
+  MAX_REPS_OFFSET: 5,                         // 回数上限 = default_reps + この値。到達時に重量UPへ切り替え
 }
 ```
 
@@ -497,13 +496,15 @@ export const TRAINING = {
 入力: exercises, recentSessions, todayDate, trainingLevel
 
 0. 種目ごとに回復日数チェック（calcMinRecoveryDays）→ 未満なら提案リストから除外
-   - コンパウンド + 限界セットあり → 3日
-   - アイソレーション + 限界セットあり → 2日
+   ■ 回復軸（2軸設計）
+   - RIR=false（限界セット）あり + コンパウンド → 3日
+   - RIR=false（限界セット）あり + アイソレーション → 3日
    - 全ワーキングセット余裕あり → 2日
    - 前回記録なし（初回） → 常に提案
+   - 消耗度 >= 4 → 上記に +1日ボーナス
    提案リストを経過日数の降順でソート
 
-入力: lastSets（前回セット一覧）, exercise, lastFatigue, isStagnant
+入力: lastSets（前回セット一覧）, exercise, isStagnant
 
 1. lastSets が空 → 初回提案（ウォームアップ1セット + default_sets × default_reps の直線セット）
    ウォームアップセットを先頭に含めることで、ユーザーがウォームアップ機能を発見できるようにする
@@ -518,11 +519,7 @@ export const TRAINING = {
    allTopSetsHadRoom = topSets.every(rir === true)
    reachedTarget    = bestTopReps >= default_reps
 
-4. 疲労度 >= 4（isHighFatigue）
-   → 自重: reps = bestTopReps × 0.8（20%減）
-   → 有酸素: weight = topWeight × 0.95（weight_increment_kgで丸め）, reps = bestTopReps
-
-5. bestTopReps >= default_reps + MAX_REPS_OFFSET かつ is_bodyweight = false（回数上限到達）
+4. bestTopReps >= default_reps + MAX_REPS_OFFSET かつ is_bodyweight = false（回数上限到達）
    → 推定1RM = topWeight × (1 + 0.025 × bestTopReps)（Epley式）
    → newWeight = topWeight + weight_increment_kg
    → targetReps = max(floor((estimated1RM / newWeight - 1) / 0.025), default_reps)
@@ -547,8 +544,8 @@ export const TRAINING = {
 
 | 関数 | 役割 |
 |---|---|
-| `calcMinRecoveryDays(exercise, lastWorkingSets)` | 種目タイプ × 前回RIRから最低回復日数を算出 |
-| `isHighFatigue(fatigue)` | 疲労度 >= 4 の判定 |
+| `calcMinRecoveryDays(exercise, lastWorkingSets, lastExhaustion?)` | 種目タイプ × 前回RIR × 消耗度から最低回復日数を算出 |
+| `isHighExhaustion(exhaustion)` | セッション消耗度（事後）>= 4 の判定 |
 | `separateSets(sets)` | ウォームアップとワーキングセットを分離 |
 | `getTopSetMetrics(workingSets)` | トップセットの重量・回数・RIRを算出 |
 | `generateWorkingSetTargets(...)` | ワーキングセットの目標を生成（前回パターン引き継ぎ or 疲労モデル） |
