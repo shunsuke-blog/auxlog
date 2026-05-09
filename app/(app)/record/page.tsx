@@ -34,7 +34,7 @@ function RecordContent() {
   const [memo, setMemo] = useState('')
   const [exerciseSets, setExerciseSets] = useState<ExerciseSets[]>([])
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [saveResult, setSaveResult] = useState<{ isImproved: boolean } | null>(null)
   const [pendingSets, setPendingSets] = useState<ReturnType<typeof buildSets> | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -256,8 +256,9 @@ function RecordContent() {
     })
 
     if (res.ok) {
+      const data = await res.json()
       setIsDirty(false)
-      setSaved(true)
+      setSaveResult({ isImproved: data.is_improved === true })
     } else {
       setErrorMessage('保存に失敗しました。再試行してください')
       setSaving(false)
@@ -493,7 +494,7 @@ function RecordContent() {
         </div>
       )}
 
-      {saved && <SaveComplete onDone={() => router.push('/')} />}
+      {saveResult && <SaveComplete isImproved={saveResult.isImproved} onDone={() => router.push('/')} />}
     </div>
   )
 }

@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react'
 
 type Props = {
   onDone: () => void
+  isImproved: boolean
 }
 
-export default function SaveComplete({ onDone }: Props) {
+export default function SaveComplete({ onDone, isImproved }: Props) {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -28,9 +29,9 @@ export default function SaveComplete({ onDone }: Props) {
         visible ? 'opacity-100' : 'opacity-0'
       }`}
     >
-      <p className="text-6xl mb-5">💪</p>
-      <p className="text-4xl font-black text-white tracking-tight">Great!</p>
-      <p className="mt-3 text-sm text-zinc-400">記録を保存しました</p>
+      <p className="text-6xl mb-5">{isImproved ? '🏆' : '💪'}</p>
+      <p className="text-4xl font-black text-white tracking-tight">{isImproved ? 'Record!' : 'Good Job!'}</p>
+      <p className="mt-3 text-sm text-zinc-400">{isImproved ? '自己ベスト更新！' : 'よく頑張りました'}</p>
     </div>
   )
 }

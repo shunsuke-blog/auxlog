@@ -41,7 +41,72 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'セットの保存に失敗しました' }, { status: 500 })
   }
 
-  return NextResponse.json({ session_id: session.id, created_at: session.created_at })
+  // 前回セッションと比較して記録更新かどうかを判定
+  const workingSets = sets.filter(s => !s.is_warmup)
+  const exerciseIds = [...new Set(workingSets.map(s => s.exercise_id))]
+  let is_improved = false
+
+  if (exerciseIds.length > 0) {
+    const { data: recentSessionsData } = await supabase
+      .from('training_sessions')
+      .select('id')
+      .eq('user_id', user.id)
+      .neq('id', session.id)
+      .order('trained_at', { ascending: false })
+      .limit(10)
+
+    const prevSessionIds = (recentSessionsData ?? []).map(s => s.id)
+
+    if (prevSessionIds.length > 0) {
+      const { data: prevSets } = await supabase
+        .from('training_sets')
+        .select('exercise_id, weight_kg, reps, session_id')
+        .in('session_id', prevSessionIds)
+        .in('exercise_id', exerciseIds)
+        .eq('is_warmup', false)
+
+      // 種目ごとに最新セッションの最大重量・最大回数を取得
+      const prevBest: Record<string, { weight: number; reps: number }> = {}
+      const seenExercises = new Set<string>()
+
+      for (const sessionId of prevSessionIds) {
+        const sessionSets = (prevSets ?? []).filter(s => s.session_id === sessionId)
+        const exercisesInSession = new Set(sessionSets.map(s => s.exercise_id))
+
+        for (const exerciseId of exercisesInSession) {
+          if (seenExercises.has(exerciseId)) continue
+          let maxWeight = 0
+          let maxReps = 0
+          for (const s of sessionSets.filter(s => s.exercise_id === exerciseId)) {
+            if (s.weight_kg > maxWeight) { maxWeight = s.weight_kg; maxReps = s.reps }
+            else if (s.weight_kg === maxWeight && s.reps > maxReps) { maxReps = s.reps }
+          }
+          prevBest[exerciseId] = { weight: maxWeight, reps: maxReps }
+          seenExercises.add(exerciseId)
+        }
+        if (seenExercises.size >= exerciseIds.length) break
+      }
+
+      // 今回セッションの種目ごと最大重量・最大回数
+      const currentBest: Record<string, { weight: number; reps: number }> = {}
+      for (const s of workingSets) {
+        if (!currentBest[s.exercise_id] || s.weight_kg > currentBest[s.exercise_id].weight) {
+          currentBest[s.exercise_id] = { weight: s.weight_kg, reps: s.reps }
+        } else if (s.weight_kg === currentBest[s.exercise_id].weight && s.reps > currentBest[s.exercise_id].reps) {
+          currentBest[s.exercise_id].reps = s.reps
+        }
+      }
+
+      is_improved = exerciseIds.some(id => {
+        const prev = prevBest[id]
+        const curr = currentBest[id]
+        if (!prev || !curr) return false
+        return curr.weight > prev.weight || (curr.weight === prev.weight && curr.reps > prev.reps)
+      })
+    }
+  }
+
+  return NextResponse.json({ session_id: session.id, created_at: session.created_at, is_improved })
 }
 
 export async function GET(request: Request) {
