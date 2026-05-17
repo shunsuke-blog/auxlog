@@ -45,6 +45,7 @@ export async function POST(request: Request) {
   const workingSets = sets.filter(s => !s.is_warmup)
   const exerciseIds = [...new Set(workingSets.map(s => s.exercise_id))]
   let is_improved = false
+  let is_volume_up = false
 
   if (exerciseIds.length > 0) {
     const { data: recentSessionsData } = await supabase
@@ -65,8 +66,9 @@ export async function POST(request: Request) {
         .in('exercise_id', exerciseIds)
         .eq('is_warmup', false)
 
-      // 種目ごとに最新セッションの最大重量・最大回数を取得
+      // 種目ごとに最新セッションの最大重量・最大回数、および総重量を取得
       const prevBest: Record<string, { weight: number; reps: number }> = {}
+      const prevVolume: Record<string, number> = {}
       const seenExercises = new Set<string>()
 
       for (const sessionId of prevSessionIds) {
@@ -77,24 +79,29 @@ export async function POST(request: Request) {
           if (seenExercises.has(exerciseId)) continue
           let maxWeight = 0
           let maxReps = 0
+          let totalVolume = 0
           for (const s of sessionSets.filter(s => s.exercise_id === exerciseId)) {
             if (s.weight_kg > maxWeight) { maxWeight = s.weight_kg; maxReps = s.reps }
             else if (s.weight_kg === maxWeight && s.reps > maxReps) { maxReps = s.reps }
+            totalVolume += s.weight_kg * s.reps
           }
           prevBest[exerciseId] = { weight: maxWeight, reps: maxReps }
+          prevVolume[exerciseId] = totalVolume
           seenExercises.add(exerciseId)
         }
         if (seenExercises.size >= exerciseIds.length) break
       }
 
-      // 今回セッションの種目ごと最大重量・最大回数
+      // 今回セッションの種目ごと最大重量・最大回数、および総重量
       const currentBest: Record<string, { weight: number; reps: number }> = {}
+      const currentVolume: Record<string, number> = {}
       for (const s of workingSets) {
         if (!currentBest[s.exercise_id] || s.weight_kg > currentBest[s.exercise_id].weight) {
           currentBest[s.exercise_id] = { weight: s.weight_kg, reps: s.reps }
         } else if (s.weight_kg === currentBest[s.exercise_id].weight && s.reps > currentBest[s.exercise_id].reps) {
           currentBest[s.exercise_id].reps = s.reps
         }
+        currentVolume[s.exercise_id] = (currentVolume[s.exercise_id] ?? 0) + s.weight_kg * s.reps
       }
 
       is_improved = exerciseIds.some(id => {
@@ -103,10 +110,19 @@ export async function POST(request: Request) {
         if (!prev || !curr) return false
         return curr.weight > prev.weight || (curr.weight === prev.weight && curr.reps > prev.reps)
       })
+
+      if (!is_improved) {
+        is_volume_up = exerciseIds.some(id => {
+          const prev = prevVolume[id]
+          const curr = currentVolume[id]
+          if (prev === undefined || curr === undefined) return false
+          return curr > prev
+        })
+      }
     }
   }
 
-  return NextResponse.json({ session_id: session.id, created_at: session.created_at, is_improved })
+  return NextResponse.json({ session_id: session.id, created_at: session.created_at, is_improved, is_volume_up })
 }
 
 export async function GET(request: Request) {

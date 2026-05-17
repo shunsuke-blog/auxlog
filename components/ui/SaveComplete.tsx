@@ -2,13 +2,22 @@
 
 import { useEffect, useState } from 'react'
 
+type SaveResult = 'record' | 'volume_up' | 'good_job'
+
 type Props = {
   onDone: () => void
-  isImproved: boolean
+  result: SaveResult
 }
 
-export default function SaveComplete({ onDone, isImproved }: Props) {
+const CONTENT: Record<SaveResult, { emoji: string; title: string; sub: string }> = {
+  record:     { emoji: '🏆', title: 'Record!',     sub: '自己ベスト更新！' },
+  volume_up:  { emoji: '📈', title: 'Volume Up!',  sub: '総負荷が上がった' },
+  good_job:   { emoji: '💪', title: 'Good Job!',   sub: 'よく頑張りました' },
+}
+
+export default function SaveComplete({ onDone, result }: Props) {
   const [visible, setVisible] = useState(false)
+  const { emoji, title, sub } = CONTENT[result]
 
   useEffect(() => {
     // マウント直後にフェードイン
@@ -29,9 +38,9 @@ export default function SaveComplete({ onDone, isImproved }: Props) {
         visible ? 'opacity-100' : 'opacity-0'
       }`}
     >
-      <p className="text-6xl mb-5">{isImproved ? '🏆' : '💪'}</p>
-      <p className="text-4xl font-black text-white tracking-tight">{isImproved ? 'Record!' : 'Good Job!'}</p>
-      <p className="mt-3 text-sm text-zinc-400">{isImproved ? '自己ベスト更新！' : 'よく頑張りました'}</p>
+      <p className="text-6xl mb-5">{emoji}</p>
+      <p className="text-4xl font-black text-white tracking-tight">{title}</p>
+      <p className="mt-3 text-sm text-zinc-400">{sub}</p>
     </div>
   )
 }
