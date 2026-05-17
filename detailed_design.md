@@ -506,8 +506,10 @@ export const TRAINING = {
 
 入力: lastSets（前回セット一覧）, exercise, isStagnant
 
-1. lastSets が空 → 初回提案（ウォームアップ1セット + default_sets × default_reps の直線セット）
-   ウォームアップセットを先頭に含めることで、ユーザーがウォームアップ機能を発見できるようにする
+1. lastSets が空 → 初回提案
+   - コンパウンド種目: ウォームアップ1セット + default_sets × default_reps の直線セット（計 1+sets セット）
+     ウォームアップセットを先頭に含めることで、ユーザーがウォームアップ機能を発見できるようにする
+   - アイソレーション種目: default_sets × default_reps の直線セットのみ（ウォームアップなし）
 
 2. ウォームアップ/ワーキング分離（is_warmup フラグで分類）
    effectiveSets = workingSets が存在する場合は workingSets、ない場合は全セット
