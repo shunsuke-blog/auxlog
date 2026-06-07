@@ -37,6 +37,7 @@ function RecordContent() {
   const [saveResult, setSaveResult] = useState<'record' | 'volume_up' | 'good_job' | null>(null)
   const [pendingSets, setPendingSets] = useState<ReturnType<typeof buildSets> | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [prevBests, setPrevBests] = useState<Record<string, { weight: number; reps: number; volume: number }>>({})
   const [loading, setLoading] = useState(true)
   const [exerciseName, setExerciseName] = useState('')
   const [trainedAt, setTrainedAt] = useState(() => todayLocalDate())
@@ -53,6 +54,13 @@ function RecordContent() {
       const { exercises: fetchedExercises } = await exercisesRes.json()
       setAllAvailableExercises(fetchedExercises ?? [])
       const allSuggestions: Suggestion[] = data.suggestions ?? []
+
+      // 前回ベストデータを種目IDでマップ化（リアルタイムバッジ判定用）
+      const bestMap: Record<string, { weight: number; reps: number; volume: number }> = {}
+      for (const s of allSuggestions) {
+        bestMap[s.exercise.id] = { weight: s.prev_best_weight_kg, reps: s.prev_best_reps, volume: s.prev_volume }
+      }
+      setPrevBests(bestMap)
 
       // ホームでスワイプ削除した種目を非表示（exerciseId 未指定の全種目表示時のみ適用）
       const suggestions = exerciseId ? allSuggestions : (() => {
@@ -333,6 +341,28 @@ function RecordContent() {
           const workingSets = ex.sets.filter(s => !s.is_warmup)
           const allDone = workingSets.length > 0 && workingSets.every(s => s.done)
 
+          // 全ワーキングセット完了時に前回ベストと比較してバッジを決定
+          const badge = (() => {
+            if (!allDone) return null
+            const doneWorking = workingSets.filter(s => s.done)
+            if (doneWorking.length === 0) return 'done' as const
+            const prev = prevBests[ex.exercise.id]
+            if (!prev || prev.weight === 0) return 'done' as const
+            const currWeight = Math.max(...doneWorking.map(s => s.weight_kg === '' ? 0 : parseFloat(s.weight_kg)))
+            const currReps = Math.max(...doneWorking
+              .filter(s => (s.weight_kg === '' ? 0 : parseFloat(s.weight_kg)) === currWeight)
+              .map(s => parseInt(s.reps) || 0))
+            const currVolume = doneWorking.reduce((sum, s) =>
+              sum + (s.weight_kg === '' ? 0 : parseFloat(s.weight_kg)) * (parseInt(s.reps) || 0), 0)
+            if (currWeight > prev.weight || (currWeight === prev.weight && currReps > prev.reps)) return 'record' as const
+            if (currVolume > prev.volume) return 'volume_up' as const
+            return 'done' as const
+          })()
+
+          const doneVolume = ex.sets
+            .filter(s => s.done)
+            .reduce((sum, s) => sum + (s.weight_kg === '' ? 0 : parseFloat(s.weight_kg)) * (parseInt(s.reps) || 0), 0)
+
           return (
             <div key={ex.exercise.id} className={`space-y-3 transition-opacity ${isVisible ? 'opacity-100' : 'opacity-30'}`}>
               <div className="flex items-center gap-3">
@@ -342,12 +372,21 @@ function RecordContent() {
                     onChange={v => toggleEnabled(exIdx, v)}
                   />
                 )}
-                <h2 className="text-base font-semibold text-black dark:text-white">
-                  {ex.exercise.name}
-                </h2>
-                {allDone && (
-                  <span className="text-xs font-bold text-emerald-500 animate-pulse">
-                    GOOD!
+                <div className="flex-1 flex items-center gap-2 min-w-0">
+                  <h2 className="text-base font-semibold text-black dark:text-white truncate">
+                    {ex.exercise.name}
+                  </h2>
+                  {badge && (
+                    <span className={`text-xs font-bold animate-pulse shrink-0 ${
+                      badge === 'record' ? 'text-amber-400' : 'text-emerald-500'
+                    }`}>
+                      {badge === 'record' ? 'Record!' : badge === 'volume_up' ? 'Vol Up!' : 'GOOD!'}
+                    </span>
+                  )}
+                </div>
+                {doneVolume > 0 && (
+                  <span className="text-xs text-zinc-400 tabular-nums shrink-0">
+                    {Math.round(doneVolume).toLocaleString()}kg
                   </span>
                 )}
               </div>

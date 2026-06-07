@@ -97,6 +97,9 @@ export default function HomeMenu({ initialSuggestions, allExercises, trialDaysLe
         days_since_last: 0,
         weekly_volume_sets: 0,
         volume_status: 'low',
+        prev_best_weight_kg: 0,
+        prev_best_reps: 0,
+        prev_volume: 0,
       }
       setSuggestions(prev => [...prev, suggestion])
     }

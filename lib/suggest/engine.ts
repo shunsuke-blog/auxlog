@@ -119,6 +119,17 @@ export function suggestMenu(input: SuggestInput): Suggestion[] {
         lastSets, exercise, isStagnant
       )
 
+      // 前回ワーキングセットのベストを算出（記録中バッジ判定に使用）
+      let prevBestWeight = 0
+      let prevBestReps = 0
+      let prevVolume = 0
+      if (lastWorkingSets.length > 0) {
+        prevBestWeight = Math.max(...lastWorkingSets.map(s => s.weight_kg))
+        const topSets = lastWorkingSets.filter(s => s.weight_kg === prevBestWeight)
+        prevBestReps = Math.max(...topSets.map(s => s.reps))
+        prevVolume = lastWorkingSets.reduce((sum, s) => sum + s.weight_kg * s.reps, 0)
+      }
+
       return [{
         exercise,
         proposed_weight_kg: weight,
@@ -129,6 +140,9 @@ export function suggestMenu(input: SuggestInput): Suggestion[] {
         days_since_last: daysSinceLast,
         weekly_volume_sets: weeklyVolumeSets,
         volume_status: getVolumeStatus(weeklyVolumeSets, trainingLevel),
+        prev_best_weight_kg: prevBestWeight,
+        prev_best_reps: prevBestReps,
+        prev_volume: prevVolume,
       }]
     })
     .sort((a, b) => b.days_since_last - a.days_since_last)

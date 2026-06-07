@@ -365,8 +365,25 @@ CREATE INDEX idx_user_exercises_user
 {
   session_id: string;
   created_at: string;
+  is_improved: boolean;    // 最大重量 or 最大回数が前回最新セッション比で向上した場合 true
+  is_volume_up: boolean;   // is_improved=false かつ 総負荷量が前回最新セッション比で増加した場合 true
 }
 ```
+
+#### 保存後の結果判定ロジック
+
+保存完了後に `Record!` / `Volume Up!` / `Good Job!` のいずれかを表示するため、以下のロジックで判定する。
+
+| フィールド | 表示 | 条件 |
+|---|---|---|
+| `is_improved=true` | Record! 🏆 | いずれかの種目で最大重量増 or 同重量で最多回数増 |
+| `is_improved=false, is_volume_up=true` | Volume Up! 📈 | いずれかの種目で総負荷量（重量×回数の合計）増 |
+| 両方 false | Good Job! 💪 | 上記いずれも該当しない |
+
+**前回セッションの特定方法**：  
+`training_sets` を種目IDで直接クエリし、`training_sessions!inner(trained_at)` で日付を取得。  
+セッション数に制限を設けず、`trained_at` でDESCソートして種目ごとに最新セッションを特定する。  
+（旧実装では直近10セッション制限があり、8日以上空いた種目で前回データが取得できないバグがあった）
 
 **GET /api/sessions**
 
