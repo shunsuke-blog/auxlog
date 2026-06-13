@@ -384,11 +384,9 @@ function RecordContent() {
                     </span>
                   )}
                 </div>
-                {doneVolume > 0 && (
-                  <span className="text-xs text-zinc-400 tabular-nums shrink-0">
-                    {Math.round(doneVolume).toLocaleString()}kg
-                  </span>
-                )}
+                <span className="text-xs text-zinc-400 tabular-nums shrink-0">
+                  {Math.round(prevBests[ex.exercise.id]?.volume ?? 0).toLocaleString()}kg ▶︎ {Math.round(doneVolume).toLocaleString()}kg
+                </span>
               </div>
               {isVisible && (
                 <>
