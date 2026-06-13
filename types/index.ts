@@ -102,4 +102,5 @@ export type Suggestion = {
   prev_best_weight_kg: number;  // 前回ワーキングセット最大重量（初回は0）
   prev_best_reps: number;       // 前回最大重量での最高回数（初回は0）
   prev_volume: number;          // 前回ワーキングセット総負荷量（初回は0）
+  prev_total_reps: number;      // 前回ワーキングセット総回数（自重種目の表示用、初回は0）
 };

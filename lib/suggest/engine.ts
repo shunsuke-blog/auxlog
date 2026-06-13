@@ -123,11 +123,13 @@ export function suggestMenu(input: SuggestInput): Suggestion[] {
       let prevBestWeight = 0
       let prevBestReps = 0
       let prevVolume = 0
+      let prevTotalReps = 0
       if (lastWorkingSets.length > 0) {
         prevBestWeight = Math.max(...lastWorkingSets.map(s => s.weight_kg))
         const topSets = lastWorkingSets.filter(s => s.weight_kg === prevBestWeight)
         prevBestReps = Math.max(...topSets.map(s => s.reps))
         prevVolume = lastWorkingSets.reduce((sum, s) => sum + s.weight_kg * s.reps, 0)
+        prevTotalReps = lastWorkingSets.reduce((sum, s) => sum + s.reps, 0)
       }
 
       return [{
@@ -143,6 +145,7 @@ export function suggestMenu(input: SuggestInput): Suggestion[] {
         prev_best_weight_kg: prevBestWeight,
         prev_best_reps: prevBestReps,
         prev_volume: prevVolume,
+        prev_total_reps: prevTotalReps,
       }]
     })
     .sort((a, b) => b.days_since_last - a.days_since_last)

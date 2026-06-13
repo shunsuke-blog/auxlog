@@ -100,6 +100,7 @@ export default function HomeMenu({ initialSuggestions, allExercises, trialDaysLe
         prev_best_weight_kg: 0,
         prev_best_reps: 0,
         prev_volume: 0,
+        prev_total_reps: 0,
       }
       setSuggestions(prev => [...prev, suggestion])
     }

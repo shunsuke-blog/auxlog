@@ -37,7 +37,7 @@ function RecordContent() {
   const [saveResult, setSaveResult] = useState<'record' | 'volume_up' | 'good_job' | null>(null)
   const [pendingSets, setPendingSets] = useState<ReturnType<typeof buildSets> | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [prevBests, setPrevBests] = useState<Record<string, { weight: number; reps: number; volume: number }>>({})
+  const [prevBests, setPrevBests] = useState<Record<string, { weight: number; reps: number; volume: number; totalReps: number }>>({})
   const [loading, setLoading] = useState(true)
   const [exerciseName, setExerciseName] = useState('')
   const [trainedAt, setTrainedAt] = useState(() => todayLocalDate())
@@ -56,9 +56,9 @@ function RecordContent() {
       const allSuggestions: Suggestion[] = data.suggestions ?? []
 
       // 前回ベストデータを種目IDでマップ化（リアルタイムバッジ判定用）
-      const bestMap: Record<string, { weight: number; reps: number; volume: number }> = {}
+      const bestMap: Record<string, { weight: number; reps: number; volume: number; totalReps: number }> = {}
       for (const s of allSuggestions) {
-        bestMap[s.exercise.id] = { weight: s.prev_best_weight_kg, reps: s.prev_best_reps, volume: s.prev_volume }
+        bestMap[s.exercise.id] = { weight: s.prev_best_weight_kg, reps: s.prev_best_reps, volume: s.prev_volume, totalReps: s.prev_total_reps }
       }
       setPrevBests(bestMap)
 
@@ -359,9 +359,13 @@ function RecordContent() {
             return 'done' as const
           })()
 
-          const doneVolume = ex.sets
-            .filter(s => s.done)
+          const doneSets = ex.sets.filter(s => s.done)
+          const doneWeightSum = doneSets.reduce((sum, s) => sum + (s.weight_kg === '' ? 0 : parseFloat(s.weight_kg)), 0)
+          const doneVolume = doneSets
             .reduce((sum, s) => sum + (s.weight_kg === '' ? 0 : parseFloat(s.weight_kg)) * (parseInt(s.reps) || 0), 0)
+          const doneTotalReps = doneSets.reduce((sum, s) => sum + (parseInt(s.reps) || 0), 0)
+          // 加重なしの自重種目はボリューム（kg）が常に0になるため総回数で比較する
+          const isBodyweightNoLoad = ex.exercise.is_bodyweight && doneWeightSum === 0
 
           return (
             <div key={ex.exercise.id} className={`space-y-3 transition-opacity ${isVisible ? 'opacity-100' : 'opacity-30'}`}>
@@ -385,7 +389,9 @@ function RecordContent() {
                   )}
                 </div>
                 <span className="text-xs text-zinc-400 tabular-nums shrink-0">
-                  {Math.round(prevBests[ex.exercise.id]?.volume ?? 0).toLocaleString()}kg ▶︎ {Math.round(doneVolume).toLocaleString()}kg
+                  {isBodyweightNoLoad
+                    ? `${(prevBests[ex.exercise.id]?.totalReps ?? 0).toLocaleString()}回 ▶︎ ${doneTotalReps.toLocaleString()}回`
+                    : `${Math.round(prevBests[ex.exercise.id]?.volume ?? 0).toLocaleString()}kg ▶︎ ${Math.round(doneVolume).toLocaleString()}kg`}
                 </span>
               </div>
               {isVisible && (
