@@ -27,7 +27,7 @@ export default async function HistoryPage() {
 
   const rawSessions = (sessionsData ?? []).map(s => {
     const sets = (s.training_sets ?? []) as TrainingSet[]
-    const totalVolume = sets.reduce((acc, set) => acc + set.weight_kg * set.reps, 0)
+    const totalVolume = sets.reduce((acc, set) => acc + (set.is_warmup ? 0 : set.weight_kg * set.reps), 0)
     return { ...s, sets, total_volume: Math.round(totalVolume) }
   })
 

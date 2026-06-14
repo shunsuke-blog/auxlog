@@ -362,6 +362,7 @@ function RecordContent() {
           const doneSets = ex.sets.filter(s => s.done)
           const doneWeightSum = doneSets.reduce((sum, s) => sum + (s.weight_kg === '' ? 0 : parseFloat(s.weight_kg)), 0)
           const doneVolume = doneSets
+            .filter(s => !s.is_warmup)
             .reduce((sum, s) => sum + (s.weight_kg === '' ? 0 : parseFloat(s.weight_kg)) * (parseInt(s.reps) || 0), 0)
           const doneTotalReps = doneSets.reduce((sum, s) => sum + (parseInt(s.reps) || 0), 0)
           // 加重なしの自重種目はボリューム（kg）が常に0になるため総回数で比較する

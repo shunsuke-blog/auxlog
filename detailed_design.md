@@ -400,7 +400,7 @@ CREATE INDEX idx_user_exercises_user
       trained_at: string;
       fatigue_level: number;
       memo: string | null;
-      total_volume: number;
+      total_volume: number;  // ウォームアップセット(is_warmup=true)は除外して算出
       sets: TrainingSet[];  // is_warmupフィールド含む
     }
   ];
@@ -676,6 +676,7 @@ export type SetData = {
 
 **VolumeChart.tsx**
 - メトリクス切り替え: 最大重量 / 総挙上量 / 推定1RM（Epley式: `weight × (1 + reps / 30)`）
+- 総挙上量はウォームアップセット(is_warmup=true)を除外して算出（記録画面・履歴一覧と同一基準）
 - 自重種目は回数推移のみ表示（メトリクス切り替えUI非表示）
 - 種目切り替えはカスタムアイコン（`ChevronsUpDown`）付き `select` で表示
 - ダークモード対応: `matchMedia` で `isDark` を検知してグラフ色を切り替え

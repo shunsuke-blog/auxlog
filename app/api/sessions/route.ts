@@ -140,7 +140,7 @@ export async function GET(request: Request) {
 
   const sessionsWithVolume = (sessions ?? []).map(s => {
     const sets = s.training_sets ?? []
-    const totalVolume = (sets as Array<{ weight_kg: number; reps: number }>).reduce((acc, set) => acc + set.weight_kg * set.reps, 0)
+    const totalVolume = (sets as Array<{ weight_kg: number; reps: number; is_warmup: boolean }>).reduce((acc, set) => acc + (set.is_warmup ? 0 : set.weight_kg * set.reps), 0)
     return { ...s, sets, total_volume: Math.round(totalVolume) }
   })
 
