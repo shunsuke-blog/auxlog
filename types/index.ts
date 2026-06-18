@@ -55,6 +55,7 @@ export type UserExercise = {
   created_at: string;
   name: string;
   target_muscle: TargetMuscle;
+  recent_session_ids: string[];
 };
 
 export type TrainingSet = {

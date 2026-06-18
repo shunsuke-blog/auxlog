@@ -19,22 +19,40 @@ export async function GET() {
 
   const trainingLevel: TrainingLevel = (userData?.training_level as TrainingLevel) ?? 'intermediate'
 
-  const { data: sessions } = await supabase
-    .from('training_sessions')
-    .select('*, training_sets(id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup, created_at)')
-    .eq('user_id', user.id)
-    .order('trained_at', { ascending: false })
-    .limit(100)
-
-  if (!exercises || !sessions) {
+  if (!exercises) {
     return NextResponse.json({ suggestions: [], warnings: [] })
   }
 
   const normalizedExercises = normalizeExercises(exercises)
-  const normalizedSessions = sessions.map(s => ({
-    ...s,
-    sets: s.training_sets ?? [],
-  }))
+
+  // recent_session_ids（最大3件/種目）から対象セッション ID を収集
+  const recentSessionIds = [...new Set(normalizedExercises.flatMap(e => e.recent_session_ids))]
+
+  // 週間ボリューム計算用に過去7日のセッションも別途取得
+  const cutoffDate = new Date()
+  cutoffDate.setDate(cutoffDate.getDate() - 7)
+  const cutoffStr = cutoffDate.toISOString().split('T')[0]
+
+  const SETS_SELECT = '*, training_sets(id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup, created_at)' as const
+
+  const [weeklyResult, pinnedResult] = await Promise.all([
+    supabase.from('training_sessions').select(SETS_SELECT).eq('user_id', user.id).gte('trained_at', cutoffStr).order('trained_at', { ascending: false }),
+    recentSessionIds.length > 0
+      ? supabase.from('training_sessions').select(SETS_SELECT).in('id', recentSessionIds)
+      : null,
+  ])
+
+  const seen = new Set<string>()
+  const normalizedSessions = [
+    ...(pinnedResult?.data ?? []),
+    ...(weeklyResult.data ?? []),
+  ].filter(s => {
+    if (seen.has(s.id)) return false
+    seen.add(s.id)
+    return true
+  }).sort((a, b) => b.trained_at.localeCompare(a.trained_at))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map(s => ({ ...s, sets: (s as any).training_sets ?? [] }))
 
   const suggestions = suggestMenu({
     exercises: normalizedExercises,

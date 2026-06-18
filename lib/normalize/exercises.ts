@@ -21,6 +21,7 @@ export type RawUserExercise = {
   is_bodyweight: boolean
   is_compound?: boolean
   created_at: string
+  recent_session_ids?: string[] | null
   exercise_master: { name: string; target_muscle: string; is_bodyweight: boolean; is_compound?: boolean } | null
 }
 
@@ -58,6 +59,7 @@ export function normalizeExercise(e: RawUserExercise): UserExercise {
     is_bodyweight: isBodyweight,
     is_compound,
     weight_increment_kg,
+    recent_session_ids: e.recent_session_ids ?? [],
   }
 }
 

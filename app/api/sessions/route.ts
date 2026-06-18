@@ -115,6 +115,12 @@ export async function POST(request: Request) {
       }
     })
     await supabase.from('exercise_bests').upsert(upserts)
+
+    // user_exercises.recent_session_ids を更新（直近3セッション ID を保持）
+    await supabase.rpc('update_recent_session_ids', {
+      p_exercise_ids: exerciseIds,
+      p_session_id: session.id,
+    })
   }
 
   return NextResponse.json({ session_id: session.id, created_at: session.created_at, is_improved, is_volume_up })
