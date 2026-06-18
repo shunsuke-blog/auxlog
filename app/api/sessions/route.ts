@@ -41,78 +41,80 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'セットの保存に失敗しました' }, { status: 500 })
   }
 
-  // 前回セッションと比較して記録更新かどうかを判定
+  // exercise_bests テーブルで自己最高記録と比較・更新
   const workingSets = sets.filter(s => !s.is_warmup)
   const exerciseIds = [...new Set(workingSets.map(s => s.exercise_id))]
   let is_improved = false
   let is_volume_up = false
 
   if (exerciseIds.length > 0) {
-    // 今回セッションの種目ごと最大重量・最大回数、および総重量
-    const currentBest: Record<string, { weight: number; reps: number }> = {}
-    const currentVolume: Record<string, number> = {}
+    // 今回セッションの種目ごとベストを集計
+    type CurrBest = { weight: number; reps: number; volume: number; totalReps: number }
+    const currBests: Record<string, CurrBest> = {}
     for (const s of workingSets) {
-      if (!currentBest[s.exercise_id] || s.weight_kg > currentBest[s.exercise_id].weight) {
-        currentBest[s.exercise_id] = { weight: s.weight_kg, reps: s.reps }
-      } else if (s.weight_kg === currentBest[s.exercise_id].weight && s.reps > currentBest[s.exercise_id].reps) {
-        currentBest[s.exercise_id].reps = s.reps
+      const c = currBests[s.exercise_id]
+      if (!c) {
+        currBests[s.exercise_id] = { weight: s.weight_kg, reps: s.reps, volume: s.weight_kg * s.reps, totalReps: s.reps }
+      } else {
+        if (s.weight_kg > c.weight || (s.weight_kg === c.weight && s.reps > c.reps)) {
+          c.weight = s.weight_kg
+          c.reps   = s.reps
+        }
+        c.volume    += s.weight_kg * s.reps
+        c.totalReps += s.reps
       }
-      currentVolume[s.exercise_id] = (currentVolume[s.exercise_id] ?? 0) + s.weight_kg * s.reps
     }
 
-    // 種目ごとに直接クエリ（セッション数制限なし・trained_atで最新セッションを特定）
-    const { data: prevSetsData } = await supabase
-      .from('training_sets')
-      .select('exercise_id, weight_kg, reps, session_id, training_sessions!inner(trained_at)')
+    // exercise_bests から自己最高記録を取得（1クエリ、最大 exerciseIds.length 行）
+    const { data: storedBests } = await supabase
+      .from('exercise_bests')
+      .select('exercise_id, best_weight_kg, best_reps, best_volume, best_total_reps')
+      .eq('user_id', user.id)
       .in('exercise_id', exerciseIds)
-      .neq('session_id', session.id)
-      .eq('is_warmup', false)
 
-    if (prevSetsData && prevSetsData.length > 0) {
-      // trained_at でDESCソートして種目ごとに最新セッションIDを特定
-      const sorted = [...prevSetsData].sort((a, b) => {
-        const dateA = ((a.training_sessions as unknown) as { trained_at: string }).trained_at
-        const dateB = ((b.training_sessions as unknown) as { trained_at: string }).trained_at
-        return dateB.localeCompare(dateA)
+    const bestMap = new Map((storedBests ?? []).map(b => [b.exercise_id, b]))
+
+    // 記録更新判定
+    is_improved = exerciseIds.some(id => {
+      const curr = currBests[id]
+      const prev = bestMap.get(id)
+      if (!prev) return true
+      return curr.weight > prev.best_weight_kg ||
+        (curr.weight === prev.best_weight_kg && curr.reps > prev.best_reps)
+    })
+    if (!is_improved) {
+      is_volume_up = exerciseIds.some(id => {
+        const curr = currBests[id]
+        const prev = bestMap.get(id)
+        return !prev || curr.volume > prev.best_volume
       })
-
-      const latestSessionPerExercise: Record<string, string> = {}
-      for (const row of sorted) {
-        if (!latestSessionPerExercise[row.exercise_id]) {
-          latestSessionPerExercise[row.exercise_id] = row.session_id
-        }
-      }
-
-      const prevBest: Record<string, { weight: number; reps: number }> = {}
-      const prevVolume: Record<string, number> = {}
-
-      for (const row of sorted) {
-        if (row.session_id !== latestSessionPerExercise[row.exercise_id]) continue
-        const prev = prevBest[row.exercise_id]
-        if (!prev || row.weight_kg > prev.weight) {
-          prevBest[row.exercise_id] = { weight: row.weight_kg, reps: row.reps }
-        } else if (row.weight_kg === prev.weight && row.reps > prev.reps) {
-          prev.reps = row.reps
-        }
-        prevVolume[row.exercise_id] = (prevVolume[row.exercise_id] ?? 0) + row.weight_kg * row.reps
-      }
-
-      is_improved = exerciseIds.some(id => {
-        const prev = prevBest[id]
-        const curr = currentBest[id]
-        if (!prev || !curr) return false
-        return curr.weight > prev.weight || (curr.weight === prev.weight && curr.reps > prev.reps)
-      })
-
-      if (!is_improved) {
-        is_volume_up = exerciseIds.some(id => {
-          const prev = prevVolume[id]
-          const curr = currentVolume[id]
-          if (prev === undefined || curr === undefined) return false
-          return curr > prev
-        })
-      }
     }
+
+    // exercise_bests を upsert（既存レコードと今回セッション値をマージ）
+    const upserts = exerciseIds.map(id => {
+      const curr = currBests[id]
+      const prev = bestMap.get(id)
+      let newWeight = curr.weight
+      let newReps   = curr.reps
+      if (prev) {
+        if (curr.weight < prev.best_weight_kg) {
+          newWeight = prev.best_weight_kg
+          newReps   = prev.best_reps
+        } else if (curr.weight === prev.best_weight_kg) {
+          newReps = Math.max(curr.reps, prev.best_reps)
+        }
+      }
+      return {
+        user_id:         user.id,
+        exercise_id:     id,
+        best_weight_kg:  newWeight,
+        best_reps:       newReps,
+        best_volume:     prev ? Math.max(curr.volume, prev.best_volume) : curr.volume,
+        best_total_reps: prev ? Math.max(curr.totalReps, prev.best_total_reps) : curr.totalReps,
+        updated_at:      new Date().toISOString(),
+      }
+    })
+    await supabase.from('exercise_bests').upsert(upserts)
   }
 
   return NextResponse.json({ session_id: session.id, created_at: session.created_at, is_improved, is_volume_up })

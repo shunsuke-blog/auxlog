@@ -46,11 +46,29 @@ function RecordContent() {
 
   useEffect(() => {
     const load = async () => {
-      const [suggestRes, exercisesRes] = await Promise.all([
-        fetch('/api/suggest'),
+      const SUGGEST_CACHE_KEY = 'auxlog_suggest_v1'
+      const SUGGEST_TTL = 5 * 60 * 1000
+
+      const getSuggestData = async () => {
+        try {
+          const raw = sessionStorage.getItem(SUGGEST_CACHE_KEY)
+          if (raw) {
+            const { data, ts } = JSON.parse(raw)
+            if (Date.now() - ts < SUGGEST_TTL) return data
+          }
+        } catch { /* ignore */ }
+        const res = await fetch('/api/suggest')
+        const data = await res.json()
+        try {
+          sessionStorage.setItem(SUGGEST_CACHE_KEY, JSON.stringify({ data, ts: Date.now() }))
+        } catch { /* ignore */ }
+        return data
+      }
+
+      const [data, exercisesRes] = await Promise.all([
+        getSuggestData(),
         fetch('/api/exercises'),
       ])
-      const data = await suggestRes.json()
       const { exercises: fetchedExercises } = await exercisesRes.json()
       setAllAvailableExercises(fetchedExercises ?? [])
       const allSuggestions: Suggestion[] = data.suggestions ?? []
@@ -265,6 +283,7 @@ function RecordContent() {
 
     if (res.ok) {
       const data = await res.json()
+      try { sessionStorage.removeItem('auxlog_suggest_v1') } catch { /* ignore */ }
       setIsDirty(false)
       setSaveResult(data.is_improved ? 'record' : data.is_volume_up ? 'volume_up' : 'good_job')
     } else {
