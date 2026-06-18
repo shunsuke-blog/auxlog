@@ -35,7 +35,7 @@ export default function VolumeChart({ sessions, exercises }: Props) {
   const [selectedExerciseId, setSelectedExerciseId] = useState<string>(
     exercises[0]?.id ?? ''
   )
-  const [metric, setMetric] = useState<Metric>('max')
+  const [metric, setMetric] = useState<Metric>('volume')
 
   const [isDark, setIsDark] = useState(false)
   useEffect(() => {
