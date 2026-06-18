@@ -5,18 +5,12 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { ChevronsUpDown } from 'lucide-react'
-import type { UserExercise, TrainingSet } from '@/types'
+import type { UserExercise, HistorySession } from '@/types'
 
 type Metric = 'max' | 'volume' | '1rm'
 
-type Session = {
-  id: string
-  trained_at: string
-  sets: TrainingSet[]
-}
-
 type Props = {
-  sessions: Session[]
+  sessions: HistorySession[]
   exercises: UserExercise[]
 }
 

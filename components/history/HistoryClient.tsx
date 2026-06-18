@@ -7,23 +7,13 @@ import WeekCalendar from './WeekCalendar'
 import MonthCalendar from './MonthCalendar'
 import SessionList from './SessionList'
 import { todayLocalDate } from '@/lib/utils/date'
-import type { UserExercise, TrainingSet } from '@/types'
+import type { UserExercise, HistorySession } from '@/types'
 
 const VolumeChart = dynamic(() => import('./VolumeChart'), { ssr: false })
 const MuscleSetChart = dynamic(() => import('./MuscleSetChart'), { ssr: false })
 
-type Session = {
-  id: string
-  allIds: string[]
-  trained_at: string
-  fatigue_level: number
-  memo: string | null
-  total_volume: number
-  sets: TrainingSet[]
-}
-
 type Props = {
-  sessions: Session[]
+  sessions: HistorySession[]
   exercises: UserExercise[]
 }
 

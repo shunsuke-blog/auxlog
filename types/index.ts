@@ -83,6 +83,12 @@ export type SessionWithSets = TrainingSession & {
   sets: TrainingSet[];
 };
 
+export type HistorySession = TrainingSession & {
+  allIds: string[];
+  sets: TrainingSet[];
+  total_volume: number;
+};
+
 export type SetTarget = {
   set_number: number;
   weight_kg: number;

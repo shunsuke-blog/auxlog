@@ -3,20 +3,10 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Pencil, ChevronDown, PenLine } from 'lucide-react'
-import type { UserExercise, TrainingSet } from '@/types'
-
-type Session = {
-  id: string
-  allIds: string[]
-  trained_at: string
-  fatigue_level: number
-  memo: string | null
-  total_volume: number
-  sets: TrainingSet[]
-}
+import type { UserExercise, HistorySession } from '@/types'
 
 type Props = {
-  sessions: Session[]
+  sessions: HistorySession[]
   exercises: UserExercise[]
 }
 

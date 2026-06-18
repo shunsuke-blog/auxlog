@@ -1,16 +1,11 @@
 'use client'
 
 import { useMemo } from 'react'
-import type { UserExercise, TrainingSet, TargetMuscle } from '@/types'
+import type { UserExercise, HistorySession, TargetMuscle } from '@/types'
 import { TARGET_MUSCLE_LABELS } from '@/types'
 
-type Session = {
-  trained_at: string
-  sets: TrainingSet[]
-}
-
 type Props = {
-  sessions: Session[]
+  sessions: HistorySession[]
   exercises: UserExercise[]
 }
 
