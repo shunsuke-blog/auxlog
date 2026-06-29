@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { ChevronRight, Plus, X, Search } from 'lucide-react'
-import type { UserProgramEnrollment, ProgramSuggestion, ProgramPhase } from '@/types'
+import type { UserProgramEnrollment, ProgramSuggestion, ProgramPhase, TargetMuscle } from '@/types'
+import { TARGET_MUSCLE_LABELS } from '@/types'
 import ProgramSlotCard from './ProgramSlotCard'
 
 const PHASE_LABELS: Record<ProgramPhase, string> = {
@@ -21,7 +22,7 @@ const PHASE_DESCRIPTIONS: Record<ProgramPhase, string> = {
 }
 
 // id は user_exercises.id（記録ページで使用）、masterId は exercise_master.id
-type ExtraExercise = { id: string | null; masterId: string | null; name: string }
+type ExtraExercise = { id: string | null; masterId: string | null; name: string; target_muscle?: string }
 type MasterExercise = { id: string; name: string; target_muscle: string }
 
 type Props = {
@@ -46,6 +47,7 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   const [extraExercises, setExtraExercises] = useState<ExtraExercise[]>([])
+  const [hiddenSlotIds, setHiddenSlotIds] = useState<string[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [masterExercises, setMasterExercises] = useState<MasterExercise[]>([])
@@ -54,13 +56,19 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
   const [masterLoading, setMasterLoading] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // Day 切替時に追加種目をリロード
+  // Day 切替時に追加種目・非表示スロットをリロード
   useEffect(() => {
     try {
       const saved = localStorage.getItem(`auxlog_extra_ex_day${selectedDay}`)
       setExtraExercises(saved ? JSON.parse(saved) : [])
     } catch {
       setExtraExercises([])
+    }
+    try {
+      const saved = localStorage.getItem(`auxlog_hidden_slots_day${selectedDay}`)
+      setHiddenSlotIds(saved ? JSON.parse(saved) : [])
+    } catch {
+      setHiddenSlotIds([])
     }
     setShowAddForm(false)
     setSearchQuery('')
@@ -89,6 +97,12 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
 
   const persistExtra = (list: ExtraExercise[]) => {
     try { localStorage.setItem(`auxlog_extra_ex_day${selectedDay}`, JSON.stringify(list)) } catch { /* ignore */ }
+  }
+
+  const hideSlot = (slotId: string) => {
+    const updated = [...hiddenSlotIds, slotId]
+    setHiddenSlotIds(updated)
+    try { localStorage.setItem(`auxlog_hidden_slots_day${selectedDay}`, JSON.stringify(updated)) } catch { /* ignore */ }
   }
 
   const addExercise = async (ex: ExtraExercise) => {
@@ -258,23 +272,38 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
           </div>
         ) : (
           <>
-            {suggestion.slots.map(slot => (
-              <ProgramSlotCard key={slot.slot_id} slot={slot} />
-            ))}
+            {suggestion.slots
+              .filter(slot => !hiddenSlotIds.includes(slot.slot_id))
+              .map(slot => (
+                <div key={slot.slot_id} className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <ProgramSlotCard slot={slot} />
+                  </div>
+                  <button
+                    onClick={() => hideSlot(slot.slot_id)}
+                    className="p-2 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors shrink-0"
+                    aria-label="削除"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
 
             {/* 追加種目カード */}
             {extraExercises.map((ex, i) => (
               <div key={i} className="flex items-center gap-2">
                 <Link
                   href={ex.id ? `/record?exerciseId=${ex.id}` : '/record'}
-                  className="flex-1 block bg-white dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-300 dark:border-zinc-600 px-5 pt-4 pb-5 active:scale-[0.99] transition-transform"
+                  className="flex-1 block bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none border border-zinc-200 dark:border-zinc-800 px-5 pt-4 pb-5 active:scale-[0.99] transition-transform"
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium mb-0.5">追加種目</p>
-                      <h3 className="text-[15px] font-bold text-black dark:text-white">{ex.name}</h3>
+                      <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium mb-0.5">
+                        {ex.target_muscle ? TARGET_MUSCLE_LABELS[ex.target_muscle as TargetMuscle] ?? '追加種目' : '追加種目'}
+                      </p>
+                      <h3 className="text-[15px] font-bold text-black dark:text-white leading-snug">{ex.name}</h3>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 shrink-0" />
+                    <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 mt-1 shrink-0" />
                   </div>
                 </Link>
                 <button
@@ -345,6 +374,7 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
                         id: masterToUserExId.get(ex.id) ?? null,
                         masterId: ex.id,
                         name: ex.name,
+                        target_muscle: ex.target_muscle,
                       })}
                       className="w-full flex items-center px-5 py-4 text-left border-b border-zinc-50 dark:border-zinc-900 active:bg-zinc-50 dark:active:bg-zinc-900 transition-colors"
                     >
