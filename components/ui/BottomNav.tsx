@@ -1,12 +1,11 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { Home, PenLine, BarChart2, Settings } from 'lucide-react'
+import { Home, BarChart2, Settings } from 'lucide-react'
 import { useNavigationGuard } from '@/lib/contexts/NavigationGuard'
 
 const tabs = [
   { href: '/', label: 'ホーム', icon: Home },
-  { href: '/record', label: '記録', icon: PenLine },
   { href: '/history', label: '履歴', icon: BarChart2 },
   { href: '/settings', label: '設定', icon: Settings },
 ]
