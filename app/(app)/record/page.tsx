@@ -126,35 +126,58 @@ function RecordContent() {
       })()
 
       if (exerciseId) {
-        const matched = suggestions.find(s => s.exercise.id === exerciseId)
+        // プログラムスロットからの遷移の場合はセッションストレージのデータを優先
+        const programSlotRaw = sessionStorage.getItem(`auxlog_program_slot_${exerciseId}`)
+        const programSets: { set_number: number; weight_kg: number; reps: number; is_warmup: boolean }[] | null =
+          programSlotRaw ? (() => { try { return JSON.parse(programSlotRaw) } catch { return null } })() : null
 
-        if (matched) {
-          setExerciseSets([{
-            exercise: matched.exercise,
-            enabled: true,
-            sets: matched.proposed_set_targets.map(t => makeSet({
-              set_number: t.set_number,
-              weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
-              reps: String(t.reps),
-              rir: false,
-              is_warmup: t.is_warmup,
-            })),
-          }])
-        } else {
-          // suggest に含まれない種目: 既に取得済みの exercises から探す（再フェッチ不要）
+        if (programSets) {
           const ex = (fetchedExercises ?? []).find(e => e.id === exerciseId)
+            ?? suggestions.find(s => s.exercise.id === exerciseId)?.exercise
           if (ex) {
             setExerciseSets([{
               exercise: ex,
               enabled: true,
-              sets: Array.from({ length: ex.default_sets }, (_, i) => makeSet({
-                set_number: i + 1,
-                weight_kg: '',
-                reps: String(Math.max(1, ex.default_reps - i)),
+              sets: programSets.map(t => makeSet({
+                set_number: t.set_number,
+                weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
+                reps: String(t.reps),
                 rir: false,
-                is_warmup: false,
+                is_warmup: t.is_warmup,
               })),
             }])
+          }
+        } else {
+          const matched = suggestions.find(s => s.exercise.id === exerciseId)
+
+          if (matched) {
+            setExerciseSets([{
+              exercise: matched.exercise,
+              enabled: true,
+              sets: matched.proposed_set_targets.map(t => makeSet({
+                set_number: t.set_number,
+                weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
+                reps: String(t.reps),
+                rir: false,
+                is_warmup: t.is_warmup,
+              })),
+            }])
+          } else {
+            // suggest に含まれない種目: 既に取得済みの exercises から探す（再フェッチ不要）
+            const ex = (fetchedExercises ?? []).find(e => e.id === exerciseId)
+            if (ex) {
+              setExerciseSets([{
+                exercise: ex,
+                enabled: true,
+                sets: Array.from({ length: ex.default_sets }, (_, i) => makeSet({
+                  set_number: i + 1,
+                  weight_kg: '',
+                  reps: String(Math.max(1, ex.default_reps - i)),
+                  rir: false,
+                  is_warmup: false,
+                })),
+              }])
+            }
           }
         }
       } else if (suggestions.length > 0) {

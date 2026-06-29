@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { suggestMenu } from '@/lib/suggest/engine'
 import HomeMenu from '@/components/home/HomeMenu'
+import ProgramDayView from '@/components/home/ProgramDayView'
 import { redirect } from 'next/navigation'
 import { normalizeExercises } from '@/lib/normalize/exercises'
-import type { TrainingLevel } from '@/types'
+import type { TrainingLevel, UserProgramEnrollment } from '@/types'
 import { todayInJST } from '@/lib/utils/date'
 import { isFreeActive, calculateTrialDaysLeft } from '@/lib/business/userStatus'
 import { userExercisesQuery } from '@/lib/api/queries'
@@ -13,9 +14,10 @@ export default async function HomePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const [{ data: userData }, { data: exercises }] = await Promise.all([
+  const [{ data: userData }, { data: exercises }, { data: enrollment }] = await Promise.all([
     supabase.from('users').select('training_level, subscription_status, trial_ends_at, is_admin, is_free, free_until').eq('id', user.id).single(),
     userExercisesQuery(supabase, user.id),
+    supabase.from('user_program_enrollments').select('*').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
   ])
 
   const trainingLevel: TrainingLevel = (userData?.training_level as TrainingLevel) ?? 'intermediate'
@@ -29,11 +31,23 @@ export default async function HomePage() {
     freeActive
   )
 
-  if (!exercises || exercises.length === 0) {
+  if (!enrollment) {
     redirect('/onboarding')
   }
 
-  const normalizedExercises = normalizeExercises(exercises)
+  // アクティブなプログラムエンロールメントがある場合はプログラムビューを表示
+  if (enrollment) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-black">
+        <ProgramDayView
+          enrollment={enrollment as UserProgramEnrollment}
+          trialDaysLeft={trialDaysLeft}
+        />
+      </div>
+    )
+  }
+
+  const normalizedExercises = normalizeExercises(exercises ?? [])
 
   // recent_session_ids（最大3件/種目）から対象セッション ID を収集
   const recentSessionIds = [...new Set(normalizedExercises.flatMap(e => e.recent_session_ids))]

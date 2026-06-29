@@ -96,6 +96,114 @@ export type SetTarget = {
   is_warmup: boolean;
 };
 
+// =====================================================================
+// プログラムベース提案ロジック 型定義
+// =====================================================================
+
+export type ProgramPhase = 'volume' | 'intensity' | 'deload' | 'maxout';
+
+export type OneRmSource = 'manual_input' | 'epley_estimated' | 'w9_amrap_estimation';
+
+export type Program = {
+  id: string;
+  name: string;
+  total_weeks: number;
+  days_per_week: number;
+  created_at: string;
+};
+
+export type ProgramSlot = {
+  id: string;
+  program_id: string;
+  slot_id: string;
+  day_number: number;
+  muscle_group: string;
+  is_compound: boolean;
+  has_one_rm: boolean;
+  priority: 1 | 2 | 3;
+  sort_order: number;
+};
+
+export type ProgramWeeklyParams = {
+  id: string;
+  program_id: string;
+  slot_id: string;
+  week_number: number;
+  // コンパウンド (%RM管理あり)
+  top_set_pct_rm: number | null;
+  top_set_reps: number | null;
+  top_set_is_amrap: boolean;
+  top_set_rpe: number | null;
+  backoff_sets: number | null;
+  backoff_pct_rm: number | null;
+  backoff_reps: number | null;
+  // アイソレーション / RPE管理
+  working_sets: number | null;
+  rep_range_min: number | null;
+  rep_range_max: number | null;
+  rpe: number | null;
+  phase: ProgramPhase;
+  is_excluded: boolean;
+};
+
+export type UserProgramEnrollment = {
+  id: string;
+  user_id: string;
+  program_id: string;
+  current_week: number;
+  days_per_week: 2 | 3 | 4;
+  session_duration_minutes: 60 | 75 | 90;
+  started_at: string;
+  completed_at: string | null;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type UserSlotAssignment = {
+  id: string;
+  user_id: string;
+  enrollment_id: string;
+  slot_id: string;
+  exercise_id: string;
+  created_at: string;
+};
+
+export type UserSlotOneRm = {
+  id: string;
+  user_id: string;
+  slot_id: string;
+  one_rm_kg: number;
+  recorded_at: string;
+  source: OneRmSource;
+  created_at: string;
+};
+
+// 新エンジン出力型
+export type SetSuggestion = {
+  set_type: 'warmup' | 'top' | 'backoff' | 'working';
+  suggested_weight_kg: number;
+  target_reps: number | 'amrap';
+  rep_range_min?: number;
+  rep_range_max?: number;
+  target_rpe: number;
+};
+
+export type SlotSuggestion = {
+  slot_id: string;
+  slot: ProgramSlot;
+  exercise: UserExercise;
+  sets: SetSuggestion[];
+  notes?: string;
+};
+
+export type ProgramSuggestion = {
+  week_number: number;
+  phase: ProgramPhase;
+  day_number: number;
+  day_label: string;
+  slots: SlotSuggestion[];
+};
+
 export type Suggestion = {
   exercise: UserExercise;
   proposed_sets: number;

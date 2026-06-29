@@ -5,6 +5,7 @@ import { ChevronRight, Dumbbell, Mail } from 'lucide-react'
 import LogoutButton from './LogoutButton'
 import TrainingLevelSelector from './TrainingLevelSelector'
 import AddToHomeScreenSection from '@/components/ui/AddToHomeScreenSection'
+import ProgramSection from './ProgramSection'
 import type { TrainingLevel } from '@/types'
 
 function getStatusLabel(status: string): string {
@@ -29,11 +30,65 @@ export default async function SettingsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: userData } = await supabase
-    .from('users')
-    .select('email, subscription_status, trial_ends_at, is_admin, is_free, free_until, training_level')
-    .eq('id', user.id)
-    .single()
+  const [{ data: userData }, { data: enrollment }] = await Promise.all([
+    supabase
+      .from('users')
+      .select('email, subscription_status, trial_ends_at, is_admin, is_free, free_until, training_level')
+      .eq('id', user.id)
+      .single(),
+    supabase
+      .from('user_program_enrollments')
+      .select('id, days_per_week, session_duration_minutes, current_week, started_at')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle(),
+  ])
+
+  // enrollment がある場合のみ一覧取得
+  type AssignmentRow = {
+    slot_id: string
+    user_exercises: {
+      custom_name: string | null
+      exercise_master: { name: string } | null
+    } | null
+  }
+  type OneRmRow = { slot_id: string; one_rm_kg: number; recorded_at: string }
+
+  let oneRmsWithNames: { slot_id: string; exercise_name: string; one_rm_kg: number; recorded_at: string }[] = []
+
+  if (enrollment) {
+    const [{ data: rawAssignments }, { data: rawOneRms }] = await Promise.all([
+      supabase
+        .from('user_slot_assignments')
+        .select('slot_id, user_exercises(custom_name, exercise_master(name))')
+        .eq('enrollment_id', enrollment.id),
+      supabase
+        .from('user_slot_one_rms')
+        .select('slot_id, one_rm_kg, recorded_at')
+        .eq('user_id', user.id)
+        .order('recorded_at', { ascending: false }),
+    ])
+
+    const assignmentMap = new Map(
+      (rawAssignments ?? []).map(a => {
+        const row = a as unknown as AssignmentRow
+        const ue = row.user_exercises
+        const name =
+          (ue && !Array.isArray(ue) ? ue.exercise_master?.name ?? ue.custom_name : null) ?? ''
+        return [row.slot_id, name]
+      })
+    )
+
+    // chest_triceps_compound は chest_compound の派生なので表示から除外
+    oneRmsWithNames = ((rawOneRms ?? []) as OneRmRow[])
+      .filter(r => r.slot_id !== 'chest_triceps_compound')
+      .map(r => ({
+        slot_id: r.slot_id,
+        exercise_name: assignmentMap.get(r.slot_id) ?? r.slot_id,
+        one_rm_kg: r.one_rm_kg,
+        recorded_at: r.recorded_at,
+      }))
+  }
 
   const isAdmin = userData?.is_admin ?? false
   const isFree = userData?.is_free ?? false
@@ -101,6 +156,15 @@ export default async function SettingsPage() {
         </Link>
         
         <TrainingLevelSelector initialLevel={trainingLevel} />
+
+        <ProgramSection
+          enrollmentId={enrollment?.id ?? null}
+          daysPerWeek={enrollment?.days_per_week ?? null}
+          sessionMinutes={enrollment?.session_duration_minutes ?? null}
+          currentWeek={enrollment?.current_week ?? null}
+          startedAt={enrollment?.started_at ?? null}
+          oneRms={oneRmsWithNames}
+        />
 
         <Link
           href="/exercises"
