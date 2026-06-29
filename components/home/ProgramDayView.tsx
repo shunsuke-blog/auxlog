@@ -91,8 +91,32 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
     try { sessionStorage.setItem(`auxlog_extra_ex_day${selectedDay}`, JSON.stringify(list)) } catch { /* ignore */ }
   }
 
-  const addExercise = (ex: ExtraExercise) => {
-    const updated = [...extraExercises, ex]
+  const addExercise = async (ex: ExtraExercise) => {
+    let finalId = ex.id
+
+    // user_exercises 未登録の場合は自動登録してIDを取得
+    if (!finalId) {
+      try {
+        const body = ex.masterId
+          ? { exercise_master_id: ex.masterId }
+          : { custom_name: ex.name }
+        const res = await fetch('/api/exercises', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          finalId = data.exercise?.id ?? null
+          if (ex.masterId && finalId) {
+            const masterId = ex.masterId
+            setMasterToUserExId(prev => new Map(prev).set(masterId, finalId!))
+          }
+        }
+      } catch { /* ignore — fall back to /record without exerciseId */ }
+    }
+
+    const updated = [...extraExercises, { ...ex, id: finalId }]
     setExtraExercises(updated)
     persistExtra(updated)
     setShowAddForm(false)
