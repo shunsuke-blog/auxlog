@@ -250,79 +250,87 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
               </div>
             ))}
 
-            {/* 種目追加フォーム or ボタン */}
-            {showAddForm ? (
-              <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
-                {/* 検索バー */}
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
-                  <Search className="w-4 h-4 text-zinc-400 shrink-0" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="種目名で検索..."
-                    autoFocus
-                    className="flex-1 text-sm text-black dark:text-white bg-transparent placeholder:text-zinc-400 focus:outline-none"
-                  />
-                  <button
-                    onClick={() => { setShowAddForm(false); setSearchQuery('') }}
-                    className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* 候補リスト */}
-                <div className="max-h-64 overflow-y-auto">
-                  {masterLoading ? (
-                    <p className="text-sm text-zinc-400 text-center py-6">読み込み中...</p>
-                  ) : (
-                    <>
-                      {filteredMaster
-                        .filter(e => !addedNames.has(e.name) && !slotNames.has(e.name))
-                        .map(ex => (
-                          <button
-                            key={ex.id}
-                            onClick={() => addExercise({ id: ex.id, name: ex.name })}
-                            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 border-b border-zinc-50 dark:border-zinc-800 last:border-0 transition-colors"
-                          >
-                            <span className="text-sm font-medium text-black dark:text-white">{ex.name}</span>
-                          </button>
-                        ))}
-
-                      {/* DBにない場合は自由入力で追加 */}
-                      {trimmedQuery && !filteredMaster.some(e => e.name === trimmedQuery) && (
-                        <button
-                          onClick={() => addExercise({ id: null, name: trimmedQuery })}
-                          className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                        >
-                          <Plus className="w-4 h-4 text-zinc-400 shrink-0" />
-                          <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                            「{trimmedQuery}」を追加する
-                          </span>
-                        </button>
-                      )}
-
-                      {!masterLoading && filteredMaster.length === 0 && !trimmedQuery && (
-                        <p className="text-sm text-zinc-400 text-center py-6">種目が見つかりません</p>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="w-full flex items-center justify-center gap-2 py-4 rounded-3xl border border-dashed border-zinc-300 dark:border-zinc-700 text-sm text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                種目を追加
-              </button>
-            )}
+            {/* 種目追加ボタン */}
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-3xl border border-dashed border-zinc-300 dark:border-zinc-700 text-sm text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              種目を追加
+            </button>
           </>
         )}
       </div>
+
+      {/* 種目選択オーバーレイ */}
+      {showAddForm && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-black">
+          {/* ヘッダー */}
+          <div className="flex items-center gap-3 px-5 pt-14 pb-4 border-b border-zinc-100 dark:border-zinc-900">
+            <div className="flex-1 flex items-center gap-2 px-4 py-3 rounded-2xl bg-zinc-100 dark:bg-zinc-900">
+              <Search className="w-4 h-4 text-zinc-400 shrink-0" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="種目名で検索..."
+                autoFocus
+                className="flex-1 text-[15px] text-black dark:text-white bg-transparent placeholder:text-zinc-400 focus:outline-none"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="text-zinc-400">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => { setShowAddForm(false); setSearchQuery('') }}
+              className="text-sm font-medium text-zinc-500 dark:text-zinc-400 shrink-0"
+            >
+              キャンセル
+            </button>
+          </div>
+
+          {/* リスト */}
+          <div className="flex-1 overflow-y-auto">
+            {masterLoading ? (
+              <p className="text-sm text-zinc-400 text-center py-12">読み込み中...</p>
+            ) : (
+              <>
+                {filteredMaster
+                  .filter(e => !addedNames.has(e.name) && !slotNames.has(e.name))
+                  .map(ex => (
+                    <button
+                      key={ex.id}
+                      onClick={() => addExercise({ id: ex.id, name: ex.name })}
+                      className="w-full flex items-center px-5 py-4 text-left border-b border-zinc-50 dark:border-zinc-900 active:bg-zinc-50 dark:active:bg-zinc-900 transition-colors"
+                    >
+                      <span className="text-[15px] text-black dark:text-white">{ex.name}</span>
+                    </button>
+                  ))}
+
+                {/* DBにない場合は自由入力で追加 */}
+                {trimmedQuery && !filteredMaster.some(e => e.name === trimmedQuery) && (
+                  <button
+                    onClick={() => addExercise({ id: null, name: trimmedQuery })}
+                    className="w-full flex items-center gap-3 px-5 py-4 text-left border-b border-zinc-50 dark:border-zinc-900 active:bg-zinc-50 dark:active:bg-zinc-900 transition-colors"
+                  >
+                    <Plus className="w-4 h-4 text-zinc-400 shrink-0" />
+                    <span className="text-[15px] text-zinc-500 dark:text-zinc-400">
+                      「{trimmedQuery}」を追加する
+                    </span>
+                  </button>
+                )}
+
+                {!masterLoading && filteredMaster.length === 0 && !trimmedQuery && (
+                  <p className="text-sm text-zinc-400 text-center py-12">種目が見つかりません</p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   )
 }
