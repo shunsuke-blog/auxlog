@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Plus, X } from 'lucide-react'
 import type { UserProgramEnrollment, ProgramSuggestion, ProgramPhase } from '@/types'
 import ProgramSlotCard from './ProgramSlotCard'
 
@@ -41,6 +41,37 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
   const [suggestion, setSuggestion] = useState<ProgramSuggestion | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [extraExercises, setExtraExercises] = useState<string[]>([])
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newExerciseName, setNewExerciseName] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(`auxlog_extra_ex_day${selectedDay}`)
+      setExtraExercises(saved ? JSON.parse(saved) : [])
+    } catch {
+      setExtraExercises([])
+    }
+    setShowAddForm(false)
+    setNewExerciseName('')
+  }, [selectedDay])
+
+  const addExercise = () => {
+    const name = newExerciseName.trim()
+    if (!name) return
+    const updated = [...extraExercises, name]
+    setExtraExercises(updated)
+    try { sessionStorage.setItem(`auxlog_extra_ex_day${selectedDay}`, JSON.stringify(updated)) } catch { /* ignore */ }
+    setNewExerciseName('')
+    setShowAddForm(false)
+  }
+
+  const removeExercise = (index: number) => {
+    const updated = extraExercises.filter((_, i) => i !== index)
+    setExtraExercises(updated)
+    try { sessionStorage.setItem(`auxlog_extra_ex_day${selectedDay}`, JSON.stringify(updated)) } catch { /* ignore */ }
+  }
 
   const availableDays = Array.from({ length: enrollment.days_per_week }, (_, i) => i + 1)
 
@@ -161,9 +192,73 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
             </p>
           </div>
         ) : (
-          suggestion.slots.map(slot => (
-            <ProgramSlotCard key={slot.slot_id} slot={slot} />
-          ))
+          <>
+            {suggestion.slots.map(slot => (
+              <ProgramSlotCard key={slot.slot_id} slot={slot} />
+            ))}
+
+            {/* 追加種目 */}
+            {extraExercises.map((name, i) => (
+              <div key={i} className="relative">
+                <Link
+                  href="/record"
+                  className="block bg-white dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-300 dark:border-zinc-600 px-5 pt-4 pb-5 active:scale-[0.99] transition-transform"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0 pr-6">
+                      <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium mb-0.5">追加種目</p>
+                      <h3 className="text-[15px] font-bold text-black dark:text-white">{name}</h3>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 shrink-0" />
+                  </div>
+                </Link>
+                <button
+                  onClick={() => removeExercise(i)}
+                  className="absolute top-3 right-10 p-1.5 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors"
+                  aria-label="削除"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+
+            {/* 種目追加フォーム or ボタン */}
+            {showAddForm ? (
+              <div className="flex items-center gap-2 px-1">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={newExerciseName}
+                  onChange={e => setNewExerciseName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addExercise() }}
+                  placeholder="種目名を入力"
+                  autoFocus
+                  className="flex-1 px-4 py-3 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm text-black dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-black dark:focus:border-white"
+                />
+                <button
+                  onClick={addExercise}
+                  disabled={!newExerciseName.trim()}
+                  className="px-4 py-3 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-40 transition-opacity shrink-0"
+                >
+                  追加
+                </button>
+                <button
+                  onClick={() => { setShowAddForm(false); setNewExerciseName('') }}
+                  className="p-3 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="w-full flex items-center justify-center gap-2 py-4 rounded-3xl border border-dashed border-zinc-300 dark:border-zinc-700 text-sm text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                種目を追加
+              </button>
+            )}
+          </>
         )}
       </div>
     </>
