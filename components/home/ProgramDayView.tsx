@@ -128,6 +128,7 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
 
   const [extraExercises, setExtraExercises] = useState<ExtraExercise[]>([])
   const [hiddenSlotIds, setHiddenSlotIds] = useState<string[]>([])
+  const [deleteConfirm, setDeleteConfirm] = useState<{ name: string; onConfirm: () => void } | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [masterExercises, setMasterExercises] = useState<MasterExercise[]>([])
@@ -355,14 +356,17 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
             {suggestion.slots
               .filter(slot => !hiddenSlotIds.includes(slot.slot_id))
               .map(slot => (
-                <SwipeableCard key={slot.slot_id} onRemove={() => hideSlot(slot.slot_id)}>
+                <SwipeableCard
+                  key={slot.slot_id}
+                  onRemove={() => setDeleteConfirm({ name: slot.exercise.name, onConfirm: () => hideSlot(slot.slot_id) })}
+                >
                   <ProgramSlotCard slot={slot} />
                 </SwipeableCard>
               ))}
 
             {/* 追加種目カード */}
             {extraExercises.map((ex, i) => (
-              <SwipeableCard key={i} onRemove={() => removeExercise(i)}>
+              <SwipeableCard key={i} onRemove={() => setDeleteConfirm({ name: ex.name, onConfirm: () => removeExercise(i) })}>
                 <Link
                   href={ex.id ? `/record?exerciseId=${ex.id}` : '/record'}
                   className="block bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none border border-zinc-200 dark:border-zinc-800 px-5 pt-4 pb-5 active:scale-[0.99] transition-transform"
@@ -391,6 +395,33 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
           </>
         )}
       </div>
+
+      {/* 削除確認モーダル */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setDeleteConfirm(null)} />
+          <div className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
+            <p className="text-base font-semibold text-black dark:text-white">「{deleteConfirm.name}」を外しますか？</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              今日のメニューから外します。トレーニング記録は削除されません。
+            </p>
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={() => { deleteConfirm.onConfirm(); setDeleteConfirm(null) }}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-sm font-medium text-white"
+              >
+                外す
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 種目選択オーバーレイ */}
       {showAddForm && (

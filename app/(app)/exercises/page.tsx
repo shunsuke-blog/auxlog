@@ -3,11 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, X } from 'lucide-react'
 import type { UserExercise, ExerciseMaster, TargetMuscle } from '@/types'
-import { TARGET_MUSCLE_LABELS } from '@/types'
+import { TARGET_MUSCLE_LABELS, MUSCLE_ORDER } from '@/types'
 import { useToast } from '@/hooks/useToast'
 import Toast from '@/components/ui/Toast'
-
-const MUSCLE_ORDER: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arms']
 
 type AddModalProps = {
   onClose: () => void

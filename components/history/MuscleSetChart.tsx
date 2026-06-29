@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import type { UserExercise, HistorySession, TargetMuscle } from '@/types'
-import { TARGET_MUSCLE_LABELS } from '@/types'
+import { TARGET_MUSCLE_LABELS, MUSCLE_ORDER } from '@/types'
 
 type Props = {
   sessions: HistorySession[]
@@ -18,7 +18,6 @@ const DEFAULT_TARGETS: Record<TargetMuscle, number> = {
   core: 8,
 }
 
-const MUSCLE_ORDER: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core']
 
 function CircleProgress({ value, target, label }: { value: number; target: number; label: string }) {
   const pct = Math.min(value / target, 1)

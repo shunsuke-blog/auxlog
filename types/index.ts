@@ -15,6 +15,8 @@ export const TARGET_MUSCLE_LABELS: Record<TargetMuscle, string> = {
   core: '体幹',
 };
 
+export const MUSCLE_ORDER: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core'];
+
 export type SubscriptionStatus =
   | 'trialing'
   | 'active'

@@ -55,14 +55,9 @@ export async function DELETE(
 
   if (!exercise) return notFound('種目が見つかりません')
 
-  // 該当種目のトレーニング記録を削除してから種目を論理削除
-  const { error: setsError } = await supabase
-    .from('training_sets')
-    .delete()
-    .eq('exercise_id', id)
-
-  if (setsError) return dbError('履歴の削除に失敗しました', setsError)
-
+  // 論理削除を先行させてから履歴を削除する。
+  // 逆順だと削除成功→論理削除失敗のとき「記録なし・種目あり」という不整合が起きる。
+  // 論理削除後に履歴削除が失敗しても孤立セットは is_active=false の種目に紐づくため UI に露出しない。
   const { error } = await supabase
     .from('user_exercises')
     .update({ is_active: false })
@@ -70,6 +65,13 @@ export async function DELETE(
     .eq('user_id', user.id)
 
   if (error) return dbError('種目の削除に失敗しました', error)
+
+  const { error: setsError } = await supabase
+    .from('training_sets')
+    .delete()
+    .eq('exercise_id', id)
+
+  if (setsError) console.error('[training_sets delete]', setsError.message)
 
   return NextResponse.json({ success: true })
 }

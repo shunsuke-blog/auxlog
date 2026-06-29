@@ -14,6 +14,16 @@ export async function POST(request: Request) {
   if (!parsed.success) return validationError(parsed.error)
   const { trained_at, fatigue_level, memo, sets } = parsed.data
 
+  const allExerciseIds = [...new Set(sets.map(s => s.exercise_id))]
+  const { count: ownedCount } = await supabase
+    .from('user_exercises')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .in('id', allExerciseIds)
+  if (ownedCount !== allExerciseIds.length) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const { data: session, error: sessionError } = await supabase
     .from('training_sessions')
     .insert({ user_id: user.id, trained_at, fatigue_level, memo: memo || null })
@@ -114,13 +124,14 @@ export async function POST(request: Request) {
         updated_at:      new Date().toISOString(),
       }
     })
-    await supabase.from('exercise_bests').upsert(upserts)
+    const { error: bestsError } = await supabase.from('exercise_bests').upsert(upserts)
+    if (bestsError) console.error('[exercise_bests upsert]', bestsError.message)
 
-    // user_exercises.recent_session_ids を更新（直近3セッション ID を保持）
-    await supabase.rpc('update_recent_session_ids', {
+    const { error: rpcError } = await supabase.rpc('update_recent_session_ids', {
       p_exercise_ids: exerciseIds,
       p_session_id: session.id,
     })
+    if (rpcError) console.error('[update_recent_session_ids]', rpcError.message)
   }
 
   return NextResponse.json({ session_id: session.id, created_at: session.created_at, is_improved, is_volume_up })

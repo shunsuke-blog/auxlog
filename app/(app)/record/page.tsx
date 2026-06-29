@@ -9,7 +9,7 @@ import AddExerciseModal from '@/components/record/AddExerciseModal'
 import PendingSetsModal from '@/components/record/PendingSetsModal'
 import { Plus, ChevronLeft } from 'lucide-react'
 import type { UserExercise, Suggestion, TargetMuscle } from '@/types'
-import { TARGET_MUSCLE_LABELS } from '@/types'
+import { TARGET_MUSCLE_LABELS, MUSCLE_ORDER } from '@/types'
 import { todayLocalDate } from '@/lib/utils/date'
 import SaveComplete from '@/components/ui/SaveComplete'
 import { useNavigationGuard } from '@/lib/contexts/NavigationGuard'
@@ -339,10 +339,9 @@ function RecordContent() {
     )
   }
 
-  const muscleOrder: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core']
   const showGroupHeader = !fromHome && exerciseSets.length > 1
   const groups = showGroupHeader
-    ? muscleOrder
+    ? MUSCLE_ORDER
         .map(muscle => ({
           muscle,
           items: exerciseSets.map((ex, idx) => ({ ex, idx })).filter(({ ex }) => ex.exercise.target_muscle === muscle),

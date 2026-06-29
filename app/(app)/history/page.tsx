@@ -14,7 +14,7 @@ export default async function HistoryPage() {
       .select('*, training_sets(id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup, created_at)')
       .eq('user_id', user.id)
       .order('trained_at', { ascending: false })
-      .limit(60),
+      .limit(365),
     supabase
       .from('user_exercises')
       .select('*, exercise_master(name, target_muscle, is_bodyweight)')
