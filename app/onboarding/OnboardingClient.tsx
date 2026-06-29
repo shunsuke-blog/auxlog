@@ -639,10 +639,15 @@ export default function OnboardingClient({ exercises }: Props) {
                       },
                     }))
                   }
-                  className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 >
-                  {entry.show_epley ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                  最高重量がわからない場合（計算で推定）
+                  <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                    最高重量がわからない場合
+                  </span>
+                  <span className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500 shrink-0">
+                    {entry.show_epley ? '閉じる' : '重量を計算する'}
+                    {entry.show_epley ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </span>
                 </button>
 
                 {entry.show_epley && (
