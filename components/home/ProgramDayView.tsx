@@ -7,6 +7,86 @@ import type { UserProgramEnrollment, ProgramSuggestion, ProgramPhase, TargetMusc
 import { TARGET_MUSCLE_LABELS } from '@/types'
 import ProgramSlotCard from './ProgramSlotCard'
 
+function SwipeableCard({ children, onRemove }: { children: React.ReactNode; onRemove: () => void }) {
+  const [offset, setOffset] = useState(0)
+  const [animating, setAnimating] = useState(false)
+  const startX = useRef(0)
+  const startY = useRef(0)
+  const baseOffset = useRef(0)
+  const swiping = useRef(false)
+  const swipedThisTouch = useRef(false)
+  const REVEAL = 80
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startX.current = e.touches[0].clientX
+    startY.current = e.touches[0].clientY
+    baseOffset.current = offset
+    swiping.current = false
+    swipedThisTouch.current = false
+    setAnimating(false)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - startX.current
+    const dy = e.touches[0].clientY - startY.current
+    if (!swiping.current) {
+      if (Math.abs(dy) > Math.abs(dx)) return
+      if (Math.abs(dx) < 5) return
+      swiping.current = true
+    }
+    swipedThisTouch.current = true
+    setOffset(Math.min(0, Math.max(-REVEAL, baseOffset.current + dx)))
+  }
+
+  const handleTouchEnd = () => {
+    if (!swiping.current) return
+    const snap = offset < -REVEAL / 2 ? -REVEAL : 0
+    baseOffset.current = snap
+    setAnimating(true)
+    setOffset(snap)
+    swiping.current = false
+  }
+
+  const handleClickCapture = (e: React.MouseEvent) => {
+    if (swipedThisTouch.current || offset !== 0) {
+      e.preventDefault()
+      e.stopPropagation()
+      if (offset !== 0) {
+        setAnimating(true)
+        setOffset(0)
+        baseOffset.current = 0
+      }
+      swipedThisTouch.current = false
+    }
+  }
+
+  return (
+    <div className="relative overflow-hidden rounded-3xl">
+      <button
+        onClick={(e) => { e.stopPropagation(); onRemove() }}
+        className="absolute inset-y-0 right-0 bg-red-500 text-white text-[13px] font-bold flex items-center justify-center"
+        style={{ width: REVEAL }}
+        aria-label="削除"
+      >
+        削除
+      </button>
+      <div
+        style={{
+          transform: `translateX(${offset}px)`,
+          transition: animating ? 'transform 0.2s ease-out' : 'none',
+          willChange: 'transform',
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClickCapture={handleClickCapture}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 const PHASE_LABELS: Record<ProgramPhase, string> = {
   volume:    'ボリューム期',
   intensity: '強度期',
@@ -275,26 +355,17 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
             {suggestion.slots
               .filter(slot => !hiddenSlotIds.includes(slot.slot_id))
               .map(slot => (
-                <div key={slot.slot_id} className="flex items-center gap-2">
-                  <div className="flex-1 min-w-0">
-                    <ProgramSlotCard slot={slot} />
-                  </div>
-                  <button
-                    onClick={() => hideSlot(slot.slot_id)}
-                    className="p-2 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors shrink-0"
-                    aria-label="削除"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+                <SwipeableCard key={slot.slot_id} onRemove={() => hideSlot(slot.slot_id)}>
+                  <ProgramSlotCard slot={slot} />
+                </SwipeableCard>
               ))}
 
             {/* 追加種目カード */}
             {extraExercises.map((ex, i) => (
-              <div key={i} className="flex items-center gap-2">
+              <SwipeableCard key={i} onRemove={() => removeExercise(i)}>
                 <Link
                   href={ex.id ? `/record?exerciseId=${ex.id}` : '/record'}
-                  className="flex-1 block bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none border border-zinc-200 dark:border-zinc-800 px-5 pt-4 pb-5 active:scale-[0.99] transition-transform"
+                  className="block bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none border border-zinc-200 dark:border-zinc-800 px-5 pt-4 pb-5 active:scale-[0.99] transition-transform"
                 >
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1 min-w-0">
@@ -306,14 +377,7 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
                     <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 mt-1 shrink-0" />
                   </div>
                 </Link>
-                <button
-                  onClick={() => removeExercise(i)}
-                  className="p-2 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors shrink-0"
-                  aria-label="削除"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+              </SwipeableCard>
             ))}
 
             {/* 種目追加ボタン */}
