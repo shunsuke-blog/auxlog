@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Plus, X } from 'lucide-react'
+import { ChevronRight, Plus, X, Search } from 'lucide-react'
 import type { UserProgramEnrollment, ProgramSuggestion, ProgramPhase } from '@/types'
 import ProgramSlotCard from './ProgramSlotCard'
 
@@ -20,6 +20,8 @@ const PHASE_DESCRIPTIONS: Record<ProgramPhase, string> = {
   maxout:    '9週間の集大成。限界まで全力を出し切り、自己ベスト更新を狙います！',
 }
 
+type ExtraExercise = { id: string | null; name: string }
+type MasterExercise = { id: string; name: string; target_muscle: string }
 
 type Props = {
   enrollment: UserProgramEnrollment
@@ -41,11 +43,15 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
   const [suggestion, setSuggestion] = useState<ProgramSuggestion | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [extraExercises, setExtraExercises] = useState<string[]>([])
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [newExerciseName, setNewExerciseName] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
 
+  const [extraExercises, setExtraExercises] = useState<ExtraExercise[]>([])
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [masterExercises, setMasterExercises] = useState<MasterExercise[]>([])
+  const [masterLoading, setMasterLoading] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Day 切替時に追加種目をリロード
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem(`auxlog_extra_ex_day${selectedDay}`)
@@ -54,24 +60,46 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
       setExtraExercises([])
     }
     setShowAddForm(false)
-    setNewExerciseName('')
+    setSearchQuery('')
   }, [selectedDay])
 
-  const addExercise = () => {
-    const name = newExerciseName.trim()
-    if (!name) return
-    const updated = [...extraExercises, name]
+  // 追加フォームを開いたとき種目マスタをフェッチ
+  useEffect(() => {
+    if (!showAddForm || masterExercises.length > 0) return
+    setMasterLoading(true)
+    fetch('/api/exercises/master')
+      .then(r => r.json())
+      .then(d => setMasterExercises(d.exercises ?? []))
+      .catch(() => {})
+      .finally(() => setMasterLoading(false))
+  }, [showAddForm, masterExercises.length])
+
+  const persistExtra = (list: ExtraExercise[]) => {
+    try { sessionStorage.setItem(`auxlog_extra_ex_day${selectedDay}`, JSON.stringify(list)) } catch { /* ignore */ }
+  }
+
+  const addExercise = (ex: ExtraExercise) => {
+    const updated = [...extraExercises, ex]
     setExtraExercises(updated)
-    try { sessionStorage.setItem(`auxlog_extra_ex_day${selectedDay}`, JSON.stringify(updated)) } catch { /* ignore */ }
-    setNewExerciseName('')
+    persistExtra(updated)
     setShowAddForm(false)
+    setSearchQuery('')
   }
 
   const removeExercise = (index: number) => {
     const updated = extraExercises.filter((_, i) => i !== index)
     setExtraExercises(updated)
-    try { sessionStorage.setItem(`auxlog_extra_ex_day${selectedDay}`, JSON.stringify(updated)) } catch { /* ignore */ }
+    persistExtra(updated)
   }
+
+  const trimmedQuery = searchQuery.trim()
+  const filteredMaster = trimmedQuery
+    ? masterExercises.filter(e => e.name.includes(trimmedQuery))
+    : masterExercises
+
+  // すでに追加済み or プログラムスロットにある種目IDセット
+  const addedNames = new Set(extraExercises.map(e => e.name))
+  const slotNames = new Set(suggestion?.slots.map(s => s.exercise.name) ?? [])
 
   const availableDays = Array.from({ length: enrollment.days_per_week }, (_, i) => i + 1)
 
@@ -197,24 +225,24 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
               <ProgramSlotCard key={slot.slot_id} slot={slot} />
             ))}
 
-            {/* 追加種目 */}
-            {extraExercises.map((name, i) => (
+            {/* 追加種目カード */}
+            {extraExercises.map((ex, i) => (
               <div key={i} className="relative">
                 <Link
-                  href="/record"
+                  href={ex.id ? `/record?exerciseId=${ex.id}` : '/record'}
                   className="block bg-white dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-300 dark:border-zinc-600 px-5 pt-4 pb-5 active:scale-[0.99] transition-transform"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex-1 min-w-0 pr-6">
                       <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium mb-0.5">追加種目</p>
-                      <h3 className="text-[15px] font-bold text-black dark:text-white">{name}</h3>
+                      <h3 className="text-[15px] font-bold text-black dark:text-white">{ex.name}</h3>
                     </div>
                     <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 shrink-0" />
                   </div>
                 </Link>
                 <button
                   onClick={() => removeExercise(i)}
-                  className="absolute top-3 right-10 p-1.5 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors"
+                  className="absolute top-3.5 right-4 p-1.5 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors"
                   aria-label="削除"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -224,30 +252,64 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
 
             {/* 種目追加フォーム or ボタン */}
             {showAddForm ? (
-              <div className="flex items-center gap-2 px-1">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={newExerciseName}
-                  onChange={e => setNewExerciseName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') addExercise() }}
-                  placeholder="種目名を入力"
-                  autoFocus
-                  className="flex-1 px-4 py-3 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm text-black dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-black dark:focus:border-white"
-                />
-                <button
-                  onClick={addExercise}
-                  disabled={!newExerciseName.trim()}
-                  className="px-4 py-3 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-40 transition-opacity shrink-0"
-                >
-                  追加
-                </button>
-                <button
-                  onClick={() => { setShowAddForm(false); setNewExerciseName('') }}
-                  className="p-3 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors shrink-0"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+              <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                {/* 検索バー */}
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+                  <Search className="w-4 h-4 text-zinc-400 shrink-0" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="種目名で検索..."
+                    autoFocus
+                    className="flex-1 text-sm text-black dark:text-white bg-transparent placeholder:text-zinc-400 focus:outline-none"
+                  />
+                  <button
+                    onClick={() => { setShowAddForm(false); setSearchQuery('') }}
+                    className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* 候補リスト */}
+                <div className="max-h-64 overflow-y-auto">
+                  {masterLoading ? (
+                    <p className="text-sm text-zinc-400 text-center py-6">読み込み中...</p>
+                  ) : (
+                    <>
+                      {filteredMaster
+                        .filter(e => !addedNames.has(e.name) && !slotNames.has(e.name))
+                        .map(ex => (
+                          <button
+                            key={ex.id}
+                            onClick={() => addExercise({ id: ex.id, name: ex.name })}
+                            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 border-b border-zinc-50 dark:border-zinc-800 last:border-0 transition-colors"
+                          >
+                            <span className="text-sm font-medium text-black dark:text-white">{ex.name}</span>
+                          </button>
+                        ))}
+
+                      {/* DBにない場合は自由入力で追加 */}
+                      {trimmedQuery && !filteredMaster.some(e => e.name === trimmedQuery) && (
+                        <button
+                          onClick={() => addExercise({ id: null, name: trimmedQuery })}
+                          className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                        >
+                          <Plus className="w-4 h-4 text-zinc-400 shrink-0" />
+                          <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                            「{trimmedQuery}」を追加する
+                          </span>
+                        </button>
+                      )}
+
+                      {!masterLoading && filteredMaster.length === 0 && !trimmedQuery && (
+                        <p className="text-sm text-zinc-400 text-center py-6">種目が見つかりません</p>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             ) : (
               <button
