@@ -531,7 +531,7 @@ export default function OnboardingClient({ exercises }: Props) {
     const isCurrentValid = parseFloat(entry.final_kg) > 0
 
     return (
-      <div className="min-h-screen bg-white dark:bg-black overflow-hidden">
+      <div className="min-h-screen bg-white dark:bg-black">
         <style>{`
           @keyframes auxlog-card-exit {
             0% { transform: translateX(0) rotate(0deg); opacity: 1; }
@@ -576,7 +576,7 @@ export default function OnboardingClient({ exercises }: Props) {
         </div>
 
         {/* Card */}
-        <div className="px-6 py-6">
+        <div className="px-6 py-6 overflow-hidden">
           <div
             key={currentOneRmIndex}
             className={isExiting ? 'auxlog-card-exit' : 'auxlog-card-enter'}
