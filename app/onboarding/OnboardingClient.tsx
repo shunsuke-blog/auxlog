@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronDown, ChevronUp, Smartphone, Zap, Sliders, Sparkles } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, ChevronUp, Smartphone, Zap, Sliders, Sparkles } from 'lucide-react'
 
 // ──────────────────────────────────────────────────────────
 // Types
@@ -257,6 +257,15 @@ export default function OnboardingClient({ exercises }: Props) {
     }
   }
 
+  const handleOneRmBack = () => {
+    setError(null)
+    if (currentOneRmIndex > 0) {
+      setCurrentOneRmIndex(i => i - 1)
+    } else {
+      setStep('exercises')
+    }
+  }
+
   const handleGenerate = async () => {
     setGenerating(true)
     const ok = await handleComplete()
@@ -288,7 +297,7 @@ export default function OnboardingClient({ exercises }: Props) {
     )
 
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-32">
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-40">
         <div className="sticky top-0 bg-zinc-50/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 py-5 z-10">
           <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 4 / 5</p>
           <h1 className="text-xl font-semibold text-black dark:text-white">あなたのプログラム</h1>
@@ -406,8 +415,8 @@ export default function OnboardingClient({ exercises }: Props) {
         </div>
 
         <div
-          className="fixed left-0 right-0 p-6 bg-zinc-50/90 dark:bg-zinc-950/90 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800"
-          style={{ bottom: 'env(safe-area-inset-bottom)' }}
+          className="fixed left-0 right-0 px-6 pt-6 bg-zinc-50/90 dark:bg-zinc-950/90 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800"
+          style={{ bottom: 0, paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}
         >
           <button
             onClick={() => setStep('install')}
@@ -540,7 +549,16 @@ export default function OnboardingClient({ exercises }: Props) {
 
         {/* Header */}
         <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 3 / 5</p>
+          <div className="flex items-center gap-2 mb-1">
+            <button
+              onClick={handleOneRmBack}
+              className="text-zinc-400 hover:text-black dark:hover:text-white transition-colors -ml-1"
+              aria-label="前のステップへ"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">ステップ 3 / 5</p>
+          </div>
           <h1 className="text-xl font-semibold text-black dark:text-white">最大重量を入力</h1>
           {/* Progress dots */}
           <div className="flex gap-1.5 mt-3">
@@ -698,8 +716,8 @@ export default function OnboardingClient({ exercises }: Props) {
 
         {/* Bottom buttons */}
         <div
-          className="fixed left-0 right-0 px-6 py-4 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900 space-y-3"
-          style={{ bottom: 'env(safe-area-inset-bottom)' }}
+          className="fixed left-0 right-0 px-6 pt-4 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900 space-y-3"
+          style={{ bottom: 0, paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}
         >
           {!isLastSlot ? (
             <button
@@ -744,9 +762,18 @@ export default function OnboardingClient({ exercises }: Props) {
       .map(m => ({ muscle: m, label: MUSCLE_LABELS[m] ?? m, exercises: groupMap[m] }))
 
     return (
-      <div className="min-h-screen bg-white dark:bg-black pb-32">
+      <div className="min-h-screen bg-white dark:bg-black pb-40">
         <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 2 / 5</p>
+          <div className="flex items-center gap-2 mb-1">
+            <button
+              onClick={() => setStep('frequency')}
+              className="text-zinc-400 hover:text-black dark:hover:text-white transition-colors -ml-1"
+              aria-label="前のステップへ"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">ステップ 2 / 5</p>
+          </div>
           <h1 className="text-xl font-semibold text-black dark:text-white">今やっている種目を選ぶ</h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             やっていない種目は自動でデフォルトが設定されます
@@ -789,8 +816,8 @@ export default function OnboardingClient({ exercises }: Props) {
         </div>
 
         <div
-          className="fixed left-0 right-0 p-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900"
-          style={{ bottom: 'env(safe-area-inset-bottom)' }}
+          className="fixed left-0 right-0 px-6 pt-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900"
+          style={{ bottom: 0, paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}
         >
           <button
             onClick={handleExercisesNext}
@@ -806,7 +833,7 @@ export default function OnboardingClient({ exercises }: Props) {
 
   // ── frequency (default) ──────────────────────────────────
   return (
-    <div className="min-h-screen bg-white dark:bg-black pb-32">
+    <div className="min-h-screen bg-white dark:bg-black pb-40">
       <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
         <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 1 / 5</p>
         <h1 className="text-xl font-semibold text-black dark:text-white">トレーニング設定</h1>
@@ -888,8 +915,8 @@ export default function OnboardingClient({ exercises }: Props) {
       </div>
 
       <div
-        className="fixed left-0 right-0 p-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900"
-        style={{ bottom: 'env(safe-area-inset-bottom)' }}
+        className="fixed left-0 right-0 px-6 pt-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900"
+        style={{ bottom: 0, paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}
       >
         <button
           onClick={handleFrequencyNext}
