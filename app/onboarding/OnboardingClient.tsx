@@ -157,10 +157,9 @@ export default function OnboardingClient({ exercises }: Props) {
           body: JSON.stringify({
             days_per_week: daysPerWeek,
             session_duration_minutes: sessionMinutes,
-            slot_assignments: Object.entries(newSlotSelections).map(([slot_id, exercise_name]) => ({
-              slot_id,
-              exercise_name,
-            })),
+            slot_assignments: Object.entries(newSlotSelections)
+              .filter(([, exercise_name]) => exercise_name !== '')
+              .map(([slot_id, exercise_name]) => ({ slot_id, exercise_name })),
             one_rms: [],
           }),
         })
@@ -231,10 +230,9 @@ export default function OnboardingClient({ exercises }: Props) {
         body: JSON.stringify({
           days_per_week: daysPerWeek,
           session_duration_minutes: sessionMinutes,
-          slot_assignments: Object.entries(slotSelections).map(([slot_id, exercise_name]) => ({
-            slot_id,
-            exercise_name,
-          })),
+          slot_assignments: Object.entries(slotSelections)
+            .filter(([, exercise_name]) => exercise_name !== '')
+            .map(([slot_id, exercise_name]) => ({ slot_id, exercise_name })),
           one_rms: visible1RmSlots.map(slot => ({
             slot_id: slot.slot_id,
             one_rm_kg: parseFloat(oneRms[slot.slot_id]?.final_kg ?? '0'),
