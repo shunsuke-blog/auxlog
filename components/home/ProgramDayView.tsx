@@ -20,7 +20,8 @@ const PHASE_DESCRIPTIONS: Record<ProgramPhase, string> = {
   maxout:    '9週間の集大成。限界まで全力を出し切り、自己ベスト更新を狙います！',
 }
 
-type ExtraExercise = { id: string | null; name: string }
+// id は user_exercises.id（記録ページで使用）、masterId は exercise_master.id
+type ExtraExercise = { id: string | null; masterId: string | null; name: string }
 type MasterExercise = { id: string; name: string; target_muscle: string }
 
 type Props = {
@@ -48,6 +49,8 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [masterExercises, setMasterExercises] = useState<MasterExercise[]>([])
+  // exercise_master.id → user_exercises.id のマップ
+  const [masterToUserExId, setMasterToUserExId] = useState<Map<string, string>>(new Map())
   const [masterLoading, setMasterLoading] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -63,13 +66,23 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
     setSearchQuery('')
   }, [selectedDay])
 
-  // 追加フォームを開いたとき種目マスタをフェッチ
+  // 追加フォームを開いたとき、マスタ種目とユーザー種目を並列フェッチ
   useEffect(() => {
     if (!showAddForm || masterExercises.length > 0) return
     setMasterLoading(true)
-    fetch('/api/exercises/master')
-      .then(r => r.json())
-      .then(d => setMasterExercises(d.exercises ?? []))
+    Promise.all([
+      fetch('/api/exercises/master').then(r => r.json()),
+      fetch('/api/exercises').then(r => r.json()),
+    ])
+      .then(([masterData, userExData]) => {
+        setMasterExercises(masterData.exercises ?? [])
+        // ユーザー種目の exercise_master_id → user_exercises.id マップを構築
+        const map = new Map<string, string>()
+        for (const ue of (userExData.exercises ?? [])) {
+          if (ue.exercise_master_id) map.set(ue.exercise_master_id, ue.id)
+        }
+        setMasterToUserExId(map)
+      })
       .catch(() => {})
       .finally(() => setMasterLoading(false))
   }, [showAddForm, masterExercises.length])
@@ -227,13 +240,13 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
 
             {/* 追加種目カード */}
             {extraExercises.map((ex, i) => (
-              <div key={i} className="relative">
+              <div key={i} className="flex items-center gap-2">
                 <Link
                   href={ex.id ? `/record?exerciseId=${ex.id}` : '/record'}
-                  className="block bg-white dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-300 dark:border-zinc-600 px-5 pt-4 pb-5 active:scale-[0.99] transition-transform"
+                  className="flex-1 block bg-white dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-300 dark:border-zinc-600 px-5 pt-4 pb-5 active:scale-[0.99] transition-transform"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex-1 min-w-0 pr-6">
+                    <div className="flex-1 min-w-0">
                       <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium mb-0.5">追加種目</p>
                       <h3 className="text-[15px] font-bold text-black dark:text-white">{ex.name}</h3>
                     </div>
@@ -242,10 +255,10 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
                 </Link>
                 <button
                   onClick={() => removeExercise(i)}
-                  className="absolute top-3.5 right-4 p-1.5 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors"
+                  className="p-2 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors shrink-0"
                   aria-label="削除"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             ))}
@@ -303,7 +316,12 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
                   .map(ex => (
                     <button
                       key={ex.id}
-                      onClick={() => addExercise({ id: ex.id, name: ex.name })}
+                      onClick={() => addExercise({
+                        // user_exercises.id を使う。未登録の場合は null（記録画面で種目なし遷移）
+                        id: masterToUserExId.get(ex.id) ?? null,
+                        masterId: ex.id,
+                        name: ex.name,
+                      })}
                       className="w-full flex items-center px-5 py-4 text-left border-b border-zinc-50 dark:border-zinc-900 active:bg-zinc-50 dark:active:bg-zinc-900 transition-colors"
                     >
                       <span className="text-[15px] text-black dark:text-white">{ex.name}</span>
@@ -313,7 +331,7 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
                 {/* DBにない場合は自由入力で追加 */}
                 {trimmedQuery && !filteredMaster.some(e => e.name === trimmedQuery) && (
                   <button
-                    onClick={() => addExercise({ id: null, name: trimmedQuery })}
+                    onClick={() => addExercise({ id: null, masterId: null, name: trimmedQuery })}
                     className="w-full flex items-center gap-3 px-5 py-4 text-left border-b border-zinc-50 dark:border-zinc-900 active:bg-zinc-50 dark:active:bg-zinc-900 transition-colors"
                   >
                     <Plus className="w-4 h-4 text-zinc-400 shrink-0" />
