@@ -339,7 +339,7 @@ function RecordContent() {
     )
   }
 
-  const muscleOrder: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arms']
+  const muscleOrder: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core']
   const showGroupHeader = !fromHome && exerciseSets.length > 1
   const groups = showGroupHeader
     ? muscleOrder

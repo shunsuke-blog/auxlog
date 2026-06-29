@@ -3,7 +3,8 @@ export type TargetMuscle =
   | 'back'
   | 'legs'
   | 'shoulders'
-  | 'arms';
+  | 'arms'
+  | 'core';
 
 export const TARGET_MUSCLE_LABELS: Record<TargetMuscle, string> = {
   chest: '胸',
@@ -11,6 +12,7 @@ export const TARGET_MUSCLE_LABELS: Record<TargetMuscle, string> = {
   legs: '脚',
   shoulders: '肩',
   arms: '腕',
+  core: '体幹',
 };
 
 export type SubscriptionStatus =

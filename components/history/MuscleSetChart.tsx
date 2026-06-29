@@ -15,9 +15,10 @@ const DEFAULT_TARGETS: Record<TargetMuscle, number> = {
   legs: 14,
   shoulders: 12,
   arms: 10,
+  core: 8,
 }
 
-const MUSCLE_ORDER: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arms']
+const MUSCLE_ORDER: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core']
 
 function CircleProgress({ value, target, label }: { value: number; target: number; label: string }) {
   const pct = Math.min(value / target, 1)
@@ -72,7 +73,7 @@ export default function MuscleSetChart({ sessions, exercises }: Props) {
 
   const weekData = useMemo(() => {
     const counts: Record<TargetMuscle, number> = {
-      chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0,
+      chest: 0, back: 0, legs: 0, shoulders: 0, arms: 0, core: 0,
     }
 
     const sevenDaysAgo = new Date()

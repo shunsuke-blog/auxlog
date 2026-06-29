@@ -57,7 +57,7 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
   // Day 切替時に追加種目をリロード
   useEffect(() => {
     try {
-      const saved = sessionStorage.getItem(`auxlog_extra_ex_day${selectedDay}`)
+      const saved = localStorage.getItem(`auxlog_extra_ex_day${selectedDay}`)
       setExtraExercises(saved ? JSON.parse(saved) : [])
     } catch {
       setExtraExercises([])
@@ -88,7 +88,7 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
   }, [showAddForm, masterExercises.length])
 
   const persistExtra = (list: ExtraExercise[]) => {
-    try { sessionStorage.setItem(`auxlog_extra_ex_day${selectedDay}`, JSON.stringify(list)) } catch { /* ignore */ }
+    try { localStorage.setItem(`auxlog_extra_ex_day${selectedDay}`, JSON.stringify(list)) } catch { /* ignore */ }
   }
 
   const addExercise = async (ex: ExtraExercise) => {
