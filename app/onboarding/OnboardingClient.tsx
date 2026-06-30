@@ -125,8 +125,18 @@ export default function OnboardingClient({ exercises }: Props) {
 
   const toMaxPriority = (mins: number) => (mins === 60 ? 1 : mins === 75 ? 2 : 3)
 
-  const defaultBySlotType = (slot_type: string): string =>
-    exercises.find(e => e.slot_type === slot_type)?.name ?? ''
+  const SLOT_DEFAULT_OVERRIDES: Partial<Record<string, string>> = {
+    chest_isolation: 'ケーブルフライ（中部）',
+  }
+
+  const defaultBySlotType = (slot_type: string): string => {
+    const preferred = SLOT_DEFAULT_OVERRIDES[slot_type]
+    if (preferred) {
+      const found = exercises.find(e => e.slot_type === slot_type && e.name === preferred)
+      if (found) return found.name
+    }
+    return exercises.find(e => e.slot_type === slot_type)?.name ?? ''
+  }
 
   const handleFrequencyNext = () => setStep('exercises')
 
