@@ -73,13 +73,14 @@ export async function POST(request: Request) {
 
   const [{ data: masters }, { data: existingUes }, { data: maxSortRow }] = await Promise.all([
     supabase.from('exercise_master').select('id, name, is_compound').in('name', uniqueNames),
-    supabase.from('user_exercises').select('id, exercise_master_id').eq('user_id', user.id),
+    supabase.from('user_exercises').select('id, exercise_master_id, is_active').eq('user_id', user.id),
     supabase.from('user_exercises').select('sort_order').eq('user_id', user.id)
       .order('sort_order', { ascending: false }).limit(1),
   ])
 
   const masterByName = new Map((masters ?? []).map(m => [m.name, m]))
   const ueByMasterId = new Map((existingUes ?? []).map(e => [e.exercise_master_id as string, e.id]))
+  const ueIsActiveById = new Map((existingUes ?? []).map(e => [e.id as string, e.is_active as boolean]))
   let nextSort = (maxSortRow?.[0]?.sort_order ?? 0) + 1
 
   // 名前 → user_exercise.id のマップを構築（未登録分はまとめて作成）
@@ -92,6 +93,17 @@ export async function POST(request: Request) {
       const existingId = ueByMasterId.get(master.id)
       if (existingId) exerciseIdByName.set(name, existingId)
     }
+  }
+
+  // 再エンロール時に soft-delete された種目を reactivate する
+  const reactivateIds = [...exerciseIdByName.values()].filter(id => ueIsActiveById.get(id) === false)
+  if (reactivateIds.length > 0) {
+    const { error: reactivateError } = await supabase
+      .from('user_exercises')
+      .update({ is_active: true })
+      .in('id', reactivateIds)
+      .eq('user_id', user.id)
+    if (reactivateError) return dbError('種目の再有効化に失敗しました', reactivateError)
   }
 
   // 未登録分を収集してバルク insert
