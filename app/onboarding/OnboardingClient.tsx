@@ -230,6 +230,14 @@ export default function OnboardingClient({ exercises }: Props) {
     }, 300)
   }
 
+  const skipOneRm = () => {
+    if (currentOneRmIndex < visible1RmSlots.length - 1) {
+      advanceOneRm()
+    } else {
+      handleGenerate()
+    }
+  }
+
   const handleComplete = async (): Promise<boolean> => {
     setSaving(true)
     setError(null)
@@ -243,11 +251,13 @@ export default function OnboardingClient({ exercises }: Props) {
           slot_assignments: Object.entries(slotSelections)
             .filter(([, exercise_name]) => exercise_name !== '')
             .map(([slot_id, exercise_name]) => ({ slot_id, exercise_name })),
-          one_rms: visible1RmSlots.map(slot => ({
-            slot_id: slot.slot_id,
-            one_rm_kg: parseFloat(oneRms[slot.slot_id]?.final_kg ?? '0'),
-            source: oneRms[slot.slot_id]?.source ?? 'manual_input',
-          })),
+          one_rms: visible1RmSlots
+            .filter(slot => parseFloat(oneRms[slot.slot_id]?.final_kg ?? '') > 0)
+            .map(slot => ({
+              slot_id: slot.slot_id,
+              one_rm_kg: parseFloat(oneRms[slot.slot_id]!.final_kg),
+              source: oneRms[slot.slot_id]?.source ?? 'manual_input',
+            })),
         }),
       })
       if (!enrollRes.ok) {
@@ -749,6 +759,13 @@ export default function OnboardingClient({ exercises }: Props) {
               プログラムを生成する
             </button>
           )}
+          <button
+            onClick={skipOneRm}
+            disabled={saving}
+            className="w-full py-2 text-xs text-zinc-400 dark:text-zinc-500 disabled:opacity-40"
+          >
+            {isLastSlot ? 'スキップしてプログラムを生成する' : 'わからないのでスキップ'}
+          </button>
           <p className="text-center text-xs text-zinc-400 dark:text-zinc-600">
             {currentOneRmIndex + 1} / {visible1RmSlots.length}
           </p>
