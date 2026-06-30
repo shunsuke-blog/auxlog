@@ -126,6 +126,7 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const [currentWeek, setCurrentWeek] = useState(enrollment.current_week)
   const [extraExercises, setExtraExercises] = useState<ExtraExercise[]>([])
   const [weekStatus, setWeekStatus] = useState<{ completed_exercise_ids: string[]; all_complete: boolean } | null>(null)
   const [advancingWeek, setAdvancingWeek] = useState(false)
@@ -224,8 +225,10 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
   }
 
   const removeExercise = async (dbId: string) => {
-    await fetch(`/api/program/day-extras/${dbId}`, { method: 'DELETE' }).catch(() => {})
-    setExtraExercises(prev => prev.filter(e => e.dbId !== dbId))
+    const res = await fetch(`/api/program/day-extras/${dbId}`, { method: 'DELETE' }).catch(() => null)
+    if (res?.ok) {
+      setExtraExercises(prev => prev.filter(e => e.dbId !== dbId))
+    }
   }
 
   const trimmedQuery = searchQuery.trim()
@@ -254,6 +257,8 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
     try {
       const res = await fetch('/api/program/advance-week', { method: 'POST' })
       if (res.ok) {
+        const data = await res.json()
+        setCurrentWeek(data.current_week)
         await fetchWeekStatus()
         await fetchDay(selectedDay)
       }
@@ -299,14 +304,14 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
           </h1>
           <div className="text-right">
             <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-              Week {enrollment.current_week} / 9 · {PHASE_LABELS[suggestion?.phase ?? 'volume']}
+              Week {currentWeek} / 9 · {PHASE_LABELS[suggestion?.phase ?? 'volume']}
             </p>
             <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
               {(() => {
                 const DAY_LABELS_JP = ['日', '月', '火', '水', '木', '金', '土']
                 const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}(${DAY_LABELS_JP[d.getDay()]})`
                 const start = new Date(enrollment.started_at)
-                start.setDate(start.getDate() + (enrollment.current_week - 1) * 7)
+                start.setDate(start.getDate() + (currentWeek - 1) * 7)
                 const end = new Date(start)
                 end.setDate(end.getDate() + 6)
                 return `${fmt(start)} 〜 ${fmt(end)}`
@@ -439,13 +444,13 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
             ))}
 
             {/* 全種目完了 → 次の週へボタン */}
-            {weekStatus?.all_complete && enrollment.current_week < 9 && (
+            {weekStatus?.all_complete && currentWeek < 9 && (
               <button
                 onClick={advanceWeek}
                 disabled={advancingWeek}
                 className="w-full py-4 rounded-3xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-50 transition-opacity"
               >
-                {advancingWeek ? '更新中...' : `Week ${enrollment.current_week} 完了 → Week ${enrollment.current_week + 1} へ`}
+                {advancingWeek ? '更新中...' : `Week ${currentWeek} 完了 → Week ${currentWeek + 1} へ`}
               </button>
             )}
 

@@ -55,17 +55,21 @@ export async function GET(request: Request) {
         .in('exercise_id', exerciseIds)
         .in('session_id', sessionIds)
         .eq('is_warmup', false)
-        .order('session_id', { ascending: false })
-        .order('set_number', { ascending: false })
 
-      // sessionIds は trained_at 降順なので、最初に出てきたものが最新
+      // sessionIds は trained_at 降順なので、インデックスが小さいほど新しい
+      const sessionOrder = new Map(sessionIds.map((id, i) => [id, i]))
+      type WeightEntry = { weight_kg: number; reps: number; sessionIdx: number }
+      const bestByExercise = new Map<string, WeightEntry>()
       for (const set of sets ?? []) {
-        if (!lastWeightMap.has(set.exercise_id as string)) {
-          lastWeightMap.set(set.exercise_id as string, {
-            weight_kg: set.weight_kg as number,
-            reps: set.reps as number,
-          })
+        const exId = set.exercise_id as string
+        const idx = sessionOrder.get(set.session_id as string) ?? Infinity
+        const existing = bestByExercise.get(exId)
+        if (!existing || idx < existing.sessionIdx) {
+          bestByExercise.set(exId, { weight_kg: set.weight_kg as number, reps: set.reps as number, sessionIdx: idx })
         }
+      }
+      for (const [exId, entry] of bestByExercise) {
+        lastWeightMap.set(exId, { weight_kg: entry.weight_kg, reps: entry.reps })
       }
     }
   }
