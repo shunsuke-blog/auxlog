@@ -59,13 +59,17 @@ export default async function CoachingPage() {
   let assignmentMap = new Map<string, string>()
   let oneRmMap = new Map<string, number>()
 
+  const MUSCLE_LABELS: Record<string, string> = {
+    chest: '胸', back: '背中', shoulders: '肩', legs: '脚', arms: '腕', core: '腹筋',
+  }
+
   type ExtraRow = {
     id: string
     exercise_id: string
     day_number: number
-    user_exercises: { custom_name: string | null; exercise_master: { name: string } | null } | null
+    user_exercises: { custom_name: string | null; exercise_master: { name: string; target_muscle: string | null } | null } | null
   }
-  let extrasByDay = new Map<number, { id: string; name: string }[]>()
+  let extrasByDay = new Map<number, { id: string; name: string; target_muscle: string | null }[]>()
 
   if (enrollment) {
     const [{ data: rawAssignments }, { data: rawOneRms }, { data: rawExtras }] = await Promise.all([
@@ -81,7 +85,7 @@ export default async function CoachingPage() {
         .order('recorded_at', { ascending: false }),
       supabase
         .from('user_program_day_extras')
-        .select('id, exercise_id, day_number, user_exercises(custom_name, exercise_master(name))')
+        .select('id, exercise_id, day_number, user_exercises(custom_name, exercise_master(name, target_muscle))')
         .eq('enrollment_id', enrollment.id)
         .order('created_at'),
     ])
@@ -102,15 +106,16 @@ export default async function CoachingPage() {
       }
     }
 
-    extrasByDay = new Map<number, { id: string; name: string }[]>()
+    extrasByDay = new Map<number, { id: string; name: string; target_muscle: string | null }[]>()
     for (const r of (rawExtras ?? []) as unknown as ExtraRow[]) {
       const ue = r.user_exercises
       const name = (ue && !Array.isArray(ue))
         ? (ue.exercise_master?.name ?? ue.custom_name ?? '')
         : ''
+      const target_muscle = (ue && !Array.isArray(ue)) ? ue.exercise_master?.target_muscle ?? null : null
       const day = r.day_number
       if (!extrasByDay.has(day)) extrasByDay.set(day, [])
-      extrasByDay.get(day)!.push({ id: r.id, name })
+      extrasByDay.get(day)!.push({ id: r.id, name, target_muscle })
     }
   }
 
@@ -183,7 +188,9 @@ export default async function CoachingPage() {
                       <div key={ex.id} className="flex items-center justify-between">
                         <div>
                           <p className="text-sm text-black dark:text-white">{ex.name}</p>
-                          <p className="text-xs text-zinc-400 dark:text-zinc-500">追加種目</p>
+                          <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                            {ex.target_muscle ? (MUSCLE_LABELS[ex.target_muscle] ?? '追加種目') : '追加種目'}
+                          </p>
                         </div>
                       </div>
                     ))}
