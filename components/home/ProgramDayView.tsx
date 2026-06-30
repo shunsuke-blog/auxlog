@@ -395,6 +395,11 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
           <>
             {suggestion.slots
               .filter(slot => !hiddenSlotIds.includes(slot.slot_id))
+              .sort((a, b) => {
+                const aDone = weekStatus?.completed_exercise_ids.includes(a.exercise.id) ?? false
+                const bDone = weekStatus?.completed_exercise_ids.includes(b.exercise.id) ?? false
+                return Number(aDone) - Number(bDone)
+              })
               .map(slot => (
                 <SwipeableCard
                   key={slot.slot_id}
