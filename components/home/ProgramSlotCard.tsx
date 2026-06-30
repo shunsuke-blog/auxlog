@@ -1,9 +1,10 @@
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, CheckCircle2 } from 'lucide-react'
 import type { SlotSuggestion, SetSuggestion } from '@/types'
 
 type Props = {
   slot: SlotSuggestion
+  is_done?: boolean
 }
 
 const SET_TYPE_LABEL: Record<SetSuggestion['set_type'], string> = {
@@ -99,7 +100,7 @@ function condenseSets(sets: SetSuggestion[]): Array<{
   return result
 }
 
-export default function ProgramSlotCard({ slot }: Props) {
+export default function ProgramSlotCard({ slot, is_done = false }: Props) {
   const rows = condenseSets(slot.sets)
 
   const saveSlotToSession = () => {
@@ -118,7 +119,11 @@ export default function ProgramSlotCard({ slot }: Props) {
     <Link
       href={`/record?exerciseId=${slot.exercise.id}`}
       onClick={saveSlotToSession}
-      className="block bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none border border-zinc-200 dark:border-zinc-800 px-5 pt-4 pb-5 active:scale-[0.99] transition-transform"
+      className={`block rounded-3xl px-5 pt-4 pb-5 active:scale-[0.99] transition-transform ${
+        is_done
+          ? 'bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/50'
+          : 'bg-white dark:bg-zinc-900 shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none border border-zinc-200 dark:border-zinc-800'
+      }`}
     >
       {/* ヘッダー */}
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -126,11 +131,14 @@ export default function ProgramSlotCard({ slot }: Props) {
           <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium mb-0.5">
             {slot.slot.muscle_group}
           </p>
-          <h3 className="text-[15px] font-bold text-black dark:text-white leading-snug">
+          <h3 className={`text-[15px] font-bold leading-snug ${is_done ? 'text-zinc-400 dark:text-zinc-500' : 'text-black dark:text-white'}`}>
             {slot.exercise.name}
           </h3>
         </div>
-        <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 mt-1 shrink-0" />
+        {is_done
+          ? <CheckCircle2 className="w-4 h-4 text-zinc-400 dark:text-zinc-500 mt-1 shrink-0" />
+          : <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 mt-1 shrink-0" />
+        }
       </div>
 
       {/* 区切り */}

@@ -128,6 +128,8 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
 
   const [extraExercises, setExtraExercises] = useState<ExtraExercise[]>([])
   const [hiddenSlotIds, setHiddenSlotIds] = useState<string[]>([])
+  const [weekStatus, setWeekStatus] = useState<{ completed_exercise_ids: string[]; all_complete: boolean } | null>(null)
+  const [advancingWeek, setAdvancingWeek] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<{ name: string; onConfirm: () => void } | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -235,6 +237,29 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
 
   const availableDays = Array.from({ length: enrollment.days_per_week }, (_, i) => i + 1)
 
+  const fetchWeekStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/suggest/program/week-status')
+      if (res.ok) {
+        const data = await res.json()
+        setWeekStatus(data)
+      }
+    } catch { /* ignore */ }
+  }, [])
+
+  const advanceWeek = async () => {
+    setAdvancingWeek(true)
+    try {
+      const res = await fetch('/api/program/advance-week', { method: 'POST' })
+      if (res.ok) {
+        await fetchWeekStatus()
+        await fetchDay(selectedDay)
+      }
+    } catch { /* ignore */ } finally {
+      setAdvancingWeek(false)
+    }
+  }
+
   const fetchDay = useCallback(async (day: number) => {
     setLoading(true)
     setError(null)
@@ -256,6 +281,10 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
   useEffect(() => {
     fetchDay(selectedDay)
   }, [selectedDay, fetchDay])
+
+  useEffect(() => {
+    fetchWeekStatus()
+  }, [fetchWeekStatus])
 
   return (
     <>
@@ -360,7 +389,10 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
                   key={slot.slot_id}
                   onRemove={() => setDeleteConfirm({ name: slot.exercise.name, onConfirm: () => hideSlot(slot.slot_id) })}
                 >
-                  <ProgramSlotCard slot={slot} />
+                  <ProgramSlotCard
+                    slot={slot}
+                    is_done={weekStatus?.completed_exercise_ids.includes(slot.exercise.id) ?? false}
+                  />
                 </SwipeableCard>
               ))}
 
@@ -383,6 +415,17 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
                 </Link>
               </SwipeableCard>
             ))}
+
+            {/* 全種目完了 → 次の週へボタン */}
+            {weekStatus?.all_complete && enrollment.current_week < 9 && (
+              <button
+                onClick={advanceWeek}
+                disabled={advancingWeek}
+                className="w-full py-4 rounded-3xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-50 transition-opacity"
+              >
+                {advancingWeek ? '更新中...' : `Week ${enrollment.current_week} 完了 → Week ${enrollment.current_week + 1} へ`}
+              </button>
+            )}
 
             {/* 種目追加ボタン */}
             <button
