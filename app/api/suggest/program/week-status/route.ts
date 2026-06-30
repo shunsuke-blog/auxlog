@@ -46,6 +46,7 @@ export async function GET() {
     .from('user_slot_assignments')
     .select('exercise_id')
     .eq('enrollment_id', enrollment.id)
+    .eq('is_hidden', false)
 
   const allExerciseIds = (assignments ?? []).map((a: { exercise_id: string }) => a.exercise_id)
   const completedSet = new Set(completedExerciseIds)

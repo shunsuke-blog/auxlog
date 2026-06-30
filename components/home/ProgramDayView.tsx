@@ -101,8 +101,8 @@ const PHASE_DESCRIPTIONS: Record<ProgramPhase, string> = {
   maxout:    '9週間の集大成。限界まで全力を出し切り、自己ベスト更新を狙います！',
 }
 
-// id は user_exercises.id（記録ページで使用）、masterId は exercise_master.id
-type ExtraExercise = { id: string | null; masterId: string | null; name: string; target_muscle?: string }
+// dbId は user_program_day_extras.id（削除に使用）、id は user_exercises.id（記録ページで使用）
+type ExtraExercise = { dbId: string; id: string | null; name: string; target_muscle?: string; last_weight_kg?: number | null; last_reps?: number | null }
 type MasterExercise = { id: string; name: string; target_muscle: string }
 
 type Props = {
@@ -127,7 +127,6 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   const [extraExercises, setExtraExercises] = useState<ExtraExercise[]>([])
-  const [hiddenSlotIds, setHiddenSlotIds] = useState<string[]>([])
   const [weekStatus, setWeekStatus] = useState<{ completed_exercise_ids: string[]; all_complete: boolean } | null>(null)
   const [advancingWeek, setAdvancingWeek] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<{ name: string; onConfirm: () => void } | null>(null)
@@ -139,22 +138,15 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
   const [masterLoading, setMasterLoading] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // Day 切替時に追加種目・非表示スロットをリロード
+  // Day 切替時に追加種目をAPIからロード
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(`auxlog_extra_ex_day${selectedDay}`)
-      setExtraExercises(saved ? JSON.parse(saved) : [])
-    } catch {
-      setExtraExercises([])
-    }
-    try {
-      const saved = localStorage.getItem(`auxlog_hidden_slots_day${selectedDay}`)
-      setHiddenSlotIds(saved ? JSON.parse(saved) : [])
-    } catch {
-      setHiddenSlotIds([])
-    }
+    setExtraExercises([])
     setShowAddForm(false)
     setSearchQuery('')
+    fetch(`/api/program/day-extras?day=${selectedDay}`)
+      .then(r => r.ok ? r.json() : { extras: [] })
+      .then(data => setExtraExercises(data.extras ?? []))
+      .catch(() => {})
   }, [selectedDay])
 
   // 追加フォームを開いたとき、マスタ種目とユーザー種目を並列フェッチ
@@ -178,17 +170,23 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
       .finally(() => setMasterLoading(false))
   }, [showAddForm, masterExercises.length])
 
-  const persistExtra = (list: ExtraExercise[]) => {
-    try { localStorage.setItem(`auxlog_extra_ex_day${selectedDay}`, JSON.stringify(list)) } catch { /* ignore */ }
+  const refreshExtras = () => {
+    fetch(`/api/program/day-extras?day=${selectedDay}`)
+      .then(r => r.ok ? r.json() : { extras: [] })
+      .then(data => setExtraExercises(data.extras ?? []))
+      .catch(() => {})
   }
 
-  const hideSlot = (slotId: string) => {
-    const updated = [...hiddenSlotIds, slotId]
-    setHiddenSlotIds(updated)
-    try { localStorage.setItem(`auxlog_hidden_slots_day${selectedDay}`, JSON.stringify(updated)) } catch { /* ignore */ }
+  const hideSlot = async (slotId: string) => {
+    await fetch(`/api/program/slot-assignments/${slotId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enrollment_id: enrollment.id, is_hidden: true }),
+    }).catch(() => {})
+    fetchDay(selectedDay)
   }
 
-  const addExercise = async (ex: ExtraExercise) => {
+  const addExercise = async (ex: { id: string | null; masterId: string | null; name: string; target_muscle?: string }) => {
     let finalId = ex.id
 
     // user_exercises 未登録の場合は自動登録してIDを取得
@@ -213,17 +211,21 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
       } catch { /* ignore — fall back to /record without exerciseId */ }
     }
 
-    const updated = [...extraExercises, { ...ex, id: finalId }]
-    setExtraExercises(updated)
-    persistExtra(updated)
+    if (finalId) {
+      await fetch('/api/program/day-extras', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exercise_id: finalId, day_number: selectedDay }),
+      }).catch(() => {})
+      refreshExtras()
+    }
     setShowAddForm(false)
     setSearchQuery('')
   }
 
-  const removeExercise = (index: number) => {
-    const updated = extraExercises.filter((_, i) => i !== index)
-    setExtraExercises(updated)
-    persistExtra(updated)
+  const removeExercise = async (dbId: string) => {
+    await fetch(`/api/program/day-extras/${dbId}`, { method: 'DELETE' }).catch(() => {})
+    setExtraExercises(prev => prev.filter(e => e.dbId !== dbId))
   }
 
   const trimmedQuery = searchQuery.trim()
@@ -394,7 +396,6 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
         ) : (
           <>
             {suggestion.slots
-              .filter(slot => !hiddenSlotIds.includes(slot.slot_id))
               .sort((a, b) => {
                 const aDone = weekStatus?.completed_exercise_ids.includes(a.exercise.id) ?? false
                 const bDone = weekStatus?.completed_exercise_ids.includes(b.exercise.id) ?? false
@@ -413,8 +414,8 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
               ))}
 
             {/* 追加種目カード */}
-            {extraExercises.map((ex, i) => (
-              <SwipeableCard key={i} onRemove={() => setDeleteConfirm({ name: ex.name, onConfirm: () => removeExercise(i) })}>
+            {extraExercises.map(ex => (
+              <SwipeableCard key={ex.dbId} onRemove={() => setDeleteConfirm({ name: ex.name, onConfirm: () => removeExercise(ex.dbId) })}>
                 <Link
                   href={ex.id ? `/record?exerciseId=${ex.id}` : '/record'}
                   className="block bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none border border-zinc-200 dark:border-zinc-800 px-5 pt-4 pb-5 active:scale-[0.99] transition-transform"
@@ -428,6 +429,11 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
                     </div>
                     <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 mt-1 shrink-0" />
                   </div>
+                  {ex.last_weight_kg != null && (
+                    <p className="text-[12px] text-zinc-400 dark:text-zinc-500">
+                      前回 {ex.last_weight_kg}kg × {ex.last_reps}回
+                    </p>
+                  )}
                 </Link>
               </SwipeableCard>
             ))}

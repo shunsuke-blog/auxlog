@@ -1,0 +1,111 @@
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+
+export async function GET(request: Request) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { searchParams } = new URL(request.url)
+  const day = parseInt(searchParams.get('day') ?? '1', 10)
+  if (day < 1 || day > 4) return NextResponse.json({ error: 'day は 1〜4 で指定してください' }, { status: 400 })
+
+  const { data: enrollment } = await supabase
+    .from('user_program_enrollments')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (!enrollment) return NextResponse.json({ extras: [] })
+
+  const { data, error } = await supabase
+    .from('user_program_day_extras')
+    .select('id, exercise_id, user_exercises(custom_name, exercise_master(name, target_muscle))')
+    .eq('enrollment_id', enrollment.id)
+    .eq('day_number', day)
+    .order('created_at')
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  type Row = {
+    id: string
+    exercise_id: string
+    user_exercises: { custom_name: string | null; exercise_master: { name: string; target_muscle: string } | null } | null
+  }
+
+  const rows = (data ?? []) as unknown as Row[]
+  const exerciseIds = rows.map(r => r.exercise_id)
+
+  // 直前の記録重量を取得
+  const lastWeightMap = new Map<string, { weight_kg: number; reps: number }>()
+  if (exerciseIds.length > 0) {
+    const { data: recentSessions } = await supabase
+      .from('training_sessions')
+      .select('id')
+      .eq('user_id', user.id)
+      .order('trained_at', { ascending: false })
+      .limit(60)
+
+    const sessionIds = (recentSessions ?? []).map(s => s.id)
+    if (sessionIds.length > 0) {
+      const { data: sets } = await supabase
+        .from('training_sets')
+        .select('exercise_id, weight_kg, reps, session_id')
+        .in('exercise_id', exerciseIds)
+        .in('session_id', sessionIds)
+        .eq('is_warmup', false)
+        .order('session_id', { ascending: false })
+        .order('set_number', { ascending: false })
+
+      // sessionIds は trained_at 降順なので、最初に出てきたものが最新
+      for (const set of sets ?? []) {
+        if (!lastWeightMap.has(set.exercise_id as string)) {
+          lastWeightMap.set(set.exercise_id as string, {
+            weight_kg: set.weight_kg as number,
+            reps: set.reps as number,
+          })
+        }
+      }
+    }
+  }
+
+  const extras = rows.map(r => {
+    const ue = r.user_exercises
+    const name = (ue && !Array.isArray(ue))
+      ? (ue.exercise_master?.name ?? ue.custom_name ?? '')
+      : ''
+    const target_muscle = (ue && !Array.isArray(ue)) ? ue.exercise_master?.target_muscle ?? null : null
+    const last = lastWeightMap.get(r.exercise_id)
+    return { dbId: r.id, id: r.exercise_id, name, target_muscle, last_weight_kg: last?.weight_kg ?? null, last_reps: last?.reps ?? null }
+  })
+
+  return NextResponse.json({ extras })
+}
+
+export async function POST(request: Request) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { exercise_id, day_number } = await request.json()
+  if (!exercise_id || !day_number) {
+    return NextResponse.json({ error: 'exercise_id と day_number が必要です' }, { status: 400 })
+  }
+
+  const { data: enrollment } = await supabase
+    .from('user_program_enrollments')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (!enrollment) return NextResponse.json({ error: 'アクティブなプログラムがありません' }, { status: 404 })
+
+  const { error } = await supabase
+    .from('user_program_day_extras')
+    .insert({ user_id: user.id, enrollment_id: enrollment.id, exercise_id, day_number })
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}

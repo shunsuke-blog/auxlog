@@ -59,17 +59,31 @@ export default async function CoachingPage() {
   let assignmentMap = new Map<string, string>()
   let oneRmMap = new Map<string, number>()
 
+  type ExtraRow = {
+    id: string
+    exercise_id: string
+    day_number: number
+    user_exercises: { custom_name: string | null; exercise_master: { name: string } | null } | null
+  }
+  let extrasByDay = new Map<number, { id: string; name: string }[]>()
+
   if (enrollment) {
-    const [{ data: rawAssignments }, { data: rawOneRms }] = await Promise.all([
+    const [{ data: rawAssignments }, { data: rawOneRms }, { data: rawExtras }] = await Promise.all([
       supabase
         .from('user_slot_assignments')
         .select('slot_id, user_exercises(custom_name, exercise_master(name))')
-        .eq('enrollment_id', enrollment.id),
+        .eq('enrollment_id', enrollment.id)
+        .eq('is_hidden', false),
       supabase
         .from('user_slot_one_rms')
         .select('slot_id, one_rm_kg')
         .eq('user_id', user.id)
         .order('recorded_at', { ascending: false }),
+      supabase
+        .from('user_program_day_extras')
+        .select('id, exercise_id, day_number, user_exercises(custom_name, exercise_master(name))')
+        .eq('enrollment_id', enrollment.id)
+        .order('created_at'),
     ])
 
     assignmentMap = new Map(
@@ -86,6 +100,17 @@ export default async function CoachingPage() {
       if (!oneRmMap.has(r.slot_id as string)) {
         oneRmMap.set(r.slot_id as string, r.one_rm_kg as number)
       }
+    }
+
+    extrasByDay = new Map<number, { id: string; name: string }[]>()
+    for (const r of (rawExtras ?? []) as unknown as ExtraRow[]) {
+      const ue = r.user_exercises
+      const name = (ue && !Array.isArray(ue))
+        ? (ue.exercise_master?.name ?? ue.custom_name ?? '')
+        : ''
+      const day = r.day_number
+      if (!extrasByDay.has(day)) extrasByDay.set(day, [])
+      extrasByDay.get(day)!.push({ id: r.id, name })
     }
   }
 
@@ -154,6 +179,14 @@ export default async function CoachingPage() {
                         </div>
                       )
                     })}
+                    {(extrasByDay.get(day) ?? []).map(ex => (
+                      <div key={ex.id} className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-black dark:text-white">{ex.name}</p>
+                          <p className="text-xs text-zinc-400 dark:text-zinc-500">追加種目</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )

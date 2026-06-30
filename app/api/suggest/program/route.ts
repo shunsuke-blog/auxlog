@@ -54,7 +54,8 @@ export async function GET(request: Request) {
     supabase
       .from('user_slot_assignments')
       .select('*')
-      .eq('enrollment_id', enrollment.id),
+      .eq('enrollment_id', enrollment.id)
+      .eq('is_hidden', false),
     userExercisesQuery(supabase, user.id),
     supabase
       .from('user_slot_one_rms')
