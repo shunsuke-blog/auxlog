@@ -159,6 +159,7 @@ export default function OnboardingClient({ exercises }: Props) {
             session_duration_minutes: sessionMinutes,
             slot_assignments: Object.entries(newSlotSelections)
               .filter(([, exercise_name]) => exercise_name !== '')
+              .filter(([slot_id]) => !SLOT_DEFS.find(s => s.slot_id === slot_id)?.has_one_rm)
               .map(([slot_id, exercise_name]) => ({ slot_id, exercise_name })),
             one_rms: [],
           }),
@@ -232,6 +233,11 @@ export default function OnboardingClient({ exercises }: Props) {
           session_duration_minutes: sessionMinutes,
           slot_assignments: Object.entries(slotSelections)
             .filter(([, exercise_name]) => exercise_name !== '')
+            .filter(([slot_id]) => {
+              const slotDef = SLOT_DEFS.find(s => s.slot_id === slot_id)
+              if (!slotDef?.has_one_rm) return true
+              return visible1RmSlots.some(s => s.slot_id === slot_id)
+            })
             .map(([slot_id, exercise_name]) => ({ slot_id, exercise_name })),
           one_rms: visible1RmSlots.map(slot => ({
             slot_id: slot.slot_id,
