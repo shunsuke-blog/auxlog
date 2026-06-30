@@ -155,8 +155,22 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
 
     if (slot.has_one_rm) {
       const oneRmRecord = oneRmMap.get(slot.slot_id)
-      if (!oneRmRecord) continue
-      sets = buildCompoundSets(params, oneRmRecord.one_rm_kg)
+      if (oneRmRecord) {
+        sets = buildCompoundSets(params, oneRmRecord.one_rm_kg)
+      } else {
+        // 1RM未設定: 直近の記録重量を使用、なければ weight=0 で表示
+        const recentWorkingSets = (recent_sets_by_exercise[exercise.id] ?? []).filter(s => !s.is_warmup)
+        const lastWeight = recentWorkingSets.length > 0
+          ? Math.max(...recentWorkingSets.map(s => s.weight_kg))
+          : 0
+        const count = (params.top_set_pct_rm != null ? 1 : 0) + (params.backoff_sets ?? 0) || 3
+        sets = Array.from({ length: count }, () => ({
+          set_type: 'working' as const,
+          suggested_weight_kg: lastWeight,
+          target_reps: params.backoff_reps ?? params.rep_range_min ?? 5,
+          target_rpe: 8,
+        }))
+      }
     } else {
       const recentSets = recent_sets_by_exercise[exercise.id] ?? []
       sets = buildIsolationSets(params, recentSets)
