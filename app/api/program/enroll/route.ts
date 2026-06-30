@@ -30,6 +30,9 @@ const EnrollSchema = z.object({
   })),
 })
 
+const todayJST = () =>
+  new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' })
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -61,7 +64,7 @@ export async function POST(request: Request) {
       program_id: DEFAULT_PROGRAM_ID,
       days_per_week,
       session_duration_minutes,
-      started_at: new Date().toISOString().split('T')[0],
+      started_at: todayJST(),
     })
     .select()
     .single()
@@ -165,7 +168,7 @@ export async function POST(request: Request) {
           user_id: user.id,
           slot_id: orm.slot_id,
           one_rm_kg: orm.one_rm_kg,
-          recorded_at: new Date().toISOString().split('T')[0],
+          recorded_at: todayJST(),
           source: orm.source,
         }))
       )
