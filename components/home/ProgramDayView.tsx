@@ -299,6 +299,17 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
             <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
               Week {enrollment.current_week} / 9 · {PHASE_LABELS[suggestion?.phase ?? 'volume']}
             </p>
+            <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+              {(() => {
+                const DAY_LABELS_JP = ['日', '月', '火', '水', '木', '金', '土']
+                const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}(${DAY_LABELS_JP[d.getDay()]})`
+                const start = new Date(enrollment.started_at)
+                start.setDate(start.getDate() + (enrollment.current_week - 1) * 7)
+                const end = new Date(start)
+                end.setDate(end.getDate() + 6)
+                return `${fmt(start)} 〜 ${fmt(end)}`
+              })()}
+            </p>
           </div>
         </div>
       </div>
