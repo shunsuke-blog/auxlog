@@ -75,7 +75,6 @@ export default function WeightProgressChart({ exercises, currentWeek }: Props) {
               x2={b.x2}
               fill={b.fill}
               fillOpacity={0.4}
-              label={{ value: b.label, position: 'insideTop', fontSize: 8, fill: '#a1a1aa' }}
               stroke="none"
             />
           ))}
