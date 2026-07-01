@@ -189,7 +189,7 @@ export default async function CoachingPage() {
                         <div>
                           <p className="text-sm text-black dark:text-white">{ex.name}</p>
                           <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                            {ex.target_muscle ? (MUSCLE_LABELS[ex.target_muscle] ?? '追加種目') : '追加種目'}
+                            {ex.target_muscle ? `${MUSCLE_LABELS[ex.target_muscle] ?? ex.target_muscle}（追加）` : '追加種目'}
                           </p>
                         </div>
                       </div>
