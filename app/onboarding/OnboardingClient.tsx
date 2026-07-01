@@ -578,6 +578,11 @@ export default function OnboardingClient({ exercises }: Props) {
             <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">ステップ 3 / 5</p>
           </div>
           <h1 className="text-xl font-semibold text-black dark:text-white">最大重量を入力</h1>
+          {/* 種目名 */}
+          <div className="mt-1.5">
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">{currentSlot.label}</p>
+            <p className="text-sm font-bold text-black dark:text-white">{assignedExercise}</p>
+          </div>
           {/* Progress dots */}
           <div className="flex gap-1.5 mt-3">
             {visible1RmSlots.map((_, i) => (
@@ -602,10 +607,6 @@ export default function OnboardingClient({ exercises }: Props) {
             className={isExiting ? 'auxlog-card-exit' : 'auxlog-card-enter'}
           >
             <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
-              <div className="px-4 py-3 bg-zinc-50 dark:bg-zinc-900">
-                <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">{currentSlot.label}</p>
-                <p className="text-base font-bold text-black dark:text-white">{assignedExercise}</p>
-              </div>
               <div className="px-4 py-4 space-y-3">
                 <div>
                   <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1.5 block">
