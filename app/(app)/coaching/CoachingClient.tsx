@@ -153,7 +153,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
                   : 'text-zinc-500 dark:text-zinc-400'
               }`}
             >
-              プログラム全体
+              プログラム情報
             </button>
             <button
               onClick={() => setView('exercises')}
