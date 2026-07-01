@@ -46,7 +46,7 @@ export default async function CoachingPage() {
 
   const { data: enrollment } = await supabase
     .from('user_program_enrollments')
-    .select('id, days_per_week, current_week, started_at')
+    .select('id, days_per_week, session_duration_minutes, current_week, started_at')
     .eq('user_id', user.id)
     .eq('is_active', true)
     .maybeSingle()
@@ -148,6 +148,14 @@ export default async function CoachingPage() {
                   <span className="text-sm text-zinc-500 dark:text-zinc-400">頻度</span>
                   <span className="text-sm text-black dark:text-white">週{daysPerWeek}回</span>
                 </div>
+                {enrollment.session_duration_minutes != null && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-500 dark:text-zinc-400">セッション時間</span>
+                    <span className="text-sm text-black dark:text-white">
+                      {enrollment.session_duration_minutes === 60 ? '〜60分' : enrollment.session_duration_minutes === 75 ? '60〜90分' : '90分〜'}
+                    </span>
+                  </div>
+                )}
                 {enrollment.started_at && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-zinc-500 dark:text-zinc-400">開始日</span>
