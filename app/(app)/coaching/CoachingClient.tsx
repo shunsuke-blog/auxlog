@@ -36,10 +36,10 @@ const PHASE_CONFIG: Record<Phase, {
   },
   intensity: {
     label: 'Intensity Phase',
-    description: 'ここからが本番。セット数を絞り、より重い重量で神経系を刺激します。',
+    description: 'ここからが本番。セット数を絞り、より重い重量で体を限界まで追い込みます。',
     focus: [
-      'トップセットは指定%RMを厳守',
-      'バックオフセットは重量を落として丁寧に',
+      'メインセットは決めた重量から逃げない',
+      '残りのセットは少し重量を落として丁寧に',
       'セット間の休息は3分以上取る',
     ],
     badgeClass: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
@@ -60,11 +60,11 @@ const PHASE_CONFIG: Record<Phase, {
   },
   maxout: {
     label: 'MaxOut Week',
-    description: '9週間の集大成。AMRAPで限界まで挑戦し、次サイクルの1RMを更新します。',
+    description: '9週間の集大成。できる限り多くの回数をこなし、次のプログラムの基準重量を更新します。',
     focus: [
       '9週間の積み上げを全て出し切る',
-      '全力でAMRAP（できる限り多くの回数）に挑戦',
-      'ここで出した回数が次の1RMの基準になる',
+      '全力でできる限り多くの回数に挑戦する',
+      'ここで出した回数が次のプログラムの基準になる',
     ],
     badgeClass: 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400',
     barClass: 'bg-red-500',
@@ -85,10 +85,10 @@ const WEEK_DETAIL: Record<number, { sets: string; intensity: string; purpose: st
   3: { sets: '4セット', intensity: '中程度', purpose: '適応を促進する' },
   4: { sets: '4セット', intensity: '中程度', purpose: 'ボリューム最大化' },
   5: { sets: '3セット（絞る）', intensity: '高い', purpose: '強度への切り替え' },
-  6: { sets: '3セット', intensity: 'より高い', purpose: '神経系への負荷増大' },
+  6: { sets: '3セット', intensity: 'より高い', purpose: '重さへの適応をさらに高める' },
   7: { sets: '3セット', intensity: 'ピーク', purpose: '最大強度で刺激する' },
   8: { sets: '2セット', intensity: '低め', purpose: '疲労除去・回復' },
-  9: { sets: 'AMRAP', intensity: '全力', purpose: '1RM更新・成果測定' },
+  9: { sets: '全力の回数', intensity: '全力', purpose: '最高重量の更新・成果測定' },
 }
 
 const WEEK_LABELS = ['Vol', 'Vol', 'Vol', 'Vol', 'Int', 'Int', 'Int', 'Dld', 'Max']
@@ -174,7 +174,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
           <>
             {/* Hero Card */}
             <div className="px-5 py-5 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
-              <p className="text-[10px] text-zinc-400 uppercase tracking-widest mb-1">9週間ピリオダイゼーション</p>
+              <p className="text-[10px] text-zinc-400 uppercase tracking-widest mb-1">9週間ステップアップ計画</p>
               <h2 className="text-base font-bold text-black dark:text-white mb-4">UL Body Hypertrophy Program</h2>
 
               {/* Phase badge */}
