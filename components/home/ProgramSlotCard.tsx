@@ -121,7 +121,7 @@ export default function ProgramSlotCard({ slot, is_done = false }: Props) {
       onClick={saveSlotToSession}
       className={`block rounded-3xl px-5 pt-4 pb-5 active:scale-[0.99] transition-transform ${
         is_done
-          ? 'bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/50'
+          ? 'bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800/50'
           : 'bg-white dark:bg-zinc-900 shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none border border-zinc-200 dark:border-zinc-800'
       }`}
     >
