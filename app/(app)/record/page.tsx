@@ -396,7 +396,7 @@ function RecordContent() {
         />
       </div>
 
-      <div className="px-6 py-6 space-y-6 pb-40">
+      <div className="px-6 py-6 space-y-6 pb-32">
         {groups.map(({ muscle, items }) => (
           <div key={muscle ?? 'all'}>
             {muscle && (
