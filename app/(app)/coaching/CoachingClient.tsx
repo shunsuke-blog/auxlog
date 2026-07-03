@@ -127,12 +127,14 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
   const [progressWidth, setProgressWidth] = useState(0)
   const [editingSlot, setEditingSlot] = useState<{ slotId: string; label: string; exerciseName: string; options: string[] } | null>(null)
   const [savingSlot, setSavingSlot] = useState(false)
+  const [slotError, setSlotError] = useState<string | null>(null)
 
   const { id: enrollmentId, currentWeek, daysPerWeek, sessionDurationMinutes, startedAt } = enrollment
 
   const handleSelectExercise = async (exerciseName: string) => {
     if (!editingSlot) return
     setSavingSlot(true)
+    setSlotError(null)
     try {
       const res = await fetch(`/api/program/slot-assignments/${editingSlot.slotId}`, {
         method: 'PATCH',
@@ -142,7 +144,12 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
       if (res.ok) {
         setEditingSlot(null)
         router.refresh()
+      } else {
+        const data = await res.json().catch(() => null)
+        setSlotError(data?.error ?? '種目の変更に失敗しました。もう一度お試しください')
       }
+    } catch {
+      setSlotError('種目の変更に失敗しました。もう一度お試しください')
     } finally {
       setSavingSlot(false)
     }
@@ -350,9 +357,12 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
                   {slots.map(slot => (
                     <button
                       key={slot.slotId}
-                      onClick={() => setEditingSlot({
-                        slotId: slot.slotId, label: slot.label, exerciseName: slot.exerciseName, options: slot.options,
-                      })}
+                      onClick={() => {
+                        setSlotError(null)
+                        setEditingSlot({
+                          slotId: slot.slotId, label: slot.label, exerciseName: slot.exerciseName, options: slot.options,
+                        })
+                      }}
                       className="w-full flex items-center justify-between text-left -mx-1 px-1 py-0.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
                     >
                       <div>
@@ -392,8 +402,9 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
           currentName={editingSlot.exerciseName}
           options={editingSlot.options}
           saving={savingSlot}
+          error={slotError}
           onSelect={handleSelectExercise}
-          onClose={() => setEditingSlot(null)}
+          onClose={() => { setEditingSlot(null); setSlotError(null) }}
         />
       )}
     </div>

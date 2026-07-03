@@ -138,7 +138,13 @@ function RecordContent() {
         // プログラムスロットからの遷移の場合はセッションストレージのデータを優先
         const programSlotRaw = sessionStorage.getItem(`auxlog_program_slot_${exerciseId}`)
         const programSlot: { notes?: string; sets: ProgramSetPayload[] } | null =
-          programSlotRaw ? (() => { try { return JSON.parse(programSlotRaw) } catch { return null } })() : null
+          programSlotRaw ? (() => {
+            try {
+              const parsed = JSON.parse(programSlotRaw)
+              // 旧バージョンのペイロード形式（配列そのもの）が残っている場合はフォールバックさせる
+              return Array.isArray(parsed?.sets) ? parsed : null
+            } catch { return null }
+          })() : null
 
         if (programSlot) {
           const ex = (fetchedExercises ?? []).find(e => e.id === exerciseId)

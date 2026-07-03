@@ -2,36 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import CoachingClient from './CoachingClient'
 import type { DayData, WeightHistory } from './CoachingClient'
-
-const SLOT_DEFS = [
-  // Day 1
-  { slot_id: 'chest_compound',             label: '胸',         day_number: 1 },
-  { slot_id: 'back_vertical_pull',         label: '背中',       day_number: 1 },
-  { slot_id: 'back_horizontal_pull',       label: '背中',       day_number: 1 },
-  { slot_id: 'shoulder_lateral',           label: '肩',         day_number: 1 },
-  { slot_id: 'shoulder_rear_delt',         label: '肩（後部）', day_number: 1 },
-  { slot_id: 'triceps',                    label: '腕',         day_number: 1 },
-  { slot_id: 'biceps',                     label: '腕',         day_number: 1 },
-  // Day 2
-  { slot_id: 'quad_glute_primary',         label: '脚',         day_number: 2 },
-  { slot_id: 'hamstring_glute',            label: '脚（裏側）', day_number: 2 },
-  { slot_id: 'quad_ham_glute',             label: '脚（補助）', day_number: 2 },
-  { slot_id: 'calves_seated',              label: 'ふくらはぎ', day_number: 2 },
-  { slot_id: 'core',                       label: '腹筋',       day_number: 2 },
-  // Day 3
-  { slot_id: 'shoulder_vertical_press',    label: '肩',         day_number: 3 },
-  { slot_id: 'chest_triceps_compound',     label: '胸・腕',     day_number: 3 },
-  { slot_id: 'back_horizontal_pull_heavy', label: '背中',       day_number: 3 },
-  { slot_id: 'back_vertical_pull_alt',     label: '背中',       day_number: 3 },
-  { slot_id: 'chest_isolation',            label: '胸（補助）', day_number: 3 },
-  { slot_id: 'shoulder_lateral_cable',     label: '肩',         day_number: 3 },
-  { slot_id: 'biceps_alt',                 label: '腕',         day_number: 3 },
-  // Day 4
-  { slot_id: 'hamstring_glute_heavy',      label: '脚（裏側）', day_number: 4 },
-  { slot_id: 'quad_glute_secondary',       label: '脚（補助）', day_number: 4 },
-  { slot_id: 'calves_standing',            label: 'ふくらはぎ', day_number: 4 },
-  { slot_id: 'core_alt',                   label: '腹筋',       day_number: 4 },
-] as const
+import { PROGRAM_SLOTS as SLOT_DEFS } from '@/lib/constants/program_slots'
 
 const COMPOUND_SLOT_IDS = new Set([
   'chest_compound',
@@ -83,6 +54,11 @@ export default async function CoachingPage() {
     )
   }
 
+  // このユーザーの頻度設定で実際に使うスロットIDのみに絞って種目マスタを取得する
+  const relevantSlotIds = SLOT_DEFS
+    .filter(s => s.day_number <= (enrollment.days_per_week ?? 0))
+    .map(s => s.slot_id)
+
   const [{ data: rawAssignments }, { data: rawOneRms }, { data: rawExtras }, { data: rawSlotExercises }] = await Promise.all([
     supabase
       .from('user_slot_assignments')
@@ -102,7 +78,7 @@ export default async function CoachingPage() {
     supabase
       .from('exercise_master')
       .select('name, slot_type')
-      .not('slot_type', 'is', null)
+      .in('slot_type', relevantSlotIds)
       .order('sort_order'),
   ])
 

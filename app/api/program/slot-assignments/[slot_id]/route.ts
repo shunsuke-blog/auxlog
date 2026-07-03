@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { dbError, validationError } from '@/lib/api/errors'
+import { dbError, validationError, notFound } from '@/lib/api/errors'
+import { VALID_SLOT_IDS } from '@/lib/constants/program_slots'
+import { findOrCreateUserExercise } from '@/lib/program/find_or_create_user_exercise'
 
 const PatchSchema = z.object({
   enrollment_id: z.string().min(1),
@@ -20,6 +22,10 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { slot_id } = await params
+  if (!VALID_SLOT_IDS.has(slot_id)) {
+    return NextResponse.json({ error: '不正なスロットIDです' }, { status: 400 })
+  }
+
   const parsed = PatchSchema.safeParse(await request.json())
   if (!parsed.success) return validationError(parsed.error)
   const { enrollment_id, is_hidden, exercise_name } = parsed.data
@@ -39,48 +45,22 @@ export async function PATCH(
     if (masterError) return dbError('種目の確認に失敗しました', masterError)
     if (!master) return NextResponse.json({ error: 'このスロットでは選択できない種目です' }, { status: 400 })
 
-    const { data: existingUe } = await supabase
-      .from('user_exercises')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('exercise_master_id', master.id)
-      .maybeSingle()
+    const result = await findOrCreateUserExercise(supabase, user.id, master.id, master.is_compound)
+    if (result.error) return dbError(result.error)
 
-    let exerciseId = existingUe?.id as string | undefined
-
-    if (!exerciseId) {
-      const { data: maxSortRow } = await supabase
-        .from('user_exercises')
-        .select('sort_order')
-        .eq('user_id', user.id)
-        .order('sort_order', { ascending: false })
-        .limit(1)
-
-      const { data: newUe, error: ueError } = await supabase
-        .from('user_exercises')
-        .insert({
-          user_id: user.id,
-          exercise_master_id: master.id,
-          sort_order: (maxSortRow?.[0]?.sort_order ?? 0) + 1,
-          is_compound: master.is_compound,
-        })
-        .select('id')
-        .single()
-
-      if (ueError || !newUe) return dbError('種目の追加に失敗しました', ueError)
-      exerciseId = newUe.id
-    }
-
-    updates.exercise_id = exerciseId
+    updates.exercise_id = result.id
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('user_slot_assignments')
     .update(updates)
     .eq('slot_id', slot_id)
     .eq('enrollment_id', enrollment_id)
     .eq('user_id', user.id)
+    .select('id')
 
   if (error) return dbError('スロットの更新に失敗しました', error)
+  if (!data || data.length === 0) return notFound('対象のスロット割り当てが見つかりません')
+
   return NextResponse.json({ ok: true })
 }

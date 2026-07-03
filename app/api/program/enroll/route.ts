@@ -2,19 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { dbError } from '@/lib/api/errors'
 import { DEFAULT_PROGRAM_ID } from '@/lib/constants/api'
+import { VALID_SLOT_IDS } from '@/lib/constants/program_slots'
 import { z } from 'zod'
-
-const VALID_SLOT_IDS = new Set([
-  'chest_compound', 'back_vertical_pull', 'back_horizontal_pull',
-  'shoulder_lateral', 'shoulder_rear_delt', 'triceps', 'biceps',
-  'quad_glute_primary', 'hamstring_glute', 'quad_ham_glute',
-  'calves_seated', 'core',
-  'shoulder_vertical_press', 'chest_triceps_compound',
-  'back_horizontal_pull_heavy', 'back_vertical_pull_alt',
-  'chest_isolation', 'shoulder_lateral_cable', 'biceps_alt',
-  'hamstring_glute_heavy', 'quad_glute_secondary',
-  'calves_standing', 'core_alt',
-])
 
 const EnrollSchema = z.object({
   days_per_week: z.union([z.literal(2), z.literal(3), z.literal(4)]),

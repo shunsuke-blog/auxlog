@@ -7,11 +7,12 @@ type Props = {
   currentName: string
   options: string[]
   saving: boolean
+  error: string | null
   onSelect: (name: string) => void
   onClose: () => void
 }
 
-export default function SlotExerciseModal({ label, currentName, options, saving, onSelect, onClose }: Props) {
+export default function SlotExerciseModal({ label, currentName, options, saving, error, onSelect, onClose }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
@@ -29,6 +30,9 @@ export default function SlotExerciseModal({ label, currentName, options, saving,
           </button>
         </div>
         <div className="overflow-y-auto flex-1 px-6 py-4">
+          {error && (
+            <p className="mb-3 text-sm text-red-500 text-center">{error}</p>
+          )}
           {options.length <= 1 ? (
             <p className="text-center py-10 text-sm text-zinc-400">このスロットには他の選択肢がありません</p>
           ) : (
