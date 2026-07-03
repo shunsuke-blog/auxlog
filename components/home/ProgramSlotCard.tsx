@@ -105,12 +105,20 @@ export default function ProgramSlotCard({ slot, is_done = false }: Props) {
 
   const saveSlotToSession = () => {
     try {
-      const payload = slot.sets.map((s, i) => ({
-        set_number: i + 1,
-        weight_kg: s.suggested_weight_kg,
-        reps: s.target_reps === 'amrap' ? 1 : s.target_reps,
-        is_warmup: s.set_type === 'warmup',
-      }))
+      const payload = {
+        notes: slot.notes,
+        sets: slot.sets.map((s, i) => ({
+          set_number: i + 1,
+          weight_kg: s.suggested_weight_kg,
+          reps: s.target_reps === 'amrap' ? 1 : s.target_reps,
+          is_warmup: s.set_type === 'warmup',
+          set_type: s.set_type,
+          target_rpe: s.target_rpe,
+          target_reps: s.target_reps,
+          rep_range_min: s.rep_range_min,
+          rep_range_max: s.rep_range_max,
+        })),
+      }
       sessionStorage.setItem(`auxlog_program_slot_${slot.exercise.id}`, JSON.stringify(payload))
     } catch { /* ignore */ }
   }

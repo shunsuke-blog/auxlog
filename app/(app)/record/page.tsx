@@ -13,11 +13,20 @@ import { TARGET_MUSCLE_LABELS, MUSCLE_ORDER } from '@/types'
 import { todayLocalDate } from '@/lib/utils/date'
 import SaveComplete from '@/components/ui/SaveComplete'
 import { useNavigationGuard } from '@/lib/contexts/NavigationGuard'
+import { buildProgramGuidance, type ProgramSetMeta } from '@/lib/utils/set_guidance'
 
 type ExerciseSets = {
   exercise: UserExercise
   sets: SetData[]
   enabled: boolean
+  guidance?: string[]
+}
+
+type ProgramSetPayload = ProgramSetMeta & {
+  set_number: number
+  weight_kg: number
+  reps: number
+  is_warmup: boolean
 }
 
 type Badge = 'record' | 'volume_up' | 'done'
@@ -128,17 +137,22 @@ function RecordContent() {
       if (exerciseId) {
         // プログラムスロットからの遷移の場合はセッションストレージのデータを優先
         const programSlotRaw = sessionStorage.getItem(`auxlog_program_slot_${exerciseId}`)
-        const programSets: { set_number: number; weight_kg: number; reps: number; is_warmup: boolean }[] | null =
+        const programSlot: { notes?: string; sets: ProgramSetPayload[] } | null =
           programSlotRaw ? (() => { try { return JSON.parse(programSlotRaw) } catch { return null } })() : null
 
-        if (programSets) {
+        if (programSlot) {
           const ex = (fetchedExercises ?? []).find(e => e.id === exerciseId)
             ?? suggestions.find(s => s.exercise.id === exerciseId)?.exercise
           if (ex) {
+            const guidance = [
+              ...(programSlot.notes ? [programSlot.notes] : []),
+              ...buildProgramGuidance(programSlot.sets),
+            ]
             setExerciseSets([{
               exercise: ex,
               enabled: true,
-              sets: programSets.map(t => makeSet({
+              guidance: guidance.length > 0 ? guidance : undefined,
+              sets: programSlot.sets.map(t => makeSet({
                 set_number: t.set_number,
                 weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
                 reps: String(t.reps),
@@ -154,6 +168,7 @@ function RecordContent() {
             setExerciseSets([{
               exercise: matched.exercise,
               enabled: true,
+              guidance: matched.reason ? [matched.reason] : undefined,
               sets: matched.proposed_set_targets.map(t => makeSet({
                 set_number: t.set_number,
                 weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
@@ -437,6 +452,15 @@ function RecordContent() {
                           : `${Math.round(prevBests[ex.exercise.id]?.volume ?? 0).toLocaleString()}kg ▶︎ ${Math.round(doneVolume).toLocaleString()}kg`}
                       </span>
                     </div>
+                    {isVisible && ex.guidance && ex.guidance.length > 0 && (
+                      <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900 px-3 py-2 space-y-0.5">
+                        {ex.guidance.map((line, i) => (
+                          <p key={i} className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                            {line}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                     {isVisible && (
                       <>
                         <div className="space-y-2.5">
