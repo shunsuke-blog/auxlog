@@ -349,7 +349,8 @@ function RecordContent() {
         .filter(g => g.items.length > 0)
     : [{ muscle: null as TargetMuscle | null, items: exerciseSets.map((ex, idx) => ({ ex, idx })) }]
 
-  const displayName = fromHome && exerciseSets.length === 1
+  const singleExerciseFromHome = fromHome && exerciseSets.length === 1
+  const displayName = singleExerciseFromHome
     ? (exerciseSets[0].exercise.name ?? '記録入力')
     : '記録入力'
 
@@ -417,9 +418,11 @@ function RecordContent() {
                         />
                       )}
                       <div className="flex-1 flex items-center gap-2 min-w-0">
-                        <h2 className="text-base font-semibold text-black dark:text-white truncate">
-                          {ex.exercise.name}
-                        </h2>
+                        {!singleExerciseFromHome && (
+                          <h2 className="text-base font-semibold text-black dark:text-white truncate">
+                            {ex.exercise.name}
+                          </h2>
+                        )}
                         {badge && (
                           <span className={`text-xs font-bold animate-pulse shrink-0 ${
                             badge === 'record' ? 'text-amber-400' : 'text-emerald-500'

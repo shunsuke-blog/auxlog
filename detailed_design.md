@@ -1,4 +1,14 @@
-# 詳細設計書 - 筋トレメニュー自動提案アプリ
+# 詳細設計書 - Auxlog（9週間プログラム管理・コーチング可視化プラットフォーム）
+
+## ⚡ 方向転換について（2026-07-03 doc sync）
+
+2026-06-26〜28の開発でプロダクトの方向性が転換した。以下、齟齬防止のため現状を明記する（`requirements.md` と同内容）。
+
+- **現在のAuxlogの定義**: 9週間プログラム（Volume→Intensity→Deload→MaxOut）管理・コーチング可視化プラットフォーム。詳細ロジック・データモデルは `program-based-logic-design.md` を参照（本ドキュメントには重複記載しない）。
+- **§5「メニュー提案ロジック詳細（engine.ts）」の扱い**: `program-based-logic-design.md` §13 では「`lib/engine.ts` を全面書き換え・旧ロジックは削除」と計画されていたが、**実装では旧ロジック（`lib/suggest/engine.ts`）は削除されず現存**しており、プログラムスロットに紐づかない種目のフォールバックとして動作している。新ロジックは別ファイル `lib/suggest/program_engine.ts` に実装されている（設計書の想定とファイル構成が異なる点に注意）。
+- **背景**: `.company/coaching/coaching_business_plan.md` §0・§7、`.company/ceo/decisions/2026-07-01-business-plan-update-auxlog-coaching.md` を参照。
+
+---
 
 ## 1. システム構成
 
@@ -465,7 +475,7 @@ CREATE INDEX idx_user_exercises_user
 
 ---
 
-## 5. メニュー提案ロジック詳細（engine.ts）
+## 5. メニュー提案ロジック詳細（`lib/suggest/engine.ts`）（⚡ 現在はプログラム外種目のみのフォールバックロジック。主力の9週間プログラムロジックは `program-based-logic-design.md` §7〜8 の `lib/suggest/program_engine.ts` を参照）
 
 ### 5.1 設計方針
 

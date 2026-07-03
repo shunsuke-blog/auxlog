@@ -254,6 +254,8 @@ function EditContent() {
     ex => !exerciseSets.some(es => es.exerciseId === ex.id)
   )
 
+  const singleExerciseEdit = !isFullEdit && exerciseSets.length === 1
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white dark:bg-black px-6 pt-14 space-y-4">
@@ -275,7 +277,7 @@ function EditContent() {
         </button>
         <div className="flex-1 min-w-0">
           <h1 className="text-base font-semibold text-black dark:text-white truncate">
-            {!isFullEdit && exerciseSets[0] ? exerciseSets[0].exerciseName : '記録を編集'}
+            {singleExerciseEdit ? exerciseSets[0].exerciseName : '記録を編集'}
           </h1>
         </div>
         <input
@@ -307,7 +309,9 @@ function EditContent() {
                 checked={ex.enabled}
                 onChange={v => toggleEnabled(exIdx, v)}
               />
-              <h2 className="text-base font-semibold text-black dark:text-white">{ex.exerciseName}</h2>
+              {!singleExerciseEdit && (
+                <h2 className="text-base font-semibold text-black dark:text-white">{ex.exerciseName}</h2>
+              )}
             </div>
             {ex.enabled && (
               <>

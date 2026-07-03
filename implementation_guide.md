@@ -1,9 +1,14 @@
-# 実装状況まとめ - 筋トレメニュー自動提案アプリ
+# 実装状況まとめ - Auxlog（9週間プログラム管理・コーチング可視化プラットフォーム）
+
+## ⚡ 方向転換について（2026-07-03 doc sync）
+
+2026-06-26〜28の開発でプロダクトの方向性が転換した。現在のAuxlogは「前回記録から自動提案するアプリ」ではなく、9週間プログラム（Volume→Intensity→Deload→MaxOut）を軸にしたコーチング可視化プラットフォーム。詳細は `requirements.md` 冒頭の同名セクション、および `program-based-logic-design.md` を参照。旧の適応型提案ロジック（`lib/suggest/engine.ts`）はプログラム外種目のフォールバックとして現存している。
 
 ## このドキュメントの位置づけ
 フェーズ1（MVP）の実装が完了した状態を記録したドキュメント。
 次フェーズの開発者（または Claude Code）が現状を正確に把握できるよう、
 実装済みの仕様と今後の課題を整理している。
+（2026-06-28以降に実装された9週間プログラム機能の詳細は本ドキュメントには含まれていない。`program-based-logic-design.md` を参照）
 
 ---
 
@@ -63,9 +68,31 @@ ALTER TABLE training_sets ALTER COLUMN rir SET DEFAULT false;
 - [x] ログイン画面（`app/(auth)/login/page.tsx`）
 - [x] 認証コールバック（`app/auth/callback/route.ts`）
 - [x] 認証済みレイアウト（`app/(app)/layout.tsx`）
-- [x] BottomNav（4タブ: ホーム/記録/履歴/設定）
+- [x] BottomNav（⚡ 現在は4タブ: ホーム/履歴/設定/コーチング。「記録」タブは2026-06-29に削除され「ホームから記録する設計」に統一、代わりに2026-06-29以降「コーチング」タブが追加された。`components/ui/BottomNav.tsx` の git log 参照）
 
 **注意**: middleware.ts は削除済み。認証チェックは各サーバーコンポーネントとAPIルートで行う。
+
+**【重要】認証コールバックの Cookie 設定パターン（2026-07-01修正）**
+`app/auth/callback/route.ts` は `Request` ではなく `NextRequest` を使用すること。
+また、`NextResponse.redirect()` を先に作成し、Supabase の `setAll` コールバック内でそのオブジェクトの `.cookies.set()` に直接セットすること。
+`cookies()` (next/headers) 経由で `cookieStore.set()` しても `NextResponse.redirect()` に Cookie が乗らないケースがある。
+
+```typescript
+// ✅ 正しいパターン
+const successResponse = NextResponse.redirect(url)
+const supabase = createServerClient(url, key, {
+  cookies: {
+    getAll() { return request.cookies.getAll() },           // requestから読む
+    setAll(cookiesToSet) {
+      cookiesToSet.forEach(({ name, value, options }) =>
+        successResponse.cookies.set(name, value, options)  // responseに直接セット
+      )
+    },
+  },
+})
+const { error } = await supabase.auth.exchangeCodeForSession(code)
+if (!error) return successResponse  // Cookie が乗ったレスポンスを返す
+```
 
 ### STEP 5: 種目管理機能
 
@@ -175,6 +202,18 @@ const limit = Math.min(Math.max(1, rawLimit), 100)  // サーバー側で最大1
 - [x] `app/api/webhooks/stripe/route.ts`
 - [x] `lib/subscription.ts` - サブスクリプション状態チェック
 - [x] 設定画面（`app/(app)/settings/page.tsx`）
+
+**設定画面のプログラム情報（2026-07-01 変更）**
+設定画面のプログラム概要・最高重量一覧はコーチングページに統合済み。
+設定画面のプログラム関連表示は「リセットボタン」のみ。
+
+| 表示項目 | 設定画面 | コーチングページ |
+|---------|---------|--------------|
+| Week数・頻度・開始日 | ❌ 削除 | ✅ |
+| セッション時間 | ❌ 削除 | ✅（2026-07-01追加）|
+| 最高重量一覧（1RM） | ❌ 削除 | ✅ |
+| プログラムリセット | ✅ | ❌ |
+
 - [ ] Google OAuth 本番設定（Supabase + Google Cloud Console）
 - [ ] Stripe 本番商品・価格の設定
 - [ ] 課金状態によるアクセス制御の有効化
