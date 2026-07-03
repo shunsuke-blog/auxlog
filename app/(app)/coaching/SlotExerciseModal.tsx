@@ -38,16 +38,18 @@ export default function SlotExerciseModal({ label, currentName, options, saving,
                 return (
                   <button
                     key={name}
-                    disabled={saving || isCurrent}
-                    onClick={() => onSelect(name)}
+                    disabled={saving}
+                    onClick={() => (isCurrent ? onClose() : onSelect(name))}
                     className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border text-left transition-colors disabled:opacity-60 ${
                       isCurrent
-                        ? 'border-black dark:border-white'
+                        ? 'border-black dark:border-white bg-black dark:bg-white'
                         : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900'
                     }`}
                   >
-                    <span className="text-sm font-medium text-black dark:text-white">{name}</span>
-                    {isCurrent && <Check className="w-4 h-4 text-black dark:text-white" />}
+                    <span className={`text-sm font-medium ${isCurrent ? 'text-white dark:text-black' : 'text-black dark:text-white'}`}>
+                      {name}
+                    </span>
+                    {isCurrent && <Check className="w-4 h-4 text-white dark:text-black" />}
                   </button>
                 )
               })}

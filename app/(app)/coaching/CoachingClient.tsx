@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { ChevronRight } from 'lucide-react'
 import SlotExerciseModal from './SlotExerciseModal'
 
 const WeightProgressChart = dynamic(() => import('./WeightProgressChart'), { ssr: false })
@@ -355,7 +356,10 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
                       className="w-full flex items-center justify-between text-left -mx-1 px-1 py-0.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
                     >
                       <div>
-                        <p className="text-sm text-black dark:text-white">{slot.exerciseName}</p>
+                        <div className="flex items-center gap-1">
+                          <p className="text-sm text-black dark:text-white">{slot.exerciseName}</p>
+                          <ChevronRight className="w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600" />
+                        </div>
                         <p className="text-xs text-zinc-400 dark:text-zinc-500">{slot.label}</p>
                       </div>
                       {slot.oneRm != null && (
