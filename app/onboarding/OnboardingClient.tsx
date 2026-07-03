@@ -125,8 +125,16 @@ export default function OnboardingClient({ exercises }: Props) {
 
   const toMaxPriority = (mins: number) => (mins === 60 ? 1 : mins === 75 ? 2 : 3)
 
+  // 9週間プログラムのシート（UpperLowerBodyhypertrophy9weeks_sheet.xlsx）で
+  // 指定されている種目をデフォルトにする。sort_order順の先頭とは一致しない場合があるため明示指定
   const SLOT_DEFAULT_OVERRIDES: Partial<Record<string, string>> = {
     chest_isolation: 'ケーブルフライ（中部）',
+    back_horizontal_pull: 'チェストサポーテッドロウ',
+    triceps: 'ライイングトライセプスEX',
+    chest_triceps_compound: 'ナローベンチプレス',
+    quad_glute_secondary: 'ハイバースクワット',
+    biceps: 'ダンベルカール',
+    biceps_alt: 'インクラインダンベルカール',
   }
 
   const defaultBySlotType = (slot_type: string): string => {
