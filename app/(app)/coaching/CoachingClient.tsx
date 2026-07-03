@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import SlotExerciseModal from './SlotExerciseModal'
 
 const WeightProgressChart = dynamic(() => import('./WeightProgressChart'), { ssr: false })
 
@@ -95,7 +97,7 @@ const WEEK_LABELS = ['Vol', 'Vol', 'Vol', 'Vol', 'Int', 'Int', 'Int', 'Dld', 'Ma
 
 export type DayData = {
   day: number
-  slots: { slotId: string; label: string; exerciseName: string; oneRm?: number }[]
+  slots: { slotId: string; label: string; exerciseName: string; oneRm?: number; options: string[] }[]
   extras: { id: string; name: string; muscleLabel: string | null }[]
 }
 
@@ -107,6 +109,7 @@ export type WeightHistory = {
 
 type Props = {
   enrollment: {
+    id: string
     currentWeek: number
     daysPerWeek: number
     sessionDurationMinutes: number | null
@@ -117,11 +120,32 @@ type Props = {
 }
 
 export default function CoachingClient({ enrollment, dayData, weightHistory }: Props) {
+  const router = useRouter()
   const [view, setView] = useState<'program' | 'exercises'>('program')
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null)
   const [progressWidth, setProgressWidth] = useState(0)
+  const [editingSlot, setEditingSlot] = useState<{ slotId: string; label: string; exerciseName: string; options: string[] } | null>(null)
+  const [savingSlot, setSavingSlot] = useState(false)
 
-  const { currentWeek, daysPerWeek, sessionDurationMinutes, startedAt } = enrollment
+  const { id: enrollmentId, currentWeek, daysPerWeek, sessionDurationMinutes, startedAt } = enrollment
+
+  const handleSelectExercise = async (exerciseName: string) => {
+    if (!editingSlot) return
+    setSavingSlot(true)
+    try {
+      const res = await fetch(`/api/program/slot-assignments/${editingSlot.slotId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enrollment_id: enrollmentId, exercise_name: exerciseName }),
+      })
+      if (res.ok) {
+        setEditingSlot(null)
+        router.refresh()
+      }
+    } finally {
+      setSavingSlot(false)
+    }
+  }
   const phase = getPhase(currentWeek)
   const config = PHASE_CONFIG[phase]
   const progressPct = Math.round((currentWeek / 9) * 100)
@@ -323,7 +347,13 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
                 <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Day {day}</h2>
                 <div className="space-y-2.5">
                   {slots.map(slot => (
-                    <div key={slot.slotId} className="flex items-center justify-between">
+                    <button
+                      key={slot.slotId}
+                      onClick={() => setEditingSlot({
+                        slotId: slot.slotId, label: slot.label, exerciseName: slot.exerciseName, options: slot.options,
+                      })}
+                      className="w-full flex items-center justify-between text-left -mx-1 px-1 py-0.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
+                    >
                       <div>
                         <p className="text-sm text-black dark:text-white">{slot.exerciseName}</p>
                         <p className="text-xs text-zinc-400 dark:text-zinc-500">{slot.label}</p>
@@ -333,7 +363,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
                           1RM {slot.oneRm}kg
                         </span>
                       )}
-                    </div>
+                    </button>
                   ))}
                   {extras.map(ex => (
                     <div key={ex.id} className="flex items-center justify-between">
@@ -351,6 +381,17 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
           </>
         )}
       </div>
+
+      {editingSlot && (
+        <SlotExerciseModal
+          label={editingSlot.label}
+          currentName={editingSlot.exerciseName}
+          options={editingSlot.options}
+          saving={savingSlot}
+          onSelect={handleSelectExercise}
+          onClose={() => setEditingSlot(null)}
+        />
+      )}
     </div>
   )
 }

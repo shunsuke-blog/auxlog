@@ -83,7 +83,7 @@ export default async function CoachingPage() {
     )
   }
 
-  const [{ data: rawAssignments }, { data: rawOneRms }, { data: rawExtras }] = await Promise.all([
+  const [{ data: rawAssignments }, { data: rawOneRms }, { data: rawExtras }, { data: rawSlotExercises }] = await Promise.all([
     supabase
       .from('user_slot_assignments')
       .select('slot_id, exercise_id, user_exercises(custom_name, exercise_master(name))')
@@ -99,7 +99,19 @@ export default async function CoachingPage() {
       .select('id, exercise_id, day_number, user_exercises(custom_name, exercise_master(name, target_muscle))')
       .eq('enrollment_id', enrollment.id)
       .order('created_at'),
+    supabase
+      .from('exercise_master')
+      .select('name, slot_type')
+      .not('slot_type', 'is', null)
+      .order('sort_order'),
   ])
+
+  const slotOptions = new Map<string, string[]>()
+  for (const ex of rawSlotExercises ?? []) {
+    const slotType = ex.slot_type as string
+    if (!slotOptions.has(slotType)) slotOptions.set(slotType, [])
+    slotOptions.get(slotType)!.push(ex.name as string)
+  }
 
   const assignmentMap = new Map<string, string>()
   const exerciseIdBySlot = new Map<string, string>()
@@ -147,6 +159,7 @@ export default async function CoachingPage() {
           label: s.label,
           exerciseName: assignmentMap.get(s.slot_id) ?? '',
           oneRm: oneRmMap.get(s.slot_id),
+          options: slotOptions.get(s.slot_id) ?? [],
         })),
       extras: extrasByDay.get(day) ?? [],
     }))
@@ -215,6 +228,7 @@ export default async function CoachingPage() {
   return (
     <CoachingClient
       enrollment={{
+        id: enrollment.id,
         currentWeek: enrollment.current_week,
         daysPerWeek: enrollment.days_per_week,
         sessionDurationMinutes: enrollment.session_duration_minutes,
