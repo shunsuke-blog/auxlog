@@ -21,6 +21,13 @@ const SET_TYPE_CLASS: Record<SetSuggestion['set_type'], string> = {
   working:'text-zinc-700 dark:text-zinc-300',
 }
 
+const SET_TYPE_CLASS_DONE: Record<SetSuggestion['set_type'], string> = {
+  warmup: 'text-zinc-400 dark:text-zinc-600',
+  top:    'text-zinc-400 dark:text-zinc-500 font-bold',
+  backoff:'text-zinc-400 dark:text-zinc-500',
+  working:'text-zinc-400 dark:text-zinc-500',
+}
+
 function repsDisplay(s: SetSuggestion): string {
   if (s.target_reps === 'amrap') return '限界まで'
   if (s.rep_range_min != null && s.rep_range_max != null) {
@@ -154,17 +161,20 @@ export default function ProgramSlotCard({ slot, is_done = false }: Props) {
 
       {/* セット一覧 */}
       <div className="space-y-1.5">
-        {rows.map((row, i) => (
-          <div key={i} className="flex items-center gap-2 text-[13px]">
-            <span className={`w-14 shrink-0 text-[11px] font-semibold tracking-wide ${SET_TYPE_CLASS[row.type]}`}>
-              {row.label}
-            </span>
-            <span className={`font-medium tabular-nums ${SET_TYPE_CLASS[row.type]}`}>
-              {row.weight}
-            </span>
-            <span className="text-zinc-400 dark:text-zinc-500 tabular-nums">{row.reps}</span>
-          </div>
-        ))}
+        {rows.map((row, i) => {
+          const rowClass = is_done ? SET_TYPE_CLASS_DONE[row.type] : SET_TYPE_CLASS[row.type]
+          return (
+            <div key={i} className="flex items-center gap-2 text-[13px]">
+              <span className={`w-14 shrink-0 text-[11px] font-semibold tracking-wide ${rowClass}`}>
+                {row.label}
+              </span>
+              <span className={`font-medium tabular-nums ${rowClass}`}>
+                {row.weight}
+              </span>
+              <span className="text-zinc-400 dark:text-zinc-500 tabular-nums">{row.reps}</span>
+            </div>
+          )
+        })}
       </div>
 
       {/* notes */}
