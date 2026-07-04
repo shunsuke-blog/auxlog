@@ -11,6 +11,9 @@ import type {
   UserProgramEnrollment,
   TrainingSet,
 } from '@/types'
+import { PROGRAM_SLOTS, slotDayNumber, slotPriority, slotHasOneRm, type FrequencyVariant } from '@/lib/constants/program_slots'
+
+const SLOT_DEF_MAP = new Map(PROGRAM_SLOTS.map(s => [s.slot_id, s]))
 
 export type ProgramEngineInput = {
   enrollment: UserProgramEnrollment
@@ -122,8 +125,16 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
     : enrollment.session_duration_minutes === 75 ? 2
     : 3
 
+  const freq = enrollment.days_per_week as FrequencyVariant
+
+  // Day配分・優先度・1RM管理は lib/constants/program_slots.ts（頻度別の再設計）を正とする。
+  // DB program_slots の同名カラムは4日版の初期値としてのみ使い、ここでは参照しない。
   const daySlots = slots
-    .filter(s => s.day_number === day_number && s.priority <= maxPriority)
+    .filter(s => {
+      const def = SLOT_DEF_MAP.get(s.slot_id)
+      if (!def) return false
+      return slotDayNumber(def, freq) === day_number && slotPriority(def, freq) <= maxPriority
+    })
     .sort((a, b) => a.sort_order - b.sort_order)
 
   const paramsMap = new Map(weekly_params.map(p => [p.slot_id, p]))
@@ -153,7 +164,10 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
 
     let sets: SetSuggestion[]
 
-    if (slot.has_one_rm) {
+    const slotDef = SLOT_DEF_MAP.get(slot.slot_id)
+    const hasOneRm = slotDef ? slotHasOneRm(slotDef, freq) : slot.has_one_rm
+
+    if (hasOneRm) {
       const oneRmRecord = oneRmMap.get(slot.slot_id)
       if (oneRmRecord) {
         sets = buildCompoundSets(params, oneRmRecord.one_rm_kg)

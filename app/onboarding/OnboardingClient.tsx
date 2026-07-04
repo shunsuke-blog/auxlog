@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronDown, ChevronLeft, ChevronUp, Smartphone, Zap, Sliders, Sparkles } from 'lucide-react'
-import { PROGRAM_SLOTS } from '@/lib/constants/program_slots'
+import { PROGRAM_SLOTS, slotDayNumber, slotPriority, slotHasOneRm } from '@/lib/constants/program_slots'
 
 // ──────────────────────────────────────────────────────────
 // Types
@@ -117,7 +117,7 @@ export default function OnboardingClient({ exercises }: Props) {
     const mp = toMaxPriority(sessionMinutes)
     const newSlotSelections: Record<string, string> = {}
 
-    SLOT_DEFS.filter(s => s.day_number <= daysPerWeek && s.priority <= mp).forEach(slot => {
+    SLOT_DEFS.filter(s => slotPriority(s, daysPerWeek) <= mp).forEach(slot => {
       const picked = exercises.find(
         e => e.slot_type === slot.slot_id && selectedExercises.has(e.name)
       )
@@ -126,8 +126,7 @@ export default function OnboardingClient({ exercises }: Props) {
     setSlotSelections(newSlotSelections)
 
     const oneRmSlots = SLOT_DEFS.filter(s =>
-      s.has_one_rm &&
-      s.day_number <= daysPerWeek &&
+      slotHasOneRm(s, daysPerWeek) &&
       (newSlotSelections[s.slot_id] ?? defaultBySlotType(s.slot_id)) !== ''
     )
 
@@ -190,8 +189,7 @@ export default function OnboardingClient({ exercises }: Props) {
   }
 
   const visible1RmSlots = SLOT_DEFS.filter(s =>
-    s.has_one_rm &&
-    s.day_number <= daysPerWeek &&
+    slotHasOneRm(s, daysPerWeek) &&
     (slotSelections[s.slot_id] ?? defaultBySlotType(s.slot_id)) !== ''
   )
 
@@ -271,9 +269,10 @@ export default function OnboardingClient({ exercises }: Props) {
       return {
         day,
         slots: SLOT_DEFS
-          .filter(s => s.day_number === day && s.priority <= mp)
+          .filter(s => slotDayNumber(s, daysPerWeek) === day && slotPriority(s, daysPerWeek) <= mp)
           .map(s => ({
             ...s,
+            has_one_rm: slotHasOneRm(s, daysPerWeek),
             exercise: slotSelections[s.slot_id] ?? '',
             isUserSelected: selectedExercises.has(slotSelections[s.slot_id] ?? ''),
           }))
@@ -284,7 +283,7 @@ export default function OnboardingClient({ exercises }: Props) {
     const hasAutoAdded = programByDay.some(d => d.slots.some(s => !s.isUserSelected))
 
     const hasIsolation = SLOT_DEFS.some(
-      s => !s.has_one_rm && s.day_number <= daysPerWeek && s.priority <= mp && slotSelections[s.slot_id]
+      s => !slotHasOneRm(s, daysPerWeek) && slotPriority(s, daysPerWeek) <= mp && slotSelections[s.slot_id]
     )
 
     return (
@@ -750,9 +749,8 @@ export default function OnboardingClient({ exercises }: Props) {
 
   // ── exercises ────────────────────────────────────────────
   if (step === 'exercises') {
-    const activeSlotIds = new Set(
-      SLOT_DEFS.filter(s => s.day_number <= daysPerWeek).map(s => s.slot_id)
-    )
+    // 頻度に関わらず全23スロットが対象（週2・3回はDay配分が変わるだけで種目自体は減らない）
+    const activeSlotIds = new Set(SLOT_DEFS.map(s => s.slot_id))
     const visibleExercises = exercises.filter(e => activeSlotIds.has(e.slot_type))
 
     const groupMap: Record<string, string[]> = {}

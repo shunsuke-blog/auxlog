@@ -2,14 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import CoachingClient from './CoachingClient'
 import type { DayData, WeightHistory } from './CoachingClient'
-import { PROGRAM_SLOTS as SLOT_DEFS } from '@/lib/constants/program_slots'
-
-const COMPOUND_SLOT_IDS = new Set([
-  'chest_compound',
-  'shoulder_vertical_press',
-  'quad_glute_primary',
-  'hamstring_glute_heavy',
-])
+import { PROGRAM_SLOTS as SLOT_DEFS, slotDayNumber, slotHasOneRm, type FrequencyVariant } from '@/lib/constants/program_slots'
 
 const MUSCLE_LABELS: Record<string, string> = {
   chest: '胸', back: '背中', shoulders: '肩', legs: '脚', arms: '腕', core: '腹筋',
@@ -54,10 +47,7 @@ export default async function CoachingPage() {
     )
   }
 
-  // このユーザーの頻度設定で実際に使うスロットIDのみに絞って種目マスタを取得する
-  const relevantSlotIds = SLOT_DEFS
-    .filter(s => s.day_number <= (enrollment.days_per_week ?? 0))
-    .map(s => s.slot_id)
+  const freq = (enrollment.days_per_week ?? 4) as FrequencyVariant
 
   const [{ data: rawAssignments }, { data: rawOneRms }, { data: rawExtras }, { data: rawSlotExercises }] = await Promise.all([
     supabase
@@ -78,7 +68,7 @@ export default async function CoachingPage() {
     supabase
       .from('exercise_master')
       .select('name, slot_type')
-      .in('slot_type', relevantSlotIds)
+      .in('slot_type', SLOT_DEFS.map(s => s.slot_id))
       .order('sort_order'),
   ])
 
@@ -129,7 +119,7 @@ export default async function CoachingPage() {
     .map(day => ({
       day,
       slots: SLOT_DEFS
-        .filter(s => s.day_number === day && assignmentMap.has(s.slot_id))
+        .filter(s => slotDayNumber(s, freq) === day && assignmentMap.has(s.slot_id))
         .map(s => ({
           slotId: s.slot_id,
           label: s.label,
@@ -141,11 +131,14 @@ export default async function CoachingPage() {
     }))
     .filter(d => d.slots.length > 0)
 
-  // 重量推移データ（コンパウンドスロットのみ）
+  // 重量推移データ（1RM管理スロットのみ。頻度によって対象が変わる）
   let weightHistory: WeightHistory[] = []
 
+  const compoundSlotIds = new Set(
+    SLOT_DEFS.filter(s => slotHasOneRm(s, freq)).map(s => s.slot_id)
+  )
   const compoundSlots = Array.from(exerciseIdBySlot.entries())
-    .filter(([slotId]) => COMPOUND_SLOT_IDS.has(slotId))
+    .filter(([slotId]) => compoundSlotIds.has(slotId))
     .map(([slotId, exerciseId]) => ({
       slotId,
       exerciseId,
