@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Plus, X, Search } from 'lucide-react'
+import { ChevronRight, CheckCircle2, Plus, X, Search } from 'lucide-react'
 import type { UserProgramEnrollment, ProgramSuggestion, ProgramPhase, TargetMuscle } from '@/types'
 import { TARGET_MUSCLE_LABELS } from '@/types'
 import ProgramSlotCard from './ProgramSlotCard'
@@ -419,29 +419,41 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
               ))}
 
             {/* 追加種目カード */}
-            {extraExercises.map(ex => (
-              <SwipeableCard key={ex.dbId} onRemove={() => setDeleteConfirm({ name: ex.name, onConfirm: () => removeExercise(ex.dbId) })}>
-                <Link
-                  href={ex.id ? `/record?exerciseId=${ex.id}` : '/record'}
-                  className="block bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none border border-zinc-200 dark:border-zinc-800 px-5 pt-4 pb-5 active:scale-[0.99] transition-transform"
-                >
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium mb-0.5">
-                        {ex.target_muscle ? TARGET_MUSCLE_LABELS[ex.target_muscle as TargetMuscle] ?? '追加種目' : '追加種目'}
-                      </p>
-                      <h3 className="text-[15px] font-bold text-black dark:text-white leading-snug">{ex.name}</h3>
+            {extraExercises.map(ex => {
+              const isDone = ex.id != null && (weekStatus?.completed_exercise_ids.includes(ex.id) ?? false)
+              return (
+                <SwipeableCard key={ex.dbId} onRemove={() => setDeleteConfirm({ name: ex.name, onConfirm: () => removeExercise(ex.dbId) })}>
+                  <Link
+                    href={ex.id ? `/record?exerciseId=${ex.id}` : '/record'}
+                    className={`block rounded-3xl px-5 pt-4 pb-5 active:scale-[0.99] transition-transform ${
+                      isDone
+                        ? 'bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800/50'
+                        : 'bg-white dark:bg-zinc-900 shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none border border-zinc-200 dark:border-zinc-800'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium mb-0.5">
+                          {ex.target_muscle ? TARGET_MUSCLE_LABELS[ex.target_muscle as TargetMuscle] ?? '追加種目' : '追加種目'}
+                        </p>
+                        <h3 className={`text-[15px] font-bold leading-snug ${isDone ? 'text-zinc-400 dark:text-zinc-500' : 'text-black dark:text-white'}`}>
+                          {ex.name}
+                        </h3>
+                      </div>
+                      {isDone
+                        ? <CheckCircle2 className="w-4 h-4 text-zinc-400 dark:text-zinc-500 mt-1 shrink-0" />
+                        : <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 mt-1 shrink-0" />
+                      }
                     </div>
-                    <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 mt-1 shrink-0" />
-                  </div>
-                  {ex.last_weight_kg != null && (
-                    <p className="text-[12px] text-zinc-400 dark:text-zinc-500">
-                      前回 {ex.last_weight_kg}kg × {ex.last_reps}回
-                    </p>
-                  )}
-                </Link>
-              </SwipeableCard>
-            ))}
+                    {ex.last_weight_kg != null && (
+                      <p className="text-[12px] text-zinc-400 dark:text-zinc-500">
+                        前回 {ex.last_weight_kg}kg × {ex.last_reps}回
+                      </p>
+                    )}
+                  </Link>
+                </SwipeableCard>
+              )
+            })}
 
             {/* 全種目完了 → 次の週へボタン */}
             {weekStatus?.all_complete && currentWeek < 9 && (
