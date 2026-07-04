@@ -23,7 +23,7 @@ DECLARE
 BEGIN
   FOR fix IN
     SELECT * FROM (VALUES
-      ('quad_ham_glute',         'ランジ',              'ブルガリアンスプリットスクワット'),
+      ('quad_ham_glute',         'ランジ',              'ブルガリアンスクワット'),
       ('back_horizontal_pull',   'ベントオーバーロウ',   'チェストサポーテッドロウ'),
       ('triceps',                'トライセプスプレスダウン', 'ライイングトライセプスEX'),
       ('chest_triceps_compound', 'ディップス',           'ナローベンチプレス'),
