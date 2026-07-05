@@ -13,6 +13,12 @@
 // 日別配置はgenerateDaySlotIdsが担う。既存23スロットのslot_idは変更していない
 // （user_slot_assignments/user_slot_one_rms/program_weekly_paramsのデータ移行を避けるため）。
 // hip_adductionのみ股関節内外転パターンをカバーするため新規追加した24番目のスロット。
+//
+// hip_adduction（股関節内外転）はオーナー判断によりtier3（90分のみ）に設定している
+// （優先度は低くてよいという方針）。tier1/2の枠数を保つため、squat系のquad_ham_glute
+// をtier3へ、体幹のcore_altをtier1へ、カーフのcalves_standingをtier2へ、それぞれ
+// 玉突きで調整した（squat/ankle_plantar_flexionパターンがtier2以下で3スロットに
+// ならないよう、同一パターンの重複を避ける形で組み替えている）。
 
 import type { TargetMuscle } from '@/types'
 
@@ -73,15 +79,15 @@ export const PROGRAM_SLOTS: ProgramSlotDef[] = [
   { slot_id: 'quad_glute_primary', label: '脚', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 1, has_one_rm: true },
   { slot_id: 'hamstring_glute', label: '脚（裏側）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_hinge', tier: 1, has_one_rm: false },
   { slot_id: 'calves_seated', label: 'ふくらはぎ', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'ankle_plantar_flexion', tier: 1, has_one_rm: false },
-  { slot_id: 'hip_adduction', label: '脚（内外転）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_adduction_abduction', tier: 1, has_one_rm: false },
   { slot_id: 'hamstring_glute_heavy', label: '脚（裏側）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_hinge', tier: 2, has_one_rm: true },
   { slot_id: 'quad_glute_secondary', label: '脚（補助）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 2, has_one_rm: true },
-  { slot_id: 'calves_standing', label: 'ふくらはぎ', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'ankle_plantar_flexion', tier: 3, has_one_rm: false },
+  { slot_id: 'calves_standing', label: 'ふくらはぎ', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'ankle_plantar_flexion', tier: 2, has_one_rm: false },
   { slot_id: 'quad_ham_glute', label: '脚（補助）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 3, has_one_rm: false },
+  { slot_id: 'hip_adduction', label: '脚（内外転）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_adduction_abduction', tier: 3, has_one_rm: false },
 
   // ── 体幹 ──
   { slot_id: 'core', label: '腹筋', muscle_group: 'core', body_region: 'lower', movement_pattern: 'trunk_flexion', tier: 1, has_one_rm: false },
-  { slot_id: 'core_alt', label: '腹筋', muscle_group: 'core', body_region: 'lower', movement_pattern: 'trunk_flexion', tier: 2, has_one_rm: false },
+  { slot_id: 'core_alt', label: '腹筋', muscle_group: 'core', body_region: 'lower', movement_pattern: 'trunk_flexion', tier: 1, has_one_rm: false },
 ]
 
 export const VALID_SLOT_IDS = new Set(PROGRAM_SLOTS.map(s => s.slot_id))
