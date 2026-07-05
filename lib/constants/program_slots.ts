@@ -16,9 +16,12 @@
 //
 // hip_adduction（股関節内外転）はオーナー判断によりtier3（90分のみ）に設定している
 // （優先度は低くてよいという方針）。tier1/2の枠数を保つため、squat系のquad_ham_glute
-// をtier3へ、体幹のcore_altをtier1へ、カーフのcalves_standingをtier2へ、それぞれ
-// 玉突きで調整した（squat/ankle_plantar_flexionパターンがtier2以下で3スロットに
-// ならないよう、同一パターンの重複を避ける形で組み替えている）。
+// をtier3へ、体幹のcore_altをtier1へ、それぞれ玉突きで調整した。
+//
+// カーフ（足関節底屈）も同様にオーナー判断で優先度を下げ、calves_seatedをtier1→tier2に
+// 変更（calves_standingは元々tier2のまま）。tier1の枠を埋めるためtricepsをtier2→tier1へ
+// 昇格。squat/hip_hinge系パターンがtier2以下で3スロットに重複しないよう検証済み
+// （`npm test`のhas_one_rm集中チェック・日別バランスチェックを参照）。
 
 import type { TargetMuscle } from '@/types'
 
@@ -72,15 +75,15 @@ export const PROGRAM_SLOTS: ProgramSlotDef[] = [
 
   // ── 腕 ──
   { slot_id: 'biceps', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_flexion', tier: 1, has_one_rm: false },
-  { slot_id: 'triceps', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_extension', tier: 2, has_one_rm: false },
+  { slot_id: 'triceps', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_extension', tier: 1, has_one_rm: false },
   { slot_id: 'biceps_alt', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_flexion', tier: 3, has_one_rm: false },
 
   // ── 脚 ──
   { slot_id: 'quad_glute_primary', label: '脚', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 1, has_one_rm: true },
   { slot_id: 'hamstring_glute', label: '脚（裏側）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_hinge', tier: 1, has_one_rm: false },
-  { slot_id: 'calves_seated', label: 'ふくらはぎ', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'ankle_plantar_flexion', tier: 1, has_one_rm: false },
   { slot_id: 'hamstring_glute_heavy', label: '脚（裏側）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_hinge', tier: 2, has_one_rm: true },
   { slot_id: 'quad_glute_secondary', label: '脚（補助）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 2, has_one_rm: true },
+  { slot_id: 'calves_seated', label: 'ふくらはぎ', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'ankle_plantar_flexion', tier: 2, has_one_rm: false },
   { slot_id: 'calves_standing', label: 'ふくらはぎ', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'ankle_plantar_flexion', tier: 2, has_one_rm: false },
   { slot_id: 'quad_ham_glute', label: '脚（補助）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 3, has_one_rm: false },
   { slot_id: 'hip_adduction', label: '脚（内外転）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_adduction_abduction', tier: 3, has_one_rm: false },
