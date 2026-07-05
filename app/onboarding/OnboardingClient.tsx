@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronDown, ChevronLeft, ChevronUp, Smartphone, Zap, Sliders, Sparkles } from 'lucide-react'
+import { Check, ChevronLeft, Smartphone, Zap, Sliders, Sparkles } from 'lucide-react'
 import { PROGRAM_SLOTS, slotDayNumber, slotPriority, slotHasOneRm } from '@/lib/constants/program_slots'
 
 // ──────────────────────────────────────────────────────────
@@ -52,7 +52,6 @@ type OneRmEntry = {
   source: 'manual_input' | 'epley_estimated'
   epley_weight: string
   epley_reps: string
-  show_epley: boolean
 }
 
 const defaultOneRmEntry = (): OneRmEntry => ({
@@ -60,7 +59,6 @@ const defaultOneRmEntry = (): OneRmEntry => ({
   source: 'manual_input',
   epley_weight: '',
   epley_reps: '',
-  show_epley: true,
 })
 
 type Props = { exercises: ExerciseMasterRow[] }
@@ -87,6 +85,11 @@ export default function OnboardingClient({ exercises }: Props) {
     const id = setInterval(() => setGenMsgIndex(i => (i + 1) % GEN_MESSAGES.length), 1500)
     return () => clearInterval(id)
   }, [generating])
+
+  // ステップ・種目切り替え時に前の画面のスクロール位置が残らないよう先頭に戻す
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [step, currentOneRmIndex])
 
   const toMaxPriority = (mins: number) => (mins === 60 ? 1 : mins === 75 ? 2 : 3)
 
@@ -630,83 +633,63 @@ export default function OnboardingClient({ exercises }: Props) {
                   })()}
                 </div>
 
-                <button
-                  onClick={() =>
-                    setOneRms(prev => ({
-                      ...prev,
-                      [currentSlot.slot_id]: {
-                        ...(prev[currentSlot.slot_id] ?? defaultOneRmEntry()),
-                        show_epley: !(prev[currentSlot.slot_id]?.show_epley ?? false),
-                      },
-                    }))
-                  }
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                >
-                  <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-3 space-y-3">
+                  <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
                     最高重量がわからない場合
-                  </span>
-                  <span className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500 shrink-0">
-                    {entry.show_epley ? '閉じる' : '重量を計算する'}
-                    {entry.show_epley ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                  </span>
-                </button>
-
-                {entry.show_epley && (
-                  <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-3 space-y-3">
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      直近で行ったセットの重量と回数を入力してください
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        placeholder="重量"
-                        value={entry.epley_weight}
-                        onChange={e =>
-                          setOneRms(prev => ({
-                            ...prev,
-                            [currentSlot.slot_id]: {
-                              ...(prev[currentSlot.slot_id] ?? defaultOneRmEntry()),
-                              epley_weight: e.target.value,
-                            },
-                          }))
-                        }
-                        className="flex-1 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white text-sm focus:outline-none"
-                      />
-                      <span className="text-sm text-zinc-400 shrink-0">kg ×</span>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        placeholder="回"
-                        value={entry.epley_reps}
-                        onChange={e =>
-                          setOneRms(prev => ({
-                            ...prev,
-                            [currentSlot.slot_id]: {
-                              ...(prev[currentSlot.slot_id] ?? defaultOneRmEntry()),
-                              epley_reps: e.target.value,
-                            },
-                          }))
-                        }
-                        className="w-16 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white text-sm focus:outline-none"
-                      />
-                      <span className="text-sm text-zinc-400 shrink-0">回</span>
-                    </div>
-                    <button
-                      onClick={() => computeEpley(currentSlot.slot_id)}
-                      className="w-full py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                    >
-                      推定する
-                    </button>
-                    {entry.source === 'epley_estimated' && entry.final_kg && (
-                      <p className="text-xs text-center text-zinc-500 dark:text-zinc-400">
-                        推定した最高重量:{' '}
-                        <span className="font-semibold text-black dark:text-white">{entry.final_kg} kg</span>{' '}
-                        を上の欄に反映しました
-                      </p>
-                    )}
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    直近で行ったセットの重量と回数を入力してください
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="重量"
+                      value={entry.epley_weight}
+                      onChange={e =>
+                        setOneRms(prev => ({
+                          ...prev,
+                          [currentSlot.slot_id]: {
+                            ...(prev[currentSlot.slot_id] ?? defaultOneRmEntry()),
+                            epley_weight: e.target.value,
+                          },
+                        }))
+                      }
+                      className="flex-1 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white text-sm focus:outline-none"
+                    />
+                    <span className="text-sm text-zinc-400 shrink-0">kg ×</span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="回"
+                      value={entry.epley_reps}
+                      onChange={e =>
+                        setOneRms(prev => ({
+                          ...prev,
+                          [currentSlot.slot_id]: {
+                            ...(prev[currentSlot.slot_id] ?? defaultOneRmEntry()),
+                            epley_reps: e.target.value,
+                          },
+                        }))
+                      }
+                      className="w-16 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white text-sm focus:outline-none"
+                    />
+                    <span className="text-sm text-zinc-400 shrink-0">回</span>
                   </div>
-                )}
+                  <button
+                    onClick={() => computeEpley(currentSlot.slot_id)}
+                    className="w-full py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    推定する
+                  </button>
+                  {entry.source === 'epley_estimated' && entry.final_kg && (
+                    <p className="text-xs text-center text-zinc-500 dark:text-zinc-400">
+                      推定した最高重量:{' '}
+                      <span className="font-semibold text-black dark:text-white">{entry.final_kg} kg</span>{' '}
+                      を上の欄に反映しました
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
