@@ -10,7 +10,6 @@ import { todayLocalDate } from '@/lib/utils/date'
 import type { UserExercise, HistorySession } from '@/types'
 
 const VolumeChart = dynamic(() => import('./VolumeChart'), { ssr: false })
-const MuscleSetChart = dynamic(() => import('./MuscleSetChart'), { ssr: false })
 
 type Props = {
   sessions: HistorySession[]
@@ -52,10 +51,6 @@ export default function HistoryClient({ sessions, exercises }: Props) {
 
         {exercises.length > 0 && (
           <VolumeChart sessions={sessions} exercises={exercises} />
-        )}
-
-        {exercises.length > 0 && (
-          <MuscleSetChart sessions={sessions} exercises={exercises} />
         )}
 
         {selectedDate ? (
