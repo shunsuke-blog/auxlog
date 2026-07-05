@@ -158,10 +158,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
   const config = PHASE_CONFIG[phase]
   const progressPct = Math.round((currentWeek / 9) * 100)
 
-  const sessionLabel = sessionDurationMinutes === 60 ? '〜60分'
-    : sessionDurationMinutes === 75 ? '60〜90分'
-    : sessionDurationMinutes != null ? '90分〜'
-    : null
+  const sessionLabel = sessionDurationMinutes != null ? `${sessionDurationMinutes}分` : null
 
   useEffect(() => {
     const timer = setTimeout(() => setProgressWidth(progressPct), 120)
