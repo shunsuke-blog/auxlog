@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import CoachingClient from './CoachingClient'
 import type { DayData, WeightHistory } from './CoachingClient'
-import { PROGRAM_SLOTS as SLOT_DEFS, slotDayNumber, slotHasOneRm, type FrequencyVariant } from '@/lib/constants/program_slots'
+import { PROGRAM_SLOTS as SLOT_DEFS, slotHasOneRm, sessionDurationToTier, type FrequencyVariant } from '@/lib/constants/program_slots'
+import { generateDaySlotIds } from '@/lib/suggest/generate_program_slots'
 
 const MUSCLE_LABELS: Record<string, string> = {
   chest: '胸', back: '背中', shoulders: '肩', legs: '脚', arms: '腕', core: '腹筋',
@@ -115,11 +116,14 @@ export default async function CoachingPage() {
   const daysPerWeek = enrollment.days_per_week ?? 0
   const dayNumbers = [1, 2, 3, 4].filter(d => d <= daysPerWeek)
 
+  const maxTier = sessionDurationToTier((enrollment.session_duration_minutes ?? 90) as 60 | 75 | 90)
+  const daySlotIds = generateDaySlotIds(freq, maxTier)
+
   const dayData: DayData[] = dayNumbers
     .map(day => ({
       day,
       slots: SLOT_DEFS
-        .filter(s => slotDayNumber(s, freq) === day && assignmentMap.has(s.slot_id))
+        .filter(s => (daySlotIds.get(day) ?? new Set<string>()).has(s.slot_id) && assignmentMap.has(s.slot_id))
         .map(s => ({
           slotId: s.slot_id,
           label: s.label,

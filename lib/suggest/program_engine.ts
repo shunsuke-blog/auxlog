@@ -11,7 +11,8 @@ import type {
   UserProgramEnrollment,
   TrainingSet,
 } from '@/types'
-import { PROGRAM_SLOTS, slotDayNumber, slotPriority, slotHasOneRm, type FrequencyVariant } from '@/lib/constants/program_slots'
+import { PROGRAM_SLOTS, slotHasOneRm, sessionDurationToTier, type FrequencyVariant } from '@/lib/constants/program_slots'
+import { generateDaySlotIds } from '@/lib/suggest/generate_program_slots'
 
 const SLOT_DEF_MAP = new Map(PROGRAM_SLOTS.map(s => [s.slot_id, s]))
 
@@ -120,21 +121,15 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
     recent_sets_by_exercise,
   } = input
 
-  const maxPriority =
-    enrollment.session_duration_minutes === 60 ? 1
-    : enrollment.session_duration_minutes === 75 ? 2
-    : 3
-
+  const maxTier = sessionDurationToTier((enrollment.session_duration_minutes ?? 90) as 60 | 75 | 90)
   const freq = enrollment.days_per_week as FrequencyVariant
 
-  // Day配分・優先度・1RM管理は lib/constants/program_slots.ts（頻度別の再設計）を正とする。
-  // DB program_slots の同名カラムは4日版の初期値としてのみ使い、ここでは参照しない。
+  // 日別の配置は lib/suggest/generate_program_slots.ts（部位×動きパターンベースの動的生成）
+  // を正とする。DB program_slots の day_number/priority は4日版の初期値としてのみ使い、
+  // ここでは参照しない。
+  const daySlotIds = generateDaySlotIds(freq, maxTier).get(day_number) ?? new Set<string>()
   const daySlots = slots
-    .filter(s => {
-      const def = SLOT_DEF_MAP.get(s.slot_id)
-      if (!def) return false
-      return slotDayNumber(def, freq) === day_number && slotPriority(def, freq) <= maxPriority
-    })
+    .filter(s => daySlotIds.has(s.slot_id))
     .sort((a, b) => a.sort_order - b.sort_order)
 
   const paramsMap = new Map(weekly_params.map(p => [p.slot_id, p]))

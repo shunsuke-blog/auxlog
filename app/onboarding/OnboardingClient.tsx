@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronLeft, Smartphone, Zap, Sliders, Sparkles } from 'lucide-react'
-import { PROGRAM_SLOTS, slotDayNumber, slotPriority, slotHasOneRm } from '@/lib/constants/program_slots'
+import { PROGRAM_SLOTS, slotHasOneRm, sessionDurationToTier } from '@/lib/constants/program_slots'
+import { generateDaySlotIds } from '@/lib/suggest/generate_program_slots'
 
 // ──────────────────────────────────────────────────────────
 // Types
@@ -91,8 +92,6 @@ export default function OnboardingClient({ exercises }: Props) {
     window.scrollTo(0, 0)
   }, [step, currentOneRmIndex])
 
-  const toMaxPriority = (mins: number) => (mins === 60 ? 1 : mins === 75 ? 2 : 3)
-
   // 9週間プログラムのシート（UpperLowerBodyhypertrophy9weeks_sheet.xlsx）で
   // 指定されている種目をデフォルトにする。sort_order順の先頭とは一致しない場合があるため明示指定
   const SLOT_DEFAULT_OVERRIDES: Partial<Record<string, string>> = {
@@ -125,10 +124,10 @@ export default function OnboardingClient({ exercises }: Props) {
   const handleFrequencyNext = () => setStep('exercises')
 
   const handleExercisesNext = async () => {
-    const mp = toMaxPriority(sessionMinutes)
+    const mp = sessionDurationToTier(sessionMinutes)
     const newSlotSelections: Record<string, string> = {}
 
-    SLOT_DEFS.filter(s => slotPriority(s, daysPerWeek) <= mp).forEach(slot => {
+    SLOT_DEFS.filter(s => s.tier <= mp).forEach(slot => {
       const picked = exercises.find(
         e => e.slot_type === slot.slot_id && selectedExercises.has(e.name)
       )
@@ -274,13 +273,15 @@ export default function OnboardingClient({ exercises }: Props) {
 
   // ── program_intro ────────────────────────────────────────
   if (step === 'program_intro') {
-    const mp = toMaxPriority(sessionMinutes)
+    const mp = sessionDurationToTier(sessionMinutes)
+    const daySlotIds = generateDaySlotIds(daysPerWeek, mp)
     const programByDay = Array.from({ length: daysPerWeek }, (_, i) => {
       const day = (i + 1) as 1 | 2 | 3 | 4
+      const slotIdsForDay = daySlotIds.get(day) ?? new Set<string>()
       return {
         day,
         slots: SLOT_DEFS
-          .filter(s => slotDayNumber(s, daysPerWeek) === day && slotPriority(s, daysPerWeek) <= mp)
+          .filter(s => slotIdsForDay.has(s.slot_id))
           .map(s => ({
             ...s,
             has_one_rm: slotHasOneRm(s, daysPerWeek),
@@ -294,7 +295,7 @@ export default function OnboardingClient({ exercises }: Props) {
     const hasAutoAdded = programByDay.some(d => d.slots.some(s => !s.isUserSelected))
 
     const hasIsolation = SLOT_DEFS.some(
-      s => !slotHasOneRm(s, daysPerWeek) && slotPriority(s, daysPerWeek) <= mp && slotSelections[s.slot_id]
+      s => !slotHasOneRm(s, daysPerWeek) && s.tier <= mp && slotSelections[s.slot_id]
     )
 
     return (
@@ -874,11 +875,11 @@ export default function OnboardingClient({ exercises }: Props) {
           </h2>
           {(
             [
-              { mins: 60 as const, title: '〜60分', sub: 'メイン種目のみ' },
-              { mins: 75 as const, title: '60〜90分', sub: 'メイン種目＋補助種目' },
-              { mins: 90 as const, title: '90分〜', sub: '全種目（アーム系も含む）' },
+              { mins: 60 as const, title: '〜60分' },
+              { mins: 75 as const, title: '60〜90分' },
+              { mins: 90 as const, title: '90分〜' },
             ] as const
-          ).map(({ mins, title, sub }) => {
+          ).map(({ mins, title }) => {
             const isSelected = sessionMinutes === mins
             return (
               <button
@@ -896,9 +897,6 @@ export default function OnboardingClient({ exercises }: Props) {
                   </span>
                   {isSelected && <Check className="w-5 h-5 text-white dark:text-black" />}
                 </div>
-                <p className={`mt-0.5 text-sm ${isSelected ? 'text-white/70 dark:text-black/60' : 'text-zinc-500 dark:text-zinc-400'}`}>
-                  {sub}
-                </p>
               </button>
             )
           })}

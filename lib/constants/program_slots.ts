@@ -1,102 +1,101 @@
-// 9週間プログラムのスロット定義。頻度（週2/3/4回）ごとのDay配分・優先度・1RM管理有無を
-// アプリのコード側で一元管理する（DBの program_slots テーブルは変更しない）。
+// 9週間プログラムのスロット定義。各スロットを「部位（muscle_group）」と「動きパターン
+// （movement_pattern）」に紐づけ、日付（day_number）には紐づけない。日別の配置は
+// lib/suggest/generate_program_slots.ts が頻度・セッション時間から動的に計算する。
 //
-// 背景: 元の4日Upper/Lower分割を「週2/3回」に単純に切り詰めると、Day4（デッドリフト・
-// ハイバースクワット）が丸ごと消えるなど、BIG3の一部が特定の頻度で選べなくなる欠陥があった。
-// 週2/3回は「切り詰め」ではなく、Full Body型として全23スロットを再配分した別プログラムとして扱う。
+// 背景: 旧設計は頻度（週2/3/4回）ごとに固定のday_number/priorityを持ち、セッション時間を
+// 短くするとpriorityでスロットを一律カットしていた。この結果、複合6パターン（水平プレス・
+// 垂直プレス・水平プル・垂直プル・スクワット・ヒップヒンジ）は全てpriority1を持つ一方、
+// 単関節8パターン（胸フライ・サイドレイズ・リアデルト・二頭筋・三頭筋・カーフ・体幹・
+// 股関節内外転）は全てpriority2〜3だったため、60〜75分設定では単関節種目の部位が
+// 「セット数が減る」のではなく「その日から完全に消える」という欠陥があった。
 //
-// 週2回版は5つの1RM管理種目（ベンチ・スクワット・OHP・デッドリフト・ハイバースクワット）を
-// 1日に収めきれないため、OHP・ハイバースクワットは1RM管理を外し、直近実績ベースの
-// 補助種目（priority 2）として扱う。ベンチ・スクワット・デッドリフト（真のBIG3）のみ1RM管理を維持する。
+// 新設計ではtier（旧priority、頻度非依存）を12/18/24（60/75/90分に対応）の累計で構成し、
+// 日別配置はgenerateDaySlotIdsが担う。既存23スロットのslot_idは変更していない
+// （user_slot_assignments/user_slot_one_rms/program_weekly_paramsのデータ移行を避けるため）。
+// hip_adductionのみ股関節内外転パターンをカバーするため新規追加した24番目のスロット。
+
+import type { TargetMuscle } from '@/types'
 
 export type FrequencyVariant = 2 | 3 | 4
 
-type SlotVariant = {
-  day_number: number
-  priority: 1 | 2 | 3
-  has_one_rm: boolean
-}
+export type MovementPattern =
+  | 'horizontal_press'
+  | 'vertical_press'
+  | 'horizontal_pull'
+  | 'vertical_pull'
+  | 'squat'
+  | 'hip_hinge'
+  | 'shoulder_horizontal_adduction'
+  | 'shoulder_abduction'
+  | 'shoulder_horizontal_abduction'
+  | 'elbow_flexion'
+  | 'elbow_extension'
+  | 'ankle_plantar_flexion'
+  | 'trunk_flexion'
+  | 'hip_adduction_abduction'
+
+export type BodyRegion = 'upper' | 'lower'
 
 export type ProgramSlotDef = {
   slot_id: string
   label: string
-  // 4日版（オリジナル、参照元シート通り）
-  day_number: 1 | 2 | 3 | 4
-  priority: 1 | 2 | 3
+  muscle_group: TargetMuscle
+  body_region: BodyRegion
+  movement_pattern: MovementPattern
+  tier: 1 | 2 | 3
   has_one_rm: boolean
-  // 週2・3回版のDay配分・優先度・1RM管理（Full Body型に再設計したもの）
-  variants: {
-    2: SlotVariant
-    3: SlotVariant
-  }
 }
 
 export const PROGRAM_SLOTS: ProgramSlotDef[] = [
-  // ── 4日版 Day 1（Upper A） ──
-  { slot_id: 'chest_compound', label: '胸', day_number: 1, priority: 1, has_one_rm: true,
-    variants: { 2: { day_number: 1, priority: 1, has_one_rm: true }, 3: { day_number: 1, priority: 1, has_one_rm: true } } },
-  { slot_id: 'back_vertical_pull', label: '背中', day_number: 1, priority: 1, has_one_rm: false,
-    variants: { 2: { day_number: 1, priority: 1, has_one_rm: false }, 3: { day_number: 1, priority: 1, has_one_rm: false } } },
-  { slot_id: 'back_horizontal_pull', label: '背中', day_number: 1, priority: 1, has_one_rm: false,
-    variants: { 2: { day_number: 2, priority: 1, has_one_rm: false }, 3: { day_number: 2, priority: 1, has_one_rm: false } } },
-  { slot_id: 'shoulder_lateral', label: '肩', day_number: 1, priority: 2, has_one_rm: false,
-    variants: { 2: { day_number: 1, priority: 2, has_one_rm: false }, 3: { day_number: 1, priority: 2, has_one_rm: false } } },
-  { slot_id: 'shoulder_rear_delt', label: '肩（後部）', day_number: 1, priority: 2, has_one_rm: false,
-    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 2, priority: 2, has_one_rm: false } } },
-  { slot_id: 'triceps', label: '腕', day_number: 1, priority: 3, has_one_rm: false,
-    variants: { 2: { day_number: 1, priority: 3, has_one_rm: false }, 3: { day_number: 1, priority: 3, has_one_rm: false } } },
-  { slot_id: 'biceps', label: '腕', day_number: 1, priority: 3, has_one_rm: false,
-    variants: { 2: { day_number: 2, priority: 3, has_one_rm: false }, 3: { day_number: 2, priority: 3, has_one_rm: false } } },
+  // ── 胸 ──
+  { slot_id: 'chest_compound', label: '胸', muscle_group: 'chest', body_region: 'upper', movement_pattern: 'horizontal_press', tier: 1, has_one_rm: true },
+  { slot_id: 'chest_triceps_compound', label: '胸・腕', muscle_group: 'chest', body_region: 'upper', movement_pattern: 'horizontal_press', tier: 1, has_one_rm: true },
+  { slot_id: 'chest_isolation', label: '胸（補助）', muscle_group: 'chest', body_region: 'upper', movement_pattern: 'shoulder_horizontal_adduction', tier: 3, has_one_rm: false },
 
-  // ── 4日版 Day 2（Lower A） ──
-  { slot_id: 'quad_glute_primary', label: '脚', day_number: 2, priority: 1, has_one_rm: true,
-    variants: { 2: { day_number: 1, priority: 1, has_one_rm: true }, 3: { day_number: 1, priority: 1, has_one_rm: true } } },
-  { slot_id: 'hamstring_glute', label: '脚（裏側）', day_number: 2, priority: 1, has_one_rm: false,
-    variants: { 2: { day_number: 1, priority: 1, has_one_rm: false }, 3: { day_number: 1, priority: 1, has_one_rm: false } } },
-  { slot_id: 'quad_ham_glute', label: '脚（補助）', day_number: 2, priority: 2, has_one_rm: false,
-    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 2, priority: 2, has_one_rm: false } } },
-  { slot_id: 'calves_seated', label: 'ふくらはぎ', day_number: 2, priority: 2, has_one_rm: false,
-    variants: { 2: { day_number: 1, priority: 2, has_one_rm: false }, 3: { day_number: 1, priority: 2, has_one_rm: false } } },
-  { slot_id: 'core', label: '腹筋', day_number: 2, priority: 2, has_one_rm: false,
-    variants: { 2: { day_number: 1, priority: 2, has_one_rm: false }, 3: { day_number: 2, priority: 2, has_one_rm: false } } },
+  // ── 背中 ──
+  { slot_id: 'back_horizontal_pull', label: '背中', muscle_group: 'back', body_region: 'upper', movement_pattern: 'horizontal_pull', tier: 1, has_one_rm: false },
+  { slot_id: 'back_vertical_pull', label: '背中', muscle_group: 'back', body_region: 'upper', movement_pattern: 'vertical_pull', tier: 1, has_one_rm: false },
+  { slot_id: 'back_horizontal_pull_heavy', label: '背中', muscle_group: 'back', body_region: 'upper', movement_pattern: 'horizontal_pull', tier: 2, has_one_rm: false },
+  { slot_id: 'back_vertical_pull_alt', label: '背中', muscle_group: 'back', body_region: 'upper', movement_pattern: 'vertical_pull', tier: 3, has_one_rm: false },
 
-  // ── 4日版 Day 3（Upper B） ──
-  { slot_id: 'shoulder_vertical_press', label: '肩', day_number: 3, priority: 1, has_one_rm: true,
-    variants: { 2: { day_number: 1, priority: 2, has_one_rm: false }, 3: { day_number: 2, priority: 1, has_one_rm: true } } },
-  { slot_id: 'chest_triceps_compound', label: '胸・腕', day_number: 3, priority: 1, has_one_rm: true,
-    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 3, priority: 1, has_one_rm: true } } },
-  { slot_id: 'back_horizontal_pull_heavy', label: '背中', day_number: 3, priority: 1, has_one_rm: false,
-    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 3, priority: 1, has_one_rm: false } } },
-  { slot_id: 'back_vertical_pull_alt', label: '背中', day_number: 3, priority: 1, has_one_rm: false,
-    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 3, priority: 1, has_one_rm: false } } },
-  { slot_id: 'chest_isolation', label: '胸（補助）', day_number: 3, priority: 2, has_one_rm: false,
-    variants: { 2: { day_number: 1, priority: 2, has_one_rm: false }, 3: { day_number: 3, priority: 2, has_one_rm: false } } },
-  { slot_id: 'shoulder_lateral_cable', label: '肩', day_number: 3, priority: 2, has_one_rm: false,
-    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 3, priority: 2, has_one_rm: false } } },
-  { slot_id: 'biceps_alt', label: '腕', day_number: 3, priority: 3, has_one_rm: false,
-    variants: { 2: { day_number: 1, priority: 3, has_one_rm: false }, 3: { day_number: 3, priority: 3, has_one_rm: false } } },
+  // ── 肩 ──
+  { slot_id: 'shoulder_vertical_press', label: '肩', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'vertical_press', tier: 1, has_one_rm: true },
+  { slot_id: 'shoulder_lateral', label: '肩', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_abduction', tier: 1, has_one_rm: false },
+  { slot_id: 'shoulder_rear_delt', label: '肩（後部）', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_horizontal_abduction', tier: 2, has_one_rm: false },
+  { slot_id: 'shoulder_lateral_cable', label: '肩', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_abduction', tier: 3, has_one_rm: false },
 
-  // ── 4日版 Day 4（Lower B） ──
-  { slot_id: 'hamstring_glute_heavy', label: '脚（裏側）', day_number: 4, priority: 1, has_one_rm: true,
-    variants: { 2: { day_number: 2, priority: 1, has_one_rm: true }, 3: { day_number: 2, priority: 1, has_one_rm: true } } },
-  { slot_id: 'quad_glute_secondary', label: '脚（補助）', day_number: 4, priority: 1, has_one_rm: true,
-    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 3, priority: 1, has_one_rm: true } } },
-  { slot_id: 'calves_standing', label: 'ふくらはぎ', day_number: 4, priority: 2, has_one_rm: false,
-    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 2, priority: 2, has_one_rm: false } } },
-  { slot_id: 'core_alt', label: '腹筋', day_number: 4, priority: 2, has_one_rm: false,
-    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 3, priority: 2, has_one_rm: false } } },
+  // ── 腕 ──
+  { slot_id: 'biceps', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_flexion', tier: 1, has_one_rm: false },
+  { slot_id: 'triceps', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_extension', tier: 2, has_one_rm: false },
+  { slot_id: 'biceps_alt', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_flexion', tier: 3, has_one_rm: false },
+
+  // ── 脚 ──
+  { slot_id: 'quad_glute_primary', label: '脚', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 1, has_one_rm: true },
+  { slot_id: 'hamstring_glute', label: '脚（裏側）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_hinge', tier: 1, has_one_rm: false },
+  { slot_id: 'calves_seated', label: 'ふくらはぎ', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'ankle_plantar_flexion', tier: 1, has_one_rm: false },
+  { slot_id: 'hip_adduction', label: '脚（内外転）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_adduction_abduction', tier: 1, has_one_rm: false },
+  { slot_id: 'hamstring_glute_heavy', label: '脚（裏側）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_hinge', tier: 2, has_one_rm: true },
+  { slot_id: 'quad_glute_secondary', label: '脚（補助）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 2, has_one_rm: true },
+  { slot_id: 'calves_standing', label: 'ふくらはぎ', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'ankle_plantar_flexion', tier: 3, has_one_rm: false },
+  { slot_id: 'quad_ham_glute', label: '脚（補助）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 3, has_one_rm: false },
+
+  // ── 体幹 ──
+  { slot_id: 'core', label: '腹筋', muscle_group: 'core', body_region: 'lower', movement_pattern: 'trunk_flexion', tier: 1, has_one_rm: false },
+  { slot_id: 'core_alt', label: '腹筋', muscle_group: 'core', body_region: 'lower', movement_pattern: 'trunk_flexion', tier: 2, has_one_rm: false },
 ]
 
 export const VALID_SLOT_IDS = new Set(PROGRAM_SLOTS.map(s => s.slot_id))
 
-export function slotDayNumber(slot: ProgramSlotDef, freq: FrequencyVariant): number {
-  return freq === 4 ? slot.day_number : slot.variants[freq].day_number
-}
-
-export function slotPriority(slot: ProgramSlotDef, freq: FrequencyVariant): 1 | 2 | 3 {
-  return freq === 4 ? slot.priority : slot.variants[freq].priority
-}
+// 週2日の全身法だと1回のセッションに重いトップセット（1RM%ベース）が集中しすぎる
+// （ベンチ・OHP・スクワット・ハイバースクワット・デッドリフトの5つ）ため、週2日のときだけ
+// OHP・ハイバースクワットを「本気を出さないアクセサリー種目」に格下げする。
+const HAS_ONE_RM_FREQ2_DEMOTIONS = new Set(['shoulder_vertical_press', 'quad_glute_secondary'])
 
 export function slotHasOneRm(slot: ProgramSlotDef, freq: FrequencyVariant): boolean {
-  return freq === 4 ? slot.has_one_rm : slot.variants[freq].has_one_rm
+  if (freq === 2 && HAS_ONE_RM_FREQ2_DEMOTIONS.has(slot.slot_id)) return false
+  return slot.has_one_rm
+}
+
+export function sessionDurationToTier(mins: 60 | 75 | 90): 1 | 2 | 3 {
+  return mins === 60 ? 1 : mins === 75 ? 2 : 3
 }
