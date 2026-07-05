@@ -93,7 +93,7 @@ export default function OnboardingClient({ exercises }: Props) {
   // 9週間プログラムのシート（UpperLowerBodyhypertrophy9weeks_sheet.xlsx）で
   // 指定されている種目をデフォルトにする。sort_order順の先頭とは一致しない場合があるため明示指定
   const SLOT_DEFAULT_OVERRIDES: Partial<Record<string, string>> = {
-    chest_isolation: 'ケーブルフライ（中部）',
+    chest_isolation: 'ケーブルフライ',
     back_horizontal_pull: 'チェストサポーテッドロウ',
     triceps: 'ライイングトライセプスEX',
     chest_triceps_compound: 'ナローベンチプレス',
@@ -101,6 +101,14 @@ export default function OnboardingClient({ exercises }: Props) {
     biceps: 'ダンベルカール',
     biceps_alt: 'インクラインダンベルカール',
   }
+
+  // オンボーディングの種目選択チェックリストには表示しない種目名
+  // （角度違いのバリエーションはコーチング画面の種目再選択でのみ選べる）
+  const HIDDEN_ONBOARDING_NAMES = new Set([
+    'ケーブルフライ（上部）',
+    'ケーブルフライ（中部）',
+    'ケーブルフライ（下部）',
+  ])
 
   const defaultBySlotType = (slot_type: string): string => {
     const preferred = SLOT_DEFAULT_OVERRIDES[slot_type]
@@ -751,7 +759,9 @@ export default function OnboardingClient({ exercises }: Props) {
   if (step === 'exercises') {
     // 頻度に関わらず全23スロットが対象（週2・3回はDay配分が変わるだけで種目自体は減らない）
     const activeSlotIds = new Set(SLOT_DEFS.map(s => s.slot_id))
-    const visibleExercises = exercises.filter(e => activeSlotIds.has(e.slot_type))
+    const visibleExercises = exercises.filter(
+      e => activeSlotIds.has(e.slot_type) && !HIDDEN_ONBOARDING_NAMES.has(e.name)
+    )
 
     const groupMap: Record<string, string[]> = {}
     for (const ex of visibleExercises) {
