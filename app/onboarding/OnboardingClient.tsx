@@ -493,13 +493,11 @@ export default function OnboardingClient({ exercises }: Props) {
       return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-10 px-8">
           <style>{`
-            @keyframes auxlog-pulse-ring {
-              0% { transform: scale(1); opacity: 0.6; }
-              100% { transform: scale(2.2); opacity: 0; }
+            @keyframes auxlog-spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
             }
-            .auxlog-ring-1 { animation: auxlog-pulse-ring 2s ease-out infinite; }
-            .auxlog-ring-2 { animation: auxlog-pulse-ring 2s ease-out infinite; animation-delay: 0.6s; }
-            .auxlog-ring-3 { animation: auxlog-pulse-ring 2s ease-out infinite; animation-delay: 1.2s; }
+            .auxlog-spinner { animation: auxlog-spin 0.9s linear infinite; }
             @keyframes auxlog-fade-msg {
               0%,100% { opacity: 0; transform: translateY(4px); }
               20%,80% { opacity: 1; transform: translateY(0); }
@@ -507,9 +505,7 @@ export default function OnboardingClient({ exercises }: Props) {
             .auxlog-msg { animation: auxlog-fade-msg 1.5s ease-in-out; }
           `}</style>
           <div className="relative flex items-center justify-center w-32 h-32">
-            <div className="absolute inset-0 rounded-full border-2 border-white/30 auxlog-ring-1" />
-            <div className="absolute inset-0 rounded-full border-2 border-white/20 auxlog-ring-2" />
-            <div className="absolute inset-0 rounded-full border-2 border-white/10 auxlog-ring-3" />
+            <div className="absolute inset-0 rounded-full border-4 border-white/15 border-t-white auxlog-spinner" />
             <div className="w-20 h-20 rounded-full bg-white/8 border border-white/20 flex items-center justify-center">
               <span className="text-3xl">⚡</span>
             </div>
