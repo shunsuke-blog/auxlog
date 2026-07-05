@@ -63,8 +63,8 @@ export const PROGRAM_SLOTS: ProgramSlotDef[] = [
   // ── 4日版 Day 3（Upper B） ──
   { slot_id: 'shoulder_vertical_press', label: '肩', day_number: 3, priority: 1, has_one_rm: true,
     variants: { 2: { day_number: 1, priority: 2, has_one_rm: false }, 3: { day_number: 2, priority: 1, has_one_rm: true } } },
-  { slot_id: 'chest_triceps_compound', label: '胸・腕', day_number: 3, priority: 1, has_one_rm: false,
-    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 3, priority: 1, has_one_rm: false } } },
+  { slot_id: 'chest_triceps_compound', label: '胸・腕', day_number: 3, priority: 1, has_one_rm: true,
+    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 3, priority: 1, has_one_rm: true } } },
   { slot_id: 'back_horizontal_pull_heavy', label: '背中', day_number: 3, priority: 1, has_one_rm: false,
     variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 3, priority: 1, has_one_rm: false } } },
   { slot_id: 'back_vertical_pull_alt', label: '背中', day_number: 3, priority: 1, has_one_rm: false,
