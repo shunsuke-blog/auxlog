@@ -158,7 +158,13 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
   const config = PHASE_CONFIG[phase]
   const progressPct = Math.round((currentWeek / 9) * 100)
 
-  const sessionLabel = sessionDurationMinutes != null ? `${sessionDurationMinutes}分` : null
+  // session_duration_minutes(60/75/90)はオンボーディングの帯選択肢
+  // （〜60分・60〜90分・90分〜）の内部代表値。単位「分」の実数値ではないため
+  // そのまま表示せず、選択された帯のラベルに変換する。
+  const sessionLabel = sessionDurationMinutes === 60 ? '〜60分'
+    : sessionDurationMinutes === 75 ? '60〜90分'
+    : sessionDurationMinutes != null ? '90分〜'
+    : null
 
   useEffect(() => {
     const timer = setTimeout(() => setProgressWidth(progressPct), 120)
