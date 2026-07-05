@@ -54,7 +54,7 @@ export const PROGRAM_SLOTS: ProgramSlotDef[] = [
   { slot_id: 'hamstring_glute', label: '脚（裏側）', day_number: 2, priority: 1, has_one_rm: false,
     variants: { 2: { day_number: 1, priority: 1, has_one_rm: false }, 3: { day_number: 1, priority: 1, has_one_rm: false } } },
   { slot_id: 'quad_ham_glute', label: '脚（補助）', day_number: 2, priority: 2, has_one_rm: false,
-    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 3, priority: 2, has_one_rm: false } } },
+    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 2, priority: 2, has_one_rm: false } } },
   { slot_id: 'calves_seated', label: 'ふくらはぎ', day_number: 2, priority: 2, has_one_rm: false,
     variants: { 2: { day_number: 1, priority: 2, has_one_rm: false }, 3: { day_number: 1, priority: 2, has_one_rm: false } } },
   { slot_id: 'core', label: '腹筋', day_number: 2, priority: 2, has_one_rm: false,
@@ -82,7 +82,7 @@ export const PROGRAM_SLOTS: ProgramSlotDef[] = [
   { slot_id: 'quad_glute_secondary', label: '脚（補助）', day_number: 4, priority: 1, has_one_rm: true,
     variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 3, priority: 1, has_one_rm: true } } },
   { slot_id: 'calves_standing', label: 'ふくらはぎ', day_number: 4, priority: 2, has_one_rm: false,
-    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 3, priority: 2, has_one_rm: false } } },
+    variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 2, priority: 2, has_one_rm: false } } },
   { slot_id: 'core_alt', label: '腹筋', day_number: 4, priority: 2, has_one_rm: false,
     variants: { 2: { day_number: 2, priority: 2, has_one_rm: false }, 3: { day_number: 3, priority: 2, has_one_rm: false } } },
 ]
