@@ -60,7 +60,7 @@ const defaultOneRmEntry = (): OneRmEntry => ({
   source: 'manual_input',
   epley_weight: '',
   epley_reps: '',
-  show_epley: false,
+  show_epley: true,
 })
 
 type Props = { exercises: ExerciseMasterRow[] }
