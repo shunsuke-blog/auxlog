@@ -44,6 +44,14 @@
 // 具体的な数値は探索スクリプトで(a)種目数・(b)日ごとの差・(c)上下境界・(d)1種目日・
 // has_one_rm集中の全条件、および「1日あたりの上限」を満たす組み合わせを検証してから
 // 確定した。
+//
+// 【追加訂正】週4日のDay2（下半身）に、スクワット・RDL・スモウデッドリフトという
+// 3つの軸負荷（バーベルを脊柱に乗せる）種目が集中し、さらにDay4の通常デッドリフトを
+// 合わせると週14セットがすべて軸負荷種目という「デッドリフト過積載」の指摘を受けた。
+// 一方でハムストリングの膝関節屈曲（レッグカール系）は全パターン中ゼロだった。
+// `hamstring_glute_alt`（元: スモウデッドリフト、hip_hinge）を新設の`knee_flexion`
+// パターンへ変更し、レッグカールに差し替えることで、軸負荷の集中緩和と
+// 膝屈曲パターンの穴埋めを同時に解決した。
 
 import type { TargetMuscle } from '@/types'
 
@@ -64,6 +72,7 @@ export type MovementPattern =
   | 'ankle_plantar_flexion'
   | 'trunk_flexion'
   | 'hip_adduction_abduction'
+  | 'knee_flexion'
 
 export type BodyRegion = 'upper' | 'lower'
 
@@ -123,7 +132,7 @@ export const PROGRAM_SLOTS: ProgramSlotDef[] = [
   { slot_id: 'shoulder_rear_delt_alt', label: '肩（後部）', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_horizontal_abduction', tier: 1, has_one_rm: false, freq4Tier: 2, freq4Only: true },
   { slot_id: 'chest_isolation_alt', label: '胸（補助）', muscle_group: 'chest', body_region: 'upper', movement_pattern: 'shoulder_horizontal_adduction', tier: 1, has_one_rm: false, freq4Tier: 2, freq4Only: true },
   { slot_id: 'hip_abduction', label: '脚（外転）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_adduction_abduction', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
-  { slot_id: 'hamstring_glute_alt', label: '脚（裏側）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_hinge', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
+  { slot_id: 'hamstring_glute_alt', label: '脚（裏側・膝屈曲）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'knee_flexion', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
 ]
 
 export const VALID_SLOT_IDS = new Set(PROGRAM_SLOTS.map(s => s.slot_id))

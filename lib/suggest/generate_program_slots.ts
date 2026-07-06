@@ -22,7 +22,7 @@ const UPPER_PATTERNS: MovementPattern[] = [
   'elbow_extension', 'elbow_flexion', 'shoulder_horizontal_adduction',
 ]
 const LOWER_PATTERNS: MovementPattern[] = [
-  'squat', 'hip_hinge', 'ankle_plantar_flexion', 'hip_adduction_abduction', 'trunk_flexion',
+  'squat', 'hip_hinge', 'ankle_plantar_flexion', 'hip_adduction_abduction', 'trunk_flexion', 'knee_flexion',
 ]
 
 const ALL_PATTERNS: MovementPattern[] = [...UPPER_PATTERNS, ...LOWER_PATTERNS]
