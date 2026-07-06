@@ -22,6 +22,22 @@
 // 変更（calves_standingは元々tier2のまま）。tier1の枠を埋めるためtricepsをtier2→tier1へ
 // 昇格。squat/hip_hinge系パターンがtier2以下で3スロットに重複しないよう検証済み
 // （`npm test`のhas_one_rm集中チェック・日別バランスチェックを参照）。
+//
+// ── 週4日専用の追加スロット（freq4Only）とtier上書き（freq4Tier）──
+// 「オンボーディングで選択した内容(日数と時間)によって数を変えるだけだ」という要望は、
+// 「1日あたりの種目数は時間で決まりほぼ一定、週合計は日数分だけ自然に増える」という
+// 意味だった（週2日と週4日で週合計が同じ12のままなのは誤り）。週2・3日は現状の
+// tier（12/18/24、頻度非依存）を維持するが、週4日（Upper/Lower分割）だけは
+// 「日数分増える」原則を反映し、tier1を約24へ引き上げる。
+//
+// 実現手段は2つ:
+// (1) 既存スロットの一部に`freq4Tier`（週4日限定の上書きtier）を追加し、週2/3日には
+//     一切影響を与えずに週4日でのみ早いtierへ昇格させる。
+// (2) `freq4Only: true`の新規5スロットを追加（既存のslot_type未設定の一般カタログ種目を
+//     活用）。週2/3日の対象からは自動的に除外される。
+// 具体的な数値は探索スクリプトで(a)種目数・(b)日ごとの差・(c)上下境界・(d)1種目日・
+// has_one_rm集中の全条件を満たす組み合わせを検証してから確定した（週4日: tier1=24,
+// tier2=27, tier3=29、diff<=3を許容）。
 
 import type { TargetMuscle } from '@/types'
 
@@ -53,6 +69,10 @@ export type ProgramSlotDef = {
   movement_pattern: MovementPattern
   tier: 1 | 2 | 3
   has_one_rm: boolean
+  /** 週4日のときだけ`tier`の代わりに使う上書き値。週2・3日には影響しない。 */
+  freq4Tier?: 1 | 2 | 3
+  /** trueの場合、週4日でのみ候補に含まれる（週2・3日では常に除外）。 */
+  freq4Only?: boolean
 }
 
 export const PROGRAM_SLOTS: ProgramSlotDef[] = [
@@ -64,33 +84,40 @@ export const PROGRAM_SLOTS: ProgramSlotDef[] = [
   // ── 背中 ──
   { slot_id: 'back_horizontal_pull', label: '背中', muscle_group: 'back', body_region: 'upper', movement_pattern: 'horizontal_pull', tier: 1, has_one_rm: false },
   { slot_id: 'back_vertical_pull', label: '背中', muscle_group: 'back', body_region: 'upper', movement_pattern: 'vertical_pull', tier: 1, has_one_rm: false },
-  { slot_id: 'back_horizontal_pull_heavy', label: '背中', muscle_group: 'back', body_region: 'upper', movement_pattern: 'horizontal_pull', tier: 2, has_one_rm: false },
-  { slot_id: 'back_vertical_pull_alt', label: '背中', muscle_group: 'back', body_region: 'upper', movement_pattern: 'vertical_pull', tier: 3, has_one_rm: false },
+  { slot_id: 'back_horizontal_pull_heavy', label: '背中', muscle_group: 'back', body_region: 'upper', movement_pattern: 'horizontal_pull', tier: 2, has_one_rm: false, freq4Tier: 1 },
+  { slot_id: 'back_vertical_pull_alt', label: '背中', muscle_group: 'back', body_region: 'upper', movement_pattern: 'vertical_pull', tier: 3, has_one_rm: false, freq4Tier: 1 },
 
   // ── 肩 ──
   { slot_id: 'shoulder_vertical_press', label: '肩', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'vertical_press', tier: 1, has_one_rm: true },
   { slot_id: 'shoulder_lateral', label: '肩', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_abduction', tier: 1, has_one_rm: false },
-  { slot_id: 'shoulder_rear_delt', label: '肩（後部）', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_horizontal_abduction', tier: 2, has_one_rm: false },
-  { slot_id: 'shoulder_lateral_cable', label: '肩', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_abduction', tier: 3, has_one_rm: false },
+  { slot_id: 'shoulder_rear_delt', label: '肩（後部）', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_horizontal_abduction', tier: 2, has_one_rm: false, freq4Tier: 1 },
+  { slot_id: 'shoulder_lateral_cable', label: '肩', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_abduction', tier: 3, has_one_rm: false, freq4Tier: 2 },
 
   // ── 腕 ──
   { slot_id: 'biceps', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_flexion', tier: 1, has_one_rm: false },
   { slot_id: 'triceps', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_extension', tier: 1, has_one_rm: false },
-  { slot_id: 'biceps_alt', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_flexion', tier: 3, has_one_rm: false },
+  { slot_id: 'biceps_alt', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_flexion', tier: 3, has_one_rm: false, freq4Tier: 2 },
 
   // ── 脚 ──
   { slot_id: 'quad_glute_primary', label: '脚', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 1, has_one_rm: true },
   { slot_id: 'hamstring_glute', label: '脚（裏側）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_hinge', tier: 1, has_one_rm: false },
-  { slot_id: 'hamstring_glute_heavy', label: '脚（裏側）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_hinge', tier: 2, has_one_rm: true },
-  { slot_id: 'quad_glute_secondary', label: '脚（補助）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 2, has_one_rm: true },
-  { slot_id: 'calves_seated', label: 'ふくらはぎ', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'ankle_plantar_flexion', tier: 2, has_one_rm: false },
-  { slot_id: 'calves_standing', label: 'ふくらはぎ', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'ankle_plantar_flexion', tier: 2, has_one_rm: false },
-  { slot_id: 'quad_ham_glute', label: '脚（補助）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 3, has_one_rm: false },
-  { slot_id: 'hip_adduction', label: '脚（内外転）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_adduction_abduction', tier: 3, has_one_rm: false },
+  { slot_id: 'hamstring_glute_heavy', label: '脚（裏側）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_hinge', tier: 2, has_one_rm: true, freq4Tier: 1 },
+  { slot_id: 'quad_glute_secondary', label: '脚（補助）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 2, has_one_rm: true, freq4Tier: 1 },
+  { slot_id: 'calves_seated', label: 'ふくらはぎ', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'ankle_plantar_flexion', tier: 2, has_one_rm: false, freq4Tier: 1 },
+  { slot_id: 'calves_standing', label: 'ふくらはぎ', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'ankle_plantar_flexion', tier: 2, has_one_rm: false, freq4Tier: 1 },
+  { slot_id: 'quad_ham_glute', label: '脚（補助）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 3, has_one_rm: false, freq4Tier: 3 },
+  { slot_id: 'hip_adduction', label: '脚（内外転）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_adduction_abduction', tier: 3, has_one_rm: false, freq4Tier: 2 },
 
   // ── 体幹 ──
   { slot_id: 'core', label: '腹筋', muscle_group: 'core', body_region: 'lower', movement_pattern: 'trunk_flexion', tier: 1, has_one_rm: false },
   { slot_id: 'core_alt', label: '腹筋', muscle_group: 'core', body_region: 'lower', movement_pattern: 'trunk_flexion', tier: 1, has_one_rm: false },
+
+  // ── 週4日専用の追加スロット（既存slot_type未設定の一般カタログ種目を活用） ──
+  { slot_id: 'shoulder_vertical_press_alt', label: '肩', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'vertical_press', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
+  { slot_id: 'shoulder_rear_delt_alt', label: '肩（後部）', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_horizontal_abduction', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
+  { slot_id: 'chest_isolation_alt', label: '胸（補助）', muscle_group: 'chest', body_region: 'upper', movement_pattern: 'shoulder_horizontal_adduction', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
+  { slot_id: 'hip_abduction', label: '脚（外転）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_adduction_abduction', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
+  { slot_id: 'hamstring_glute_alt', label: '脚（裏側）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_hinge', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
 ]
 
 export const VALID_SLOT_IDS = new Set(PROGRAM_SLOTS.map(s => s.slot_id))
@@ -103,6 +130,22 @@ const HAS_ONE_RM_FREQ2_DEMOTIONS = new Set(['shoulder_vertical_press', 'quad_glu
 export function slotHasOneRm(slot: ProgramSlotDef, freq: FrequencyVariant): boolean {
   if (freq === 2 && HAS_ONE_RM_FREQ2_DEMOTIONS.has(slot.slot_id)) return false
   return slot.has_one_rm
+}
+
+/** 週4日のときは`freq4Tier`（あれば）を優先し、それ以外は`tier`を使う。 */
+export function slotTierForFreq(slot: ProgramSlotDef, freq: FrequencyVariant): 1 | 2 | 3 {
+  if (freq === 4 && slot.freq4Tier != null) return slot.freq4Tier
+  return slot.tier
+}
+
+/**
+ * 指定した頻度・maxTierでこのスロットが有効かどうか。
+ * `freq4Only`のスロットは週4日以外では常に無効。tier判定は`slotTierForFreq`を使う。
+ * `s.tier <= mp`のような直接比較の代わりに、スロットのフィルタリングは必ずこの関数を使うこと。
+ */
+export function isSlotActiveForFreq(slot: ProgramSlotDef, freq: FrequencyVariant, maxTier: 1 | 2 | 3): boolean {
+  if (slot.freq4Only && freq !== 4) return false
+  return slotTierForFreq(slot, freq) <= maxTier
 }
 
 export function sessionDurationToTier(mins: 60 | 75 | 90): 1 | 2 | 3 {

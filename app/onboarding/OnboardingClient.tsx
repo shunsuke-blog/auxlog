@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronLeft, Smartphone, Zap, Sliders, Sparkles } from 'lucide-react'
-import { PROGRAM_SLOTS, slotHasOneRm, sessionDurationToTier } from '@/lib/constants/program_slots'
+import { PROGRAM_SLOTS, slotHasOneRm, sessionDurationToTier, isSlotActiveForFreq } from '@/lib/constants/program_slots'
 import { generateDaySlotIds } from '@/lib/suggest/generate_program_slots'
 
 // ──────────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ export default function OnboardingClient({ exercises }: Props) {
     const mp = sessionDurationToTier(sessionMinutes)
     const newSlotSelections: Record<string, string> = {}
 
-    SLOT_DEFS.filter(s => s.tier <= mp).forEach(slot => {
+    SLOT_DEFS.filter(s => isSlotActiveForFreq(s, daysPerWeek, mp)).forEach(slot => {
       const picked = exercises.find(
         e => e.slot_type === slot.slot_id && selectedExercises.has(e.name)
       )
@@ -295,7 +295,7 @@ export default function OnboardingClient({ exercises }: Props) {
     const hasAutoAdded = programByDay.some(d => d.slots.some(s => !s.isUserSelected))
 
     const hasIsolation = SLOT_DEFS.some(
-      s => !slotHasOneRm(s, daysPerWeek) && s.tier <= mp && slotSelections[s.slot_id]
+      s => !slotHasOneRm(s, daysPerWeek) && isSlotActiveForFreq(s, daysPerWeek, mp) && slotSelections[s.slot_id]
     )
 
     return (

@@ -11,7 +11,7 @@
 // 補助種目が紛れ込む（貪欲法が種目数の少なさだけを見て部位を無視してしまう）副作用を防ぐ。
 // 週2・3日はFull Bodyのため全日が候補になる。
 
-import { PROGRAM_SLOTS, type FrequencyVariant, type MovementPattern, type ProgramSlotDef } from '@/lib/constants/program_slots'
+import { PROGRAM_SLOTS, isSlotActiveForFreq, type FrequencyVariant, type MovementPattern, type ProgramSlotDef } from '@/lib/constants/program_slots'
 
 const UPPER_DAYS_4 = [1, 3]
 const LOWER_DAYS_4 = [2, 4]
@@ -41,7 +41,7 @@ export const ELIGIBLE_DAYS: Record<FrequencyVariant, Partial<Record<MovementPatt
  * 戻り値: Map<day_number, Set<slot_id>>
  */
 export function generateDaySlotIds(daysPerWeek: FrequencyVariant, maxTier: 1 | 2 | 3): Map<number, Set<string>> {
-  const included = PROGRAM_SLOTS.filter(s => s.tier <= maxTier)
+  const included = PROGRAM_SLOTS.filter(s => isSlotActiveForFreq(s, daysPerWeek, maxTier))
   const eligible = ELIGIBLE_DAYS[daysPerWeek]
 
   const dayCounts = new Map<number, number>()
