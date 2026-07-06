@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronLeft, Smartphone, Zap, Sliders, Sparkles } from 'lucide-react'
 import { PROGRAM_SLOTS, slotHasOneRm, sessionDurationToTier, isSlotActiveForFreq } from '@/lib/constants/program_slots'
@@ -80,6 +80,17 @@ export default function OnboardingClient({ exercises }: Props) {
   const [isExiting, setIsExiting] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [genMsgIndex, setGenMsgIndex] = useState(0)
+
+  // 1RM入力ステップのヘッダー高さ（position:stickyがiOSのソフトウェアキーボード
+  // 表示時に追従を失う不具合を避けるため、ヘッダーをfixedにしてこの高さ分だけ
+  // コンテンツ側にpadding-topを入れる）
+  const oneRmHeaderRef = useRef<HTMLDivElement>(null)
+  const [oneRmHeaderHeight, setOneRmHeaderHeight] = useState(0)
+
+  useEffect(() => {
+    if (!oneRmHeaderRef.current) return
+    setOneRmHeaderHeight(oneRmHeaderRef.current.offsetHeight)
+  }, [step, currentOneRmIndex])
 
   useEffect(() => {
     if (!generating) return
@@ -546,9 +557,13 @@ export default function OnboardingClient({ exercises }: Props) {
         `}</style>
 
         {/* Header */}
-        {/* transform-gpu: iOSでソフトウェアキーボード表示時にposition:stickyが
-            追従を失う不具合の回避策（GPUレイヤーに昇格させて再計算を強制する） */}
-        <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10 transform-gpu">
+        {/* fixed: position:stickyだとiOSのソフトウェアキーボード表示時に追従が
+            失われる不具合があったため、下部ボタンと同じfixedに変更した。
+            高さ分はoneRmHeaderHeightで下のコンテンツにpadding-topとして反映する */}
+        <div
+          ref={oneRmHeaderRef}
+          className="fixed top-0 left-0 right-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10"
+        >
           <div className="flex items-center gap-2 mb-1">
             <button
               onClick={handleOneRmBack}
@@ -583,7 +598,7 @@ export default function OnboardingClient({ exercises }: Props) {
         </div>
 
         {/* Card */}
-        <div className="px-6 py-6 overflow-hidden">
+        <div className="px-6 py-6 overflow-hidden" style={{ paddingTop: oneRmHeaderHeight + 24 }}>
           <div
             key={currentOneRmIndex}
             className={isExiting ? 'auxlog-card-exit' : 'auxlog-card-enter'}
