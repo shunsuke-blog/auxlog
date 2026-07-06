@@ -604,6 +604,12 @@ export default function OnboardingClient({ exercises }: Props) {
             className={isExiting ? 'auxlog-card-exit' : 'auxlog-card-enter'}
           >
             <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+              {/* ヘッダーがキーボード表示時に見えなくなっても種目名がわかるよう、
+                  カード内にも重複して表示する */}
+              <div className="px-4 pt-4">
+                <p className="text-xs text-zinc-400 dark:text-zinc-500">{currentSlot.label}</p>
+                <p className="text-sm font-bold text-black dark:text-white">{assignedExercise}</p>
+              </div>
               <div className="px-4 py-4 space-y-3">
                 <div>
                   <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1.5 block">
