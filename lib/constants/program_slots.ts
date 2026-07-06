@@ -28,16 +28,22 @@
 // 「1日あたりの種目数は時間で決まりほぼ一定、週合計は日数分だけ自然に増える」という
 // 意味だった（週2日と週4日で週合計が同じ12のままなのは誤り）。週2・3日は現状の
 // tier（12/18/24、頻度非依存）を維持するが、週4日（Upper/Lower分割）だけは
-// 「日数分増える」原則を反映し、tier1を約24へ引き上げる。
+// 「日数分増える」原則を反映し、週合計を増やす。
 //
 // 実現手段は2つ:
 // (1) 既存スロットの一部に`freq4Tier`（週4日限定の上書きtier）を追加し、週2/3日には
 //     一切影響を与えずに週4日でのみ早いtierへ昇格させる。
 // (2) `freq4Only: true`の新規5スロットを追加（既存のslot_type未設定の一般カタログ種目を
 //     活用）。週2/3日の対象からは自動的に除外される。
+//
+// 【追加訂正】当初は「週合計を週2日の約2倍(tier1=24)」を目標にしたが、その結果
+// Upper日が7種目/60分となり、現実的な所要時間（1RM管理の複合種目だけで各10分前後）を
+// 考えると1日あたりが多すぎるとの指摘を受けた。「週合計を増やす」より「1日あたりの
+// 種目数を週2日と同水準（6種目程度）に抑える」ことを優先し、tier1=22（6,5,6,5）に
+// 調整した。tier2=27・tier3=29は据え置き（75分・90分は時間の余裕があるため）。
 // 具体的な数値は探索スクリプトで(a)種目数・(b)日ごとの差・(c)上下境界・(d)1種目日・
-// has_one_rm集中の全条件を満たす組み合わせを検証してから確定した（週4日: tier1=24,
-// tier2=27, tier3=29、diff<=3を許容）。
+// has_one_rm集中の全条件、および「1日あたりの上限」を満たす組み合わせを検証してから
+// 確定した。
 
 import type { TargetMuscle } from '@/types'
 
@@ -114,8 +120,8 @@ export const PROGRAM_SLOTS: ProgramSlotDef[] = [
 
   // ── 週4日専用の追加スロット（既存slot_type未設定の一般カタログ種目を活用） ──
   { slot_id: 'shoulder_vertical_press_alt', label: '肩', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'vertical_press', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
-  { slot_id: 'shoulder_rear_delt_alt', label: '肩（後部）', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_horizontal_abduction', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
-  { slot_id: 'chest_isolation_alt', label: '胸（補助）', muscle_group: 'chest', body_region: 'upper', movement_pattern: 'shoulder_horizontal_adduction', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
+  { slot_id: 'shoulder_rear_delt_alt', label: '肩（後部）', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_horizontal_abduction', tier: 1, has_one_rm: false, freq4Tier: 2, freq4Only: true },
+  { slot_id: 'chest_isolation_alt', label: '胸（補助）', muscle_group: 'chest', body_region: 'upper', movement_pattern: 'shoulder_horizontal_adduction', tier: 1, has_one_rm: false, freq4Tier: 2, freq4Only: true },
   { slot_id: 'hip_abduction', label: '脚（外転）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_adduction_abduction', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
   { slot_id: 'hamstring_glute_alt', label: '脚（裏側）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_hinge', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
 ]
