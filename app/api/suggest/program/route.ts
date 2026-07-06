@@ -46,11 +46,12 @@ export async function GET(request: Request) {
       .select('*')
       .eq('program_id', enrollment.program_id)
       .order('sort_order'),
+    // tier別漸進レバー（program_engine.ts）が週1の値を「セット数固定」の基準として
+    // 参照するため、現在週だけでなく全9週分を取得する。
     supabase
       .from('program_weekly_params')
       .select('*')
-      .eq('program_id', enrollment.program_id)
-      .eq('week_number', enrollment.current_week),
+      .eq('program_id', enrollment.program_id),
     supabase
       .from('user_slot_assignments')
       .select('*')
@@ -78,7 +79,7 @@ export async function GET(request: Request) {
 
   // アイソレーション重量キャリブレーション用: 直近14日のセットを取得
   const exerciseIds = (assignmentsRes.data ?? []).map(a => a.exercise_id)
-  let recentSetsByExercise: Record<string, TrainingSet[]> = {}
+  const recentSetsByExercise: Record<string, TrainingSet[]> = {}
 
   if (exerciseIds.length > 0) {
     const cutoffDate = new Date()

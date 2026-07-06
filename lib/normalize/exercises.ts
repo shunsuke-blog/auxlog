@@ -1,4 +1,4 @@
-import type { UserExercise, TargetMuscle } from '@/types'
+import type { UserExercise, TargetMuscle, IntensityTechnique } from '@/types'
 import { TARGET_MUSCLE_LABELS } from '@/types'
 import { TRAINING } from '@/lib/constants/training'
 
@@ -22,7 +22,7 @@ export type RawUserExercise = {
   is_compound?: boolean
   created_at: string
   recent_session_ids?: string[] | null
-  exercise_master: { name: string; target_muscle: string; is_bodyweight: boolean; is_compound?: boolean } | null
+  exercise_master: { name: string; target_muscle: string; is_bodyweight: boolean; is_compound?: boolean; intensity_technique?: IntensityTechnique } | null
 }
 
 const VALID_MUSCLES = Object.keys(TARGET_MUSCLE_LABELS)
@@ -51,6 +51,12 @@ export function normalizeExercise(e: RawUserExercise): UserExercise {
       ? TRAINING.COMPOUND_WEIGHT_INCREMENT_KG
       : TRAINING.ISOLATION_WEIGHT_INCREMENT_KG
 
+  // カスタム種目にはintensity_technique列を持たせていないため常に'none'。
+  // マスタ種目はexercise_master.intensity_techniqueを使用（未設定なら'none'）。
+  const intensity_technique: IntensityTechnique = e.custom_name
+    ? 'none'
+    : (e.exercise_master?.intensity_technique ?? 'none')
+
   return {
     ...e,
     custom_target_muscle: e.custom_target_muscle as TargetMuscle | null,
@@ -58,6 +64,7 @@ export function normalizeExercise(e: RawUserExercise): UserExercise {
     target_muscle,
     is_bodyweight: isBodyweight,
     is_compound,
+    intensity_technique,
     weight_increment_kg,
     recent_session_ids: e.recent_session_ids ?? [],
   }

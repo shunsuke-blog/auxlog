@@ -27,6 +27,16 @@ export type VolumeStatus = 'low' | 'optimal' | 'high';
 
 export type TrainingLevel = 'beginner' | 'intermediate' | 'advanced';
 
+// アイソレーション／マシン種目の最終セットで使える強度テクニック。
+// ~60tier（エフォート型漸進）でのみ発動候補になる。重いコンパウンド種目には付けない。
+export type IntensityTechnique = 'rest_pause' | 'myo_reps' | 'none';
+
+export const INTENSITY_TECHNIQUE_LABELS: Record<IntensityTechnique, string> = {
+  rest_pause: 'レストポーズ',
+  myo_reps: 'ミオレップ',
+  none: '',
+};
+
 export const TRAINING_LEVEL_LABELS: Record<TrainingLevel, string> = {
   beginner: '初級者',
   intermediate: '中級者',
@@ -40,6 +50,7 @@ export type ExerciseMaster = {
   sort_order: number;
   is_bodyweight: boolean;
   is_compound: boolean;
+  intensity_technique: IntensityTechnique;
   created_at: string;
 };
 
@@ -56,6 +67,7 @@ export type UserExercise = {
   is_active: boolean;
   is_bodyweight: boolean;
   is_compound: boolean;
+  intensity_technique: IntensityTechnique;
   created_at: string;
   name: string;
   target_muscle: TargetMuscle;

@@ -10,8 +10,17 @@ import type {
   ProgramPhase,
   UserProgramEnrollment,
   TrainingSet,
+  TargetMuscle,
 } from '@/types'
-import { PROGRAM_SLOTS, slotHasOneRm, sessionDurationToTier, type FrequencyVariant } from '@/lib/constants/program_slots'
+import { INTENSITY_TECHNIQUE_LABELS } from '@/types'
+import {
+  PROGRAM_SLOTS,
+  slotHasOneRm,
+  sessionDurationToTier,
+  isPriorityMuscle,
+  findSupersetPartnerSlotId,
+  type FrequencyVariant,
+} from '@/lib/constants/program_slots'
 import { generateDaySlotIds } from '@/lib/suggest/generate_program_slots'
 
 const SLOT_DEF_MAP = new Map(PROGRAM_SLOTS.map(s => [s.slot_id, s]))
@@ -46,15 +55,26 @@ function buildWarmupSets(oneRm: number): SetSuggestion[] {
   ]
 }
 
+// 1RM管理種目（重いコンパウンド）はボリューム期でもRIR1〜2で止める（RPE換算で9.0が上限）。
+// 重いフリーウェイトを限界まで潰すのは怪我・過剰疲労のリスクが高く、筋力の伸びは
+// 限界接近度に依存しにくいため、エフォート最大化はアイソレーションに限定する
+// （実装依頼書 2026-07-06、受け入れ条件(a)）。
+const COMPOUND_VOLUME_PHASE_RPE_CEILING = 9.0
+
 function buildCompoundSets(params: ProgramWeeklyParams, oneRm: number): SetSuggestion[] {
   const sets: SetSuggestion[] = []
 
   if (params.top_set_pct_rm != null && (params.top_set_reps != null || params.top_set_is_amrap)) {
+    const rawRpe = params.top_set_rpe ?? 9
+    const targetRpe = params.phase === 'volume'
+      ? Math.min(rawRpe, COMPOUND_VOLUME_PHASE_RPE_CEILING)
+      : rawRpe
+
     sets.push({
       set_type: 'top',
       suggested_weight_kg: roundWeight(oneRm * params.top_set_pct_rm),
       target_reps: params.top_set_is_amrap ? 'amrap' : params.top_set_reps!,
-      target_rpe: params.top_set_rpe ?? 9,
+      target_rpe: targetRpe,
     })
   }
 
@@ -89,17 +109,51 @@ function suggestIsolationWeight(params: ProgramWeeklyParams, recentSets: Trainin
   return maxWeight
 }
 
-function buildIsolationSets(params: ProgramWeeklyParams, recentSets: TrainingSet[]): SetSuggestion[] {
-  if (!params.working_sets) return []
+function buildIsolationSets(
+  params: ProgramWeeklyParams,
+  recentSets: TrainingSet[],
+  overrides?: { workingSets?: number | null; targetRpe?: number },
+): SetSuggestion[] {
+  const workingSets = overrides?.workingSets ?? params.working_sets
+  if (!workingSets) return []
   const suggestedWeight = suggestIsolationWeight(params, recentSets)
-  return Array.from({ length: params.working_sets }, () => ({
+  return Array.from({ length: workingSets }, () => ({
     set_type: 'working' as const,
     suggested_weight_kg: suggestedWeight,
     target_reps: params.rep_range_min ?? 10,
     rep_range_min: params.rep_range_min ?? undefined,
     rep_range_max: params.rep_range_max ?? undefined,
-    target_rpe: params.rpe ?? 8,
+    target_rpe: overrides?.targetRpe ?? params.rpe ?? 8,
   }))
+}
+
+// ── tier別漸進レバー ──
+// 60分tier、または60〜90/90分tierの非優先部位は、ボリューム漸進が発動しない
+// （このスロットの「漸進のレバー」は量ではなくエフォートになる）。
+// 根拠: 低ボリューム時ほどエフォート（RIR）が代償として重要になり、限界手前(RIR1)は
+// 完全限界(RIR0)とほぼ同等の肥大が得られる。ボリューム漸進は筋肉ごとに行うのが本来の
+// 使い方であり、全身一律ではない（実装依頼書 2026-07-06）。
+function volumeRampsThisTier(muscleGroup: TargetMuscle, maxTier: 1 | 2 | 3): boolean {
+  return maxTier >= 2 && isPriorityMuscle(muscleGroup)
+}
+
+// RIRをRPE(=10-RIR)に変換して返す。ボリューム期は週1のRIR2.5→週4のRIR0.5へ線形に漸進、
+// 強度期はボリューム期末より緩めたRIR1.5で維持（セット数が増えない分、追い込み過ぎを防ぐ）、
+// 回復週(deload/maxout)はRIR3まで緩める。
+function effortRampTargetRpe(weekNumber: number, phase: ProgramPhase): number {
+  if (phase === 'volume') {
+    const rir = 2.5 - (Math.min(weekNumber, 4) - 1) * ((2.5 - 0.5) / 3)
+    return Math.round((10 - rir) * 2) / 2
+  }
+  if (phase === 'intensity') return 8.5
+  return 7.0
+}
+
+// ボリュームが漸進しないスロットの固定セット数 = 週1のDB値（=このメソサイクルの
+// 出発点の量）。9週分のweekly_paramsが渡されている前提（現在週だけの抽出ではない）。
+function fixedWorkingSetsBaseline(slotId: string, allWeeklyParams: ProgramWeeklyParams[]): number | null {
+  const week1 = allWeeklyParams.find(p => p.slot_id === slotId && p.week_number === 1)
+  return week1?.working_sets ?? null
 }
 
 function slotNotes(params: ProgramWeeklyParams): string | undefined {
@@ -132,7 +186,10 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
     .filter(s => daySlotIds.has(s.slot_id))
     .sort((a, b) => a.sort_order - b.sort_order)
 
-  const paramsMap = new Map(weekly_params.map(p => [p.slot_id, p]))
+  // weekly_paramsは9週分まとめて渡される前提（fixedWorkingSetsBaselineが週1を参照するため）。
+  // 現在週の行だけをスロットごとの参照用マップにする。
+  const currentWeekParams = weekly_params.filter(p => p.week_number === enrollment.current_week)
+  const paramsMap = new Map(currentWeekParams.map(p => [p.slot_id, p]))
   const assignmentMap = new Map(assignments.map(a => [a.slot_id, a]))
   const exerciseMap = new Map(exercises.map(e => [e.id, e]))
   const oneRmMap = new Map(one_rms.map(r => [r.slot_id, r]))
@@ -182,17 +239,51 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
       }
     } else {
       const recentSets = recent_sets_by_exercise[exercise.id] ?? []
-      sets = buildIsolationSets(params, recentSets)
+      const muscleGroup = slotDef?.muscle_group ?? (slot.muscle_group as TargetMuscle)
+
+      if (volumeRampsThisTier(muscleGroup, maxTier)) {
+        // 優先部位 かつ tier2/3: 既存どおりDBの週次working_sets/rpeをそのまま使う
+        // （ここがボリューム漸進のターゲット方式）
+        sets = buildIsolationSets(params, recentSets)
+      } else {
+        // 非優先部位、または tier1(60分): セット数を週1の値に固定し、RIRをフェーズで漸進させる
+        const fixedSets = fixedWorkingSetsBaseline(slot.slot_id, weekly_params) ?? params.working_sets
+        sets = buildIsolationSets(params, recentSets, {
+          workingSets: fixedSets,
+          targetRpe: effortRampTargetRpe(enrollment.current_week, phase),
+        })
+      }
     }
 
     if (sets.length === 0) continue
+
+    const noteFragments: string[] = []
+    const phaseNote = slotNotes(params)
+    if (phaseNote) noteFragments.push(phaseNote)
+
+    // ~60tier: アイソレーション最終セットに強度テクニックを許可
+    if (maxTier === 1 && !hasOneRm && exercise.intensity_technique !== 'none') {
+      const label = INTENSITY_TECHNIQUE_LABELS[exercise.intensity_technique]
+      noteFragments.push(`最終セットは${label}で追い込みOK`)
+    }
+
+    // 拮抗筋スーパーセット: 時間が逼迫するtier(60〜90分)でのみ提示
+    if (maxTier === 2) {
+      const partnerId = findSupersetPartnerSlotId(slot.slot_id, daySlotIds)
+      const partnerExerciseName = partnerId
+        ? exerciseMap.get(assignmentMap.get(partnerId)?.exercise_id ?? '')?.name
+        : undefined
+      if (partnerExerciseName) {
+        noteFragments.push(`「${partnerExerciseName}」とスーパーセットで時短も可能`)
+      }
+    }
 
     slotSuggestions.push({
       slot_id: slot.slot_id,
       slot,
       exercise,
       sets,
-      notes: slotNotes(params),
+      notes: noteFragments.length > 0 ? noteFragments.join(' ／ ') : undefined,
     })
   }
 

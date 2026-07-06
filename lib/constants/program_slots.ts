@@ -88,13 +88,29 @@ export type ProgramSlotDef = {
   freq4Tier?: 1 | 2 | 3
   /** trueの場合、週4日でのみ候補に含まれる（週2・3日では常に除外）。 */
   freq4Only?: boolean
+  /**
+   * 拮抗筋スーパーセットのグループタグ。同じタグを持つ複数スロットのうち、
+   * movement_patternが異なるもの同士をペア候補とする（例: 二頭↔三頭、胸フライ↔リアデルト）。
+   * 高重量コンパウンド種目には付けない（怪我・過剰疲労のリスクを避けるため）。
+   */
+  superset_pair_group?: string
+}
+
+// ── tier別漸進レバー：ボリューム漸進の優先部位（is_priority） ──
+// 60〜90分/90分tierでのみ、この部位のセット数を週ごとに漸増させる（他部位は据え置き）。
+// デフォルトはオーナー確認により「胸」（2026-07-06決定）。将来的にはユーザー選択式にする
+// 想定だが、現時点ではプログラム全体の固定デフォルトとして扱う。
+export const PRIORITY_MUSCLES: ReadonlySet<TargetMuscle> = new Set(['chest'])
+
+export function isPriorityMuscle(muscle: TargetMuscle): boolean {
+  return PRIORITY_MUSCLES.has(muscle)
 }
 
 export const PROGRAM_SLOTS: ProgramSlotDef[] = [
   // ── 胸 ──
   { slot_id: 'chest_compound', label: '胸', muscle_group: 'chest', body_region: 'upper', movement_pattern: 'horizontal_press', tier: 1, has_one_rm: true },
   { slot_id: 'chest_triceps_compound', label: '胸・腕', muscle_group: 'chest', body_region: 'upper', movement_pattern: 'horizontal_press', tier: 1, has_one_rm: true },
-  { slot_id: 'chest_isolation', label: '胸（補助）', muscle_group: 'chest', body_region: 'upper', movement_pattern: 'shoulder_horizontal_adduction', tier: 3, has_one_rm: false },
+  { slot_id: 'chest_isolation', label: '胸（補助）', muscle_group: 'chest', body_region: 'upper', movement_pattern: 'shoulder_horizontal_adduction', tier: 3, has_one_rm: false, superset_pair_group: 'chest_rear_delt' },
 
   // ── 背中 ──
   { slot_id: 'back_horizontal_pull', label: '背中', muscle_group: 'back', body_region: 'upper', movement_pattern: 'horizontal_pull', tier: 1, has_one_rm: false },
@@ -105,13 +121,13 @@ export const PROGRAM_SLOTS: ProgramSlotDef[] = [
   // ── 肩 ──
   { slot_id: 'shoulder_vertical_press', label: '肩', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'vertical_press', tier: 1, has_one_rm: true },
   { slot_id: 'shoulder_lateral', label: '肩', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_abduction', tier: 1, has_one_rm: false },
-  { slot_id: 'shoulder_rear_delt', label: '肩（後部）', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_horizontal_abduction', tier: 2, has_one_rm: false, freq4Tier: 1 },
+  { slot_id: 'shoulder_rear_delt', label: '肩（後部）', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_horizontal_abduction', tier: 2, has_one_rm: false, freq4Tier: 1, superset_pair_group: 'chest_rear_delt' },
   { slot_id: 'shoulder_lateral_cable', label: '肩', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_abduction', tier: 3, has_one_rm: false, freq4Tier: 2 },
 
   // ── 腕 ──
-  { slot_id: 'biceps', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_flexion', tier: 1, has_one_rm: false },
-  { slot_id: 'triceps', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_extension', tier: 1, has_one_rm: false },
-  { slot_id: 'biceps_alt', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_flexion', tier: 3, has_one_rm: false, freq4Tier: 2 },
+  { slot_id: 'biceps', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_flexion', tier: 1, has_one_rm: false, superset_pair_group: 'arm_flex_ext' },
+  { slot_id: 'triceps', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_extension', tier: 1, has_one_rm: false, superset_pair_group: 'arm_flex_ext' },
+  { slot_id: 'biceps_alt', label: '腕', muscle_group: 'arms', body_region: 'upper', movement_pattern: 'elbow_flexion', tier: 3, has_one_rm: false, freq4Tier: 2, superset_pair_group: 'arm_flex_ext' },
 
   // ── 脚 ──
   { slot_id: 'quad_glute_primary', label: '脚', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'squat', tier: 1, has_one_rm: true },
@@ -129,8 +145,8 @@ export const PROGRAM_SLOTS: ProgramSlotDef[] = [
 
   // ── 週4日専用の追加スロット（既存slot_type未設定の一般カタログ種目を活用） ──
   { slot_id: 'shoulder_vertical_press_alt', label: '肩', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'vertical_press', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
-  { slot_id: 'shoulder_rear_delt_alt', label: '肩（後部）', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_horizontal_abduction', tier: 1, has_one_rm: false, freq4Tier: 2, freq4Only: true },
-  { slot_id: 'chest_isolation_alt', label: '胸（補助）', muscle_group: 'chest', body_region: 'upper', movement_pattern: 'shoulder_horizontal_adduction', tier: 1, has_one_rm: false, freq4Tier: 2, freq4Only: true },
+  { slot_id: 'shoulder_rear_delt_alt', label: '肩（後部）', muscle_group: 'shoulders', body_region: 'upper', movement_pattern: 'shoulder_horizontal_abduction', tier: 1, has_one_rm: false, freq4Tier: 2, freq4Only: true, superset_pair_group: 'chest_rear_delt' },
+  { slot_id: 'chest_isolation_alt', label: '胸（補助）', muscle_group: 'chest', body_region: 'upper', movement_pattern: 'shoulder_horizontal_adduction', tier: 1, has_one_rm: false, freq4Tier: 2, freq4Only: true, superset_pair_group: 'chest_rear_delt' },
   { slot_id: 'hip_abduction', label: '脚（外転）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'hip_adduction_abduction', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
   { slot_id: 'hamstring_glute_alt', label: '脚（裏側・膝屈曲）', muscle_group: 'legs', body_region: 'lower', movement_pattern: 'knee_flexion', tier: 1, has_one_rm: false, freq4Tier: 1, freq4Only: true },
 ]
@@ -165,4 +181,26 @@ export function isSlotActiveForFreq(slot: ProgramSlotDef, freq: FrequencyVariant
 
 export function sessionDurationToTier(mins: 60 | 75 | 90): 1 | 2 | 3 {
   return mins === 60 ? 1 : mins === 75 ? 2 : 3
+}
+
+const SLOT_DEF_BY_ID = new Map(PROGRAM_SLOTS.map(s => [s.slot_id, s]))
+
+/**
+ * その日アクティブなスロット集合の中から、slotIdの拮抗筋スーパーセット相手を1つ探す。
+ * 同じsuperset_pair_groupを持ち、movement_patternが異なるスロットのみを相手候補にする
+ * （同一パターンの別tierスロット同士、例: biceps↔biceps_altは相手にならない）。
+ */
+export function findSupersetPartnerSlotId(slotId: string, activeSlotIds: ReadonlySet<string>): string | undefined {
+  const slot = SLOT_DEF_BY_ID.get(slotId)
+  if (!slot?.superset_pair_group) return undefined
+
+  for (const otherId of activeSlotIds) {
+    if (otherId === slotId) continue
+    const other = SLOT_DEF_BY_ID.get(otherId)
+    if (!other) continue
+    if (other.superset_pair_group === slot.superset_pair_group && other.movement_pattern !== slot.movement_pattern) {
+      return otherId
+    }
+  }
+  return undefined
 }
