@@ -127,6 +127,7 @@ function buildInput(opts: {
   sessionMins: 60 | 75 | 90
   currentWeek: number
   weekly_params: ProgramWeeklyParams[]
+  priorityMuscles?: UserProgramEnrollment['priority_muscles']
 }): ProgramEngineInput {
   const dayNumber = resolveDayNumber(opts.slot_id, opts.sessionMins)
   const slot = makeSlot(opts.slot_id, opts.muscle_group, dayNumber, opts.hasOneRm)
@@ -141,6 +142,8 @@ function buildInput(opts: {
     current_week: opts.currentWeek,
     days_per_week: FREQ,
     session_duration_minutes: opts.sessionMins,
+    // 空配列 = 未選択（program_slots.tsのデフォルト「胸」にフォールバック）
+    priority_muscles: opts.priorityMuscles ?? [],
     started_at: '2026-01-01',
     completed_at: null,
     is_active: true,
@@ -231,4 +234,28 @@ test('(b) 60〜90/90tier: 非優先部位(腕)はセット数が週1の値に据
   const suggestion = buildProgramSuggestion(input)
   const workingSets = suggestion.slots[0].sets.filter(s => s.set_type === 'working')
   assert.equal(workingSets.length, 3, '非優先部位は週1の値(3)に据え置かれるはず')
+})
+
+test('(b) ユーザーが優先部位を選択している場合、そちらが優先されデフォルト(胸)は上書きされる', () => {
+  // 胸(デフォルト優先部位)をユーザーが選択しなかった場合、tier2/3でも据え置きになる
+  const chestNotSelected = buildInput({
+    slot_id: 'chest_isolation', muscle_group: 'chest',
+    sessionMins: 90, currentWeek: 3,
+    weekly_params: makeIsolationWeeklyParams('chest_isolation'),
+    priorityMuscles: ['arms'], // 胸を選んでいない
+  })
+  const chestSuggestion = buildProgramSuggestion(chestNotSelected)
+  const chestWorkingSets = chestSuggestion.slots[0].sets.filter(s => s.set_type === 'working')
+  assert.equal(chestWorkingSets.length, 3, 'ユーザーが胸を選ばなければデフォルトより優先されず据え置きになるはず')
+
+  // 逆にユーザーが腕を優先部位に選んでいれば、腕(通常は非優先)がボリューム漸進する
+  const armsSelected = buildInput({
+    slot_id: 'biceps', muscle_group: 'arms',
+    sessionMins: 90, currentWeek: 3,
+    weekly_params: makeIsolationWeeklyParams('biceps'),
+    priorityMuscles: ['arms'],
+  })
+  const armsSuggestion = buildProgramSuggestion(armsSelected)
+  const armsWorkingSets = armsSuggestion.slots[0].sets.filter(s => s.set_type === 'working')
+  assert.equal(armsWorkingSets.length, 4, 'ユーザーが腕を優先部位に選べば腕がボリューム漸進するはず')
 })

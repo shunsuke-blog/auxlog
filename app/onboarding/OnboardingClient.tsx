@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Check, ChevronLeft, Smartphone, Zap, Sliders, Sparkles } from 'lucide-react'
 import { PROGRAM_SLOTS, slotHasOneRm, sessionDurationToTier, isSlotActiveForFreq } from '@/lib/constants/program_slots'
 import { generateDaySlotIds } from '@/lib/suggest/generate_program_slots'
+import { MUSCLE_ORDER as PRIORITY_MUSCLE_ORDER, TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
 
 // ──────────────────────────────────────────────────────────
 // Types
@@ -46,7 +47,7 @@ const GEN_MESSAGES = [
 // Component
 // ──────────────────────────────────────────────────────────
 
-type Step = 'frequency' | 'exercises' | 'one_rms' | 'program_intro' | 'install'
+type Step = 'frequency' | 'priority_muscles' | 'exercises' | 'one_rms' | 'program_intro' | 'install'
 
 type OneRmEntry = {
   final_kg: string
@@ -69,6 +70,7 @@ export default function OnboardingClient({ exercises }: Props) {
   const [step, setStep] = useState<Step>('frequency')
   const [daysPerWeek, setDaysPerWeek] = useState<2 | 3 | 4>(4)
   const [sessionMinutes, setSessionMinutes] = useState<60 | 75 | 90>(90)
+  const [priorityMuscles, setPriorityMuscles] = useState<Set<TargetMuscle>>(new Set(['chest']))
   const [selectedExercises, setSelectedExercises] = useState<Set<string>>(new Set())
   const [slotSelections, setSlotSelections] = useState<Record<string, string>>({})
   const [oneRms, setOneRms] = useState<Record<string, OneRmEntry>>({})
@@ -132,7 +134,16 @@ export default function OnboardingClient({ exercises }: Props) {
     return exercises.find(e => e.slot_type === slot_type)?.name ?? ''
   }
 
-  const handleFrequencyNext = () => setStep('exercises')
+  const handleFrequencyNext = () => setStep('priority_muscles')
+
+  const togglePriorityMuscle = (muscle: TargetMuscle) => {
+    setPriorityMuscles(prev => {
+      const next = new Set(prev)
+      if (next.has(muscle)) next.delete(muscle)
+      else next.add(muscle)
+      return next
+    })
+  }
 
   const handleExercisesNext = async () => {
     const mp = sessionDurationToTier(sessionMinutes)
@@ -160,6 +171,7 @@ export default function OnboardingClient({ exercises }: Props) {
           body: JSON.stringify({
             days_per_week: daysPerWeek,
             session_duration_minutes: sessionMinutes,
+            priority_muscles: Array.from(priorityMuscles),
             slot_assignments: Object.entries(newSlotSelections)
               .filter(([, exercise_name]) => exercise_name !== '')
               .map(([slot_id, exercise_name]) => ({ slot_id, exercise_name })),
@@ -240,6 +252,7 @@ export default function OnboardingClient({ exercises }: Props) {
         body: JSON.stringify({
           days_per_week: daysPerWeek,
           session_duration_minutes: sessionMinutes,
+          priority_muscles: Array.from(priorityMuscles),
           slot_assignments: Object.entries(slotSelections)
             .filter(([, exercise_name]) => exercise_name !== '')
             .map(([slot_id, exercise_name]) => ({ slot_id, exercise_name })),
@@ -312,7 +325,7 @@ export default function OnboardingClient({ exercises }: Props) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-40">
         <div className="sticky top-0 bg-zinc-50/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 py-5 z-10">
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 4 / 5</p>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 5 / 6</p>
           <h1 className="text-xl font-semibold text-black dark:text-white">あなたのプログラム</h1>
         </div>
 
@@ -452,7 +465,7 @@ export default function OnboardingClient({ exercises }: Props) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex flex-col">
         <div className="px-6 py-5 border-b border-zinc-100 dark:border-zinc-900">
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 5 / 5</p>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 6 / 6</p>
           <h1 className="text-xl font-semibold text-black dark:text-white">ホーム画面に追加する</h1>
         </div>
         <div className="flex-1 px-6 py-10 space-y-6">
@@ -572,7 +585,7 @@ export default function OnboardingClient({ exercises }: Props) {
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">ステップ 3 / 5</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">ステップ 4 / 6</p>
           </div>
           <h1 className="text-xl font-semibold text-black dark:text-white">最大重量を入力</h1>
           {/* 種目名 */}
@@ -758,6 +771,64 @@ export default function OnboardingClient({ exercises }: Props) {
     )
   }
 
+  // ── priority_muscles ──────────────────────────────────────
+  if (step === 'priority_muscles') {
+    return (
+      <div className="min-h-screen bg-white dark:bg-black pb-40">
+        <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
+          <div className="flex items-center gap-2 mb-1">
+            <button
+              onClick={() => setStep('frequency')}
+              className="text-zinc-400 hover:text-black dark:hover:text-white transition-colors -ml-1"
+              aria-label="前のステップへ"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">ステップ 2 / 6</p>
+          </div>
+          <h1 className="text-xl font-semibold text-black dark:text-white">優先的に鍛えたい部位は？</h1>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            選んだ部位はセッション75分・90分でセット数が段階的に増えていきます（60分では発動しません）
+          </p>
+        </div>
+
+        <div className="px-6 py-8 space-y-3">
+          {PRIORITY_MUSCLE_ORDER.map(muscle => {
+            const isSelected = priorityMuscles.has(muscle)
+            return (
+              <button
+                key={muscle}
+                onClick={() => togglePriorityMuscle(muscle)}
+                className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 transition-colors ${
+                  isSelected
+                    ? 'border-black dark:border-white bg-black dark:bg-white'
+                    : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
+                }`}
+              >
+                <span className={`text-base font-semibold ${isSelected ? 'text-white dark:text-black' : 'text-black dark:text-white'}`}>
+                  {TARGET_MUSCLE_LABELS[muscle]}
+                </span>
+                {isSelected && <Check className="w-5 h-5 text-white dark:text-black" />}
+              </button>
+            )
+          })}
+        </div>
+
+        <div
+          className="fixed left-0 right-0 px-6 pt-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900"
+          style={{ bottom: 0, paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}
+        >
+          <button
+            onClick={() => setStep('exercises')}
+            className="w-full py-4 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold"
+          >
+            次へ
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // ── exercises ────────────────────────────────────────────
   if (step === 'exercises') {
     // 頻度に関わらず全23スロットが対象（週2・3回はDay配分が変わるだけで種目自体は減らない）
@@ -781,13 +852,13 @@ export default function OnboardingClient({ exercises }: Props) {
         <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
           <div className="flex items-center gap-2 mb-1">
             <button
-              onClick={() => setStep('frequency')}
+              onClick={() => setStep('priority_muscles')}
               className="text-zinc-400 hover:text-black dark:hover:text-white transition-colors -ml-1"
               aria-label="前のステップへ"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">ステップ 2 / 5</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">ステップ 3 / 6</p>
           </div>
           <h1 className="text-xl font-semibold text-black dark:text-white">今やっている種目を選ぶ</h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -850,7 +921,7 @@ export default function OnboardingClient({ exercises }: Props) {
   return (
     <div className="min-h-screen bg-white dark:bg-black pb-40">
       <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
-        <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 1 / 5</p>
+        <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 1 / 6</p>
         <h1 className="text-xl font-semibold text-black dark:text-white">トレーニング設定</h1>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           週の頻度と1回のセッション時間を教えてください

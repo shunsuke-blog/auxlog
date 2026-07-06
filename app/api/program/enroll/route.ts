@@ -5,9 +5,14 @@ import { DEFAULT_PROGRAM_ID } from '@/lib/constants/api'
 import { VALID_SLOT_IDS } from '@/lib/constants/program_slots'
 import { z } from 'zod'
 
+const PRIORITY_MUSCLE_ENUM = z.enum(['chest', 'back', 'legs', 'shoulders', 'arms', 'core'])
+
 const EnrollSchema = z.object({
   days_per_week: z.union([z.literal(2), z.literal(3), z.literal(4)]),
   session_duration_minutes: z.union([z.literal(60), z.literal(75), z.literal(90)]),
+  // ボリューム漸進の優先部位（60〜90分/90分tierでのみ有効）。未指定/空なら
+  // アプリ側でデフォルト(胸)にフォールバックするため、ここでは空配列を許可する
+  priority_muscles: z.array(PRIORITY_MUSCLE_ENUM).max(6).default([]),
   slot_assignments: z.array(z.object({
     slot_id: z.string().refine(id => VALID_SLOT_IDS.has(id), { message: '不正なスロットIDです' }),
     exercise_name: z.string().min(1).max(100),
@@ -31,7 +36,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? '入力値が不正です' }, { status: 400 })
   }
-  const { days_per_week, session_duration_minutes, slot_assignments, one_rms } = parsed.data
+  const { days_per_week, session_duration_minutes, priority_muscles, slot_assignments, one_rms } = parsed.data
 
   // アクティブなエンロールメントが既に存在する場合はエラー
   const { data: existing } = await supabase
@@ -53,6 +58,7 @@ export async function POST(request: Request) {
       program_id: DEFAULT_PROGRAM_ID,
       days_per_week,
       session_duration_minutes,
+      priority_muscles,
       started_at: todayJST(),
     })
     .select()

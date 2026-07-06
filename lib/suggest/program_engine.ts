@@ -17,7 +17,7 @@ import {
   PROGRAM_SLOTS,
   slotHasOneRm,
   sessionDurationToTier,
-  isPriorityMuscle,
+  isPriorityMuscleForUser,
   findSupersetPartnerSlotId,
   type FrequencyVariant,
 } from '@/lib/constants/program_slots'
@@ -133,8 +133,14 @@ function buildIsolationSets(
 // 根拠: 低ボリューム時ほどエフォート（RIR）が代償として重要になり、限界手前(RIR1)は
 // 完全限界(RIR0)とほぼ同等の肥大が得られる。ボリューム漸進は筋肉ごとに行うのが本来の
 // 使い方であり、全身一律ではない（実装依頼書 2026-07-06）。
-function volumeRampsThisTier(muscleGroup: TargetMuscle, maxTier: 1 | 2 | 3): boolean {
-  return maxTier >= 2 && isPriorityMuscle(muscleGroup)
+// 優先部位はユーザーがオンボーディング/設定で選択する（enrollment.priority_muscles）。
+// 未選択（空配列）ならisPriorityMuscleForUserがコード定数のデフォルト（胸）にフォールバックする。
+function volumeRampsThisTier(
+  muscleGroup: TargetMuscle,
+  maxTier: 1 | 2 | 3,
+  userPriorityMuscles: readonly TargetMuscle[] | null | undefined,
+): boolean {
+  return maxTier >= 2 && isPriorityMuscleForUser(muscleGroup, userPriorityMuscles)
 }
 
 // RIRをRPE(=10-RIR)に変換して返す。ボリューム期は週1のRIR2.5→週4のRIR0.5へ線形に漸進、
@@ -241,7 +247,7 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
       const recentSets = recent_sets_by_exercise[exercise.id] ?? []
       const muscleGroup = slotDef?.muscle_group ?? (slot.muscle_group as TargetMuscle)
 
-      if (volumeRampsThisTier(muscleGroup, maxTier)) {
+      if (volumeRampsThisTier(muscleGroup, maxTier, enrollment.priority_muscles)) {
         // 優先部位 かつ tier2/3: 既存どおりDBの週次working_sets/rpeをそのまま使う
         // （ここがボリューム漸進のターゲット方式）
         sets = buildIsolationSets(params, recentSets)

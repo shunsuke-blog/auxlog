@@ -98,12 +98,27 @@ export type ProgramSlotDef = {
 
 // ── tier別漸進レバー：ボリューム漸進の優先部位（is_priority） ──
 // 60〜90分/90分tierでのみ、この部位のセット数を週ごとに漸増させる（他部位は据え置き）。
-// デフォルトはオーナー確認により「胸」（2026-07-06決定）。将来的にはユーザー選択式にする
-// 想定だが、現時点ではプログラム全体の固定デフォルトとして扱う。
+// 2026-07-07にユーザー選択式化（user_program_enrollments.priority_muscles、
+// lib/sql/add_priority_muscles.sql）。この定数はフォールバック用のデフォルト
+// （未選択・空配列のユーザー向け。オーナー確認により「胸」、2026-07-06決定）としてのみ残す。
 export const PRIORITY_MUSCLES: ReadonlySet<TargetMuscle> = new Set(['chest'])
 
 export function isPriorityMuscle(muscle: TargetMuscle): boolean {
   return PRIORITY_MUSCLES.has(muscle)
+}
+
+/**
+ * ユーザーが選択した優先部位のリストを踏まえた判定。空/未指定の場合はPRIORITY_MUSCLES
+ * （デフォルト: 胸）にフォールバックする。
+ */
+export function isPriorityMuscleForUser(
+  muscle: TargetMuscle,
+  userPriorityMuscles: readonly TargetMuscle[] | null | undefined,
+): boolean {
+  if (!userPriorityMuscles || userPriorityMuscles.length === 0) {
+    return isPriorityMuscle(muscle)
+  }
+  return userPriorityMuscles.includes(muscle)
 }
 
 export const PROGRAM_SLOTS: ProgramSlotDef[] = [

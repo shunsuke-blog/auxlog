@@ -169,6 +169,9 @@ export type UserProgramEnrollment = {
   current_week: number;
   days_per_week: 2 | 3 | 4;
   session_duration_minutes: 60 | 75 | 90;
+  // ボリューム漸進の優先部位（60〜90分/90分tierでのみ有効）。空配列ならアプリ側で
+  // デフォルト部位（program_slots.tsのPRIORITY_MUSCLES）にフォールバックする。
+  priority_muscles: TargetMuscle[];
   started_at: string;
   completed_at: string | null;
   is_active: boolean;
