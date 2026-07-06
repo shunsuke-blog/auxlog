@@ -546,7 +546,9 @@ export default function OnboardingClient({ exercises }: Props) {
         `}</style>
 
         {/* Header */}
-        <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
+        {/* transform-gpu: iOSでソフトウェアキーボード表示時にposition:stickyが
+            追従を失う不具合の回避策（GPUレイヤーに昇格させて再計算を強制する） */}
+        <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10 transform-gpu">
           <div className="flex items-center gap-2 mb-1">
             <button
               onClick={handleOneRmBack}
