@@ -3,8 +3,9 @@ import { NextResponse } from 'next/server'
 import { dbError, validationError } from '@/lib/api/errors'
 import { z } from 'zod'
 
+// program_composition.tsのPriorityMuscleOption（二頭・三頭を別選択肢化、2026-07-08）
 const schema = z.object({
-  priority_muscles: z.array(z.enum(['chest', 'back', 'legs', 'shoulders', 'arms', 'core'])).max(6),
+  priority_muscles: z.array(z.enum(['chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'core'])).max(2),
 })
 
 export async function PATCH(request: Request) {

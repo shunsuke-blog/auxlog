@@ -2,8 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import CoachingClient from './CoachingClient'
 import type { DayData, WeightHistory } from './CoachingClient'
-import { PROGRAM_SLOTS as SLOT_DEFS, slotHasOneRm, sessionDurationToTier, type FrequencyVariant } from '@/lib/constants/program_slots'
-import { generateDaySlotIds } from '@/lib/suggest/generate_program_slots'
+import { BASE_CATEGORIES_BY_RANK, LEG_DEFAULT_CATEGORY, type CompositionCategory } from '@/lib/constants/program_composition'
+import { buildExerciseCategories, distributeToDays, isOneRmDemotedAtDays, type DaysPerWeek } from '@/lib/suggest/generate_program_composition'
+import type { PriorityMuscleOption } from '@/types'
+
+const ALL_CATEGORIES: CompositionCategory[] = [...BASE_CATEGORIES_BY_RANK.values(), LEG_DEFAULT_CATEGORY]
 
 const MUSCLE_LABELS: Record<string, string> = {
   chest: '胸', back: '背中', shoulders: '肩', legs: '脚', arms: '腕', core: '腹筋',
@@ -29,7 +32,7 @@ export default async function CoachingPage() {
 
   const { data: enrollment } = await supabase
     .from('user_program_enrollments')
-    .select('id, days_per_week, session_duration_minutes, current_week, started_at')
+    .select('id, days_per_week, session_duration_minutes, current_week, started_at, priority_muscles')
     .eq('user_id', user.id)
     .eq('is_active', true)
     .maybeSingle()
@@ -48,7 +51,8 @@ export default async function CoachingPage() {
     )
   }
 
-  const freq = (enrollment.days_per_week ?? 4) as FrequencyVariant
+  const days = (enrollment.days_per_week ?? 4) as DaysPerWeek
+  const priorities = (enrollment.priority_muscles ?? []) as PriorityMuscleOption[]
 
   const [{ data: rawAssignments }, { data: rawOneRms }, { data: rawExtras }, { data: rawSlotExercises }] = await Promise.all([
     supabase
@@ -68,16 +72,24 @@ export default async function CoachingPage() {
       .order('created_at'),
     supabase
       .from('exercise_master')
-      .select('name, slot_type')
-      .in('slot_type', SLOT_DEFS.map(s => s.slot_id))
+      .select('name, target_muscle, movement_pattern, requires_one_rm')
+      .not('movement_pattern', 'is', null)
       .order('sort_order'),
   ])
 
+  const requiresOneRmByName = new Map(
+    (rawSlotExercises ?? []).map(ex => [ex.name as string, ex.requires_one_rm as boolean])
+  )
+
+  // カテゴリごとのスワップ候補（brainstorm #3: 6パターンは動きパターン一致、それ以外は部位一致）
   const slotOptions = new Map<string, string[]>()
-  for (const ex of rawSlotExercises ?? []) {
-    const slotType = ex.slot_type as string
-    if (!slotOptions.has(slotType)) slotOptions.set(slotType, [])
-    slotOptions.get(slotType)!.push(ex.name as string)
+  for (const category of ALL_CATEGORIES) {
+    const options = (rawSlotExercises ?? [])
+      .filter(ex => category.isSixPattern
+        ? ex.movement_pattern === category.movementPattern
+        : ex.target_muscle === category.muscle)
+      .map(ex => ex.name as string)
+    slotOptions.set(category.id, options)
   }
 
   const assignmentMap = new Map<string, string>()
@@ -113,23 +125,22 @@ export default async function CoachingPage() {
     extrasByDay.get(r.day_number)!.push({ id: r.id, name, muscleLabel })
   }
 
-  const daysPerWeek = enrollment.days_per_week ?? 0
-  const dayNumbers = [1, 2, 3, 4].filter(d => d <= daysPerWeek)
+  const dayNumbers = [1, 2, 3, 4].filter(d => d <= days)
 
-  const maxTier = sessionDurationToTier((enrollment.session_duration_minutes ?? 90) as 60 | 75 | 90)
-  const daySlotIds = generateDaySlotIds(freq, maxTier)
+  const categories = buildExerciseCategories(days, priorities)
+  const dayCategories = distributeToDays(days, categories)
 
   const dayData: DayData[] = dayNumbers
     .map(day => ({
       day,
-      slots: SLOT_DEFS
-        .filter(s => (daySlotIds.get(day) ?? new Set<string>()).has(s.slot_id) && assignmentMap.has(s.slot_id))
-        .map(s => ({
-          slotId: s.slot_id,
-          label: s.label,
-          exerciseName: assignmentMap.get(s.slot_id) ?? '',
-          oneRm: oneRmMap.get(s.slot_id),
-          options: slotOptions.get(s.slot_id) ?? [],
+      slots: (dayCategories.get(day) ?? [])
+        .filter(c => assignmentMap.has(c.id))
+        .map(c => ({
+          slotId: c.id,
+          label: c.label,
+          exerciseName: assignmentMap.get(c.id) ?? '',
+          oneRm: oneRmMap.get(c.id),
+          options: slotOptions.get(c.id) ?? [],
         })),
       extras: extrasByDay.get(day) ?? [],
     }))
@@ -138,8 +149,12 @@ export default async function CoachingPage() {
   // 重量推移データ（1RM管理スロットのみ。頻度によって対象が変わる）
   let weightHistory: WeightHistory[] = []
 
+  // 1RM管理は種目ごとの属性が正（program_engine.tsのhasOneRm判定と同じロジック、
+  // 2026-07-08実機確認フィードバック対応）
   const compoundSlotIds = new Set(
-    SLOT_DEFS.filter(s => slotHasOneRm(s, freq)).map(s => s.slot_id)
+    ALL_CATEGORIES
+      .filter(c => !isOneRmDemotedAtDays(c, days) && (requiresOneRmByName.get(assignmentMap.get(c.id) ?? '') ?? false))
+      .map(c => c.id)
   )
   const compoundSlots = Array.from(exerciseIdBySlot.entries())
     .filter(([slotId]) => compoundSlotIds.has(slotId))

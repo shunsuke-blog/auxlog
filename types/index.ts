@@ -17,6 +17,27 @@ export const TARGET_MUSCLE_LABELS: Record<TargetMuscle, string> = {
 
 export const MUSCLE_ORDER: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core'];
 
+/**
+ * priority_musclesとして選択可能な部位。TargetMuscleと違い二頭・三頭を別に選べる
+ * （program_composition.ts参照、program-composition-redesign-brainstorm.md #10）。
+ */
+export type PriorityMuscleOption = 'chest' | 'back' | 'shoulders' | 'biceps' | 'triceps' | 'legs' | 'core';
+
+export const PRIORITY_MUSCLE_OPTION_LABELS: Record<PriorityMuscleOption, string> = {
+  chest: '胸',
+  back: '背中',
+  shoulders: '肩',
+  biceps: '二頭',
+  triceps: '三頭',
+  legs: '脚',
+  core: '体幹',
+};
+
+export const PRIORITY_MUSCLE_OPTION_ORDER: PriorityMuscleOption[] = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'core'];
+
+/** priority枠は2つまで（program_composition.ts、canonical順位10・11）。 */
+export const MAX_PRIORITY_MUSCLES = 2;
+
 export type SubscriptionStatus =
   | 'trialing'
   | 'active'
@@ -72,6 +93,10 @@ export type UserExercise = {
   name: string;
   target_muscle: TargetMuscle;
   recent_session_ids: string[];
+  /** この種目が1RM管理（%RMベースの重量計算）の対象かどうか。カテゴリ単位ではなく
+   *  種目ごとの属性（例: 同じスクワットパターンでもハイバースクワットはtrue、
+   *  ブルガリアンスクワットはfalse）。program_engine.tsのhasOneRm判定はこれが正。 */
+  requires_one_rm: boolean;
 };
 
 export type TrainingSet = {
@@ -169,9 +194,9 @@ export type UserProgramEnrollment = {
   current_week: number;
   days_per_week: 2 | 3 | 4;
   session_duration_minutes: 60 | 75 | 90;
-  // ボリューム漸進の優先部位（60〜90分/90分tierでのみ有効）。空配列ならアプリ側で
-  // デフォルト部位（program_slots.tsのPRIORITY_MUSCLES）にフォールバックする。
-  priority_muscles: TargetMuscle[];
+  // ボリューム漸進の優先部位、かつ新方式(program_composition.ts)の種目選定でも使う。
+  // 空配列 = 未選択（全身くまなく）。フォールバックは廃止済み（2026-07-08）。
+  priority_muscles: PriorityMuscleOption[];
   started_at: string;
   completed_at: string | null;
   is_active: boolean;

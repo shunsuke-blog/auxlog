@@ -162,7 +162,7 @@ function RecordContent() {
                 set_number: t.set_number,
                 weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
                 reps: String(t.reps),
-                rir: false,
+                rir: true,
                 is_warmup: t.is_warmup,
               })),
             }])
@@ -179,7 +179,7 @@ function RecordContent() {
                 set_number: t.set_number,
                 weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
                 reps: String(t.reps),
-                rir: false,
+                rir: true,
                 is_warmup: t.is_warmup,
               })),
             }])
@@ -194,7 +194,7 @@ function RecordContent() {
                   set_number: i + 1,
                   weight_kg: '',
                   reps: String(Math.max(1, ex.default_reps - i)),
-                  rir: false,
+                  rir: true,
                   is_warmup: false,
                 })),
               }])
@@ -210,7 +210,7 @@ function RecordContent() {
               set_number: t.set_number,
               weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
               reps: String(t.reps),
-              rir: false,
+              rir: true,
               is_warmup: t.is_warmup,
             })),
           }))
@@ -225,7 +225,7 @@ function RecordContent() {
               set_number: i + 1,
               weight_kg: '',
               reps: String(Math.max(1, ex.default_reps - i)),
-              rir: false,
+              rir: true,
               is_warmup: false,
             })),
           }))
@@ -255,7 +255,7 @@ function RecordContent() {
           set_number: next[exIdx].sets.length + 1,
           weight_kg: lastSet.weight_kg,
           reps: lastSet.reps,
-          rir: false,
+          rir: true,
           is_warmup: false,
         })],
       }
@@ -275,7 +275,7 @@ function RecordContent() {
     setExerciseSets(prev => [...prev, {
       exercise,
       enabled: true,
-      sets: [makeSet({ set_number: 1, weight_kg: '', reps: String(exercise.default_reps), rir: false, is_warmup: false })],
+      sets: [makeSet({ set_number: 1, weight_kg: '', reps: String(exercise.default_reps), rir: true, is_warmup: false })],
     }])
     setShowAddModal(false)
   }

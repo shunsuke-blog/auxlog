@@ -2,23 +2,24 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { dbError } from '@/lib/api/errors'
 import { DEFAULT_PROGRAM_ID } from '@/lib/constants/api'
-import { VALID_SLOT_IDS } from '@/lib/constants/program_slots'
+import { VALID_CATEGORY_IDS } from '@/lib/constants/program_composition'
 import { z } from 'zod'
 
-const PRIORITY_MUSCLE_ENUM = z.enum(['chest', 'back', 'legs', 'shoulders', 'arms', 'core'])
+// priority_muscles: program_composition.tsのPriorityMuscleOption（二頭・三頭を別選択肢化、2026-07-08）
+const PRIORITY_MUSCLE_ENUM = z.enum(['chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'core'])
 
 const EnrollSchema = z.object({
   days_per_week: z.union([z.literal(2), z.literal(3), z.literal(4)]),
   session_duration_minutes: z.union([z.literal(60), z.literal(75), z.literal(90)]),
-  // ボリューム漸進の優先部位（60〜90分/90分tierでのみ有効）。未指定/空なら
-  // アプリ側でデフォルト(胸)にフォールバックするため、ここでは空配列を許可する
-  priority_muscles: z.array(PRIORITY_MUSCLE_ENUM).max(6).default([]),
+  // 種目選定・ボリューム漸進の両方に使う優先部位（program_composition.ts）。
+  // 空配列 = 未選択（全身くまなく）。フォールバックは廃止済み（2026-07-08）。
+  priority_muscles: z.array(PRIORITY_MUSCLE_ENUM).max(2).default([]),
   slot_assignments: z.array(z.object({
-    slot_id: z.string().refine(id => VALID_SLOT_IDS.has(id), { message: '不正なスロットIDです' }),
+    slot_id: z.string().refine(id => VALID_CATEGORY_IDS.has(id), { message: '不正なスロットIDです' }),
     exercise_name: z.string().min(1).max(100),
   })).min(1),
   one_rms: z.array(z.object({
-    slot_id: z.string().refine(id => VALID_SLOT_IDS.has(id), { message: '不正なスロットIDです' }),
+    slot_id: z.string().refine(id => VALID_CATEGORY_IDS.has(id), { message: '不正なスロットIDです' }),
     one_rm_kg: z.number().positive().max(1000),
     source: z.enum(['manual_input', 'epley_estimated']),
   })),
@@ -143,23 +144,13 @@ export async function POST(request: Request) {
   if (saError) return dbError('スロット割り当てに失敗しました', saError)
 
   // 1RM 登録
-  // chest_triceps_compound はオンボーディングで収集しないため、
-  // chest_compound の 1RM をそのまま流用する（スプレッドシートの設計に準拠）
-  const finalOneRms = [...one_rms]
-  const chestOneRm = one_rms.find(o => o.slot_id === 'chest_compound')
-  if (chestOneRm && !one_rms.some(o => o.slot_id === 'chest_triceps_compound')) {
-    finalOneRms.push({
-      slot_id: 'chest_triceps_compound',
-      one_rm_kg: chestOneRm.one_rm_kg,
-      source: 'manual_input',
-    })
-  }
-
-  if (finalOneRms.length > 0) {
+  // 新方式(program_composition.ts)ではchest_press一本化のため、旧chest_triceps_compound
+  // フォールバック（chest_compoundの1RMを流用する処理）は不要になった（2026-07-08削除）。
+  if (one_rms.length > 0) {
     const { error: ormError } = await supabase
       .from('user_slot_one_rms')
       .insert(
-        finalOneRms.map(orm => ({
+        one_rms.map(orm => ({
           user_id: user.id,
           slot_id: orm.slot_id,
           one_rm_kg: orm.one_rm_kg,

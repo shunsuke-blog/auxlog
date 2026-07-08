@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ChevronRight, CheckCircle2 } from 'lucide-react'
-import type { SlotSuggestion, SetSuggestion } from '@/types'
+import type { SlotSuggestion, SetSuggestion, TargetMuscle } from '@/types'
+import { TARGET_MUSCLE_LABELS } from '@/types'
 
 type Props = {
   slot: SlotSuggestion
@@ -144,7 +145,7 @@ export default function ProgramSlotCard({ slot, is_done = false }: Props) {
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex-1 min-w-0">
           <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium mb-0.5">
-            {slot.slot.muscle_group}
+            {TARGET_MUSCLE_LABELS[slot.slot.muscle_group as TargetMuscle] ?? slot.slot.muscle_group}
           </p>
           <h3 className={`text-[15px] font-bold leading-snug ${is_done ? 'text-zinc-400 dark:text-zinc-500' : 'text-black dark:text-white'}`}>
             {slot.exercise.name}

@@ -2,8 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { dbError, validationError, notFound } from '@/lib/api/errors'
-import { VALID_SLOT_IDS } from '@/lib/constants/program_slots'
+import { VALID_CATEGORY_IDS, BASE_CATEGORIES_BY_RANK, LEG_DEFAULT_CATEGORY, type CompositionCategory } from '@/lib/constants/program_composition'
 import { findOrCreateUserExercise } from '@/lib/program/find_or_create_user_exercise'
+
+const CATEGORY_BY_ID = new Map<string, CompositionCategory>(
+  [...BASE_CATEGORIES_BY_RANK.values(), LEG_DEFAULT_CATEGORY].map(c => [c.id, c]),
+)
 
 const PatchSchema = z.object({
   enrollment_id: z.string().min(1),
@@ -22,7 +26,7 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { slot_id } = await params
-  if (!VALID_SLOT_IDS.has(slot_id)) {
+  if (!VALID_CATEGORY_IDS.has(slot_id)) {
     return NextResponse.json({ error: '不正なスロットIDです' }, { status: 400 })
   }
 
@@ -34,13 +38,17 @@ export async function PATCH(
   if (is_hidden !== undefined) updates.is_hidden = is_hidden
 
   if (exercise_name !== undefined) {
-    // このスロットで選択可能な種目かどうかを exercise_master.slot_type で検証
-    const { data: master, error: masterError } = await supabase
+    // このスロットで選択可能な種目かどうかを検証（brainstorm #3の入れ替え可能性ルール）:
+    // 6パターン該当カテゴリは動きパターンで一致、それ以外は部位で一致するものだけ許可する。
+    const category = CATEGORY_BY_ID.get(slot_id)!
+    let query = supabase
       .from('exercise_master')
       .select('id, is_compound')
       .eq('name', exercise_name)
-      .eq('slot_type', slot_id)
-      .maybeSingle()
+    query = category.isSixPattern
+      ? query.eq('movement_pattern', category.movementPattern!)
+      : query.eq('target_muscle', category.muscle)
+    const { data: master, error: masterError } = await query.maybeSingle()
 
     if (masterError) return dbError('種目の確認に失敗しました', masterError)
     if (!master) return NextResponse.json({ error: 'このスロットでは選択できない種目です' }, { status: 400 })

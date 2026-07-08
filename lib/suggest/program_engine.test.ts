@@ -1,17 +1,16 @@
-// tier別漸進レバー（実装依頼書 2026-07-06）の受け入れ条件(a)(b)を検証する。
+// tier別漸進レバー（実装依頼書 2026-07-06、2026-07-08に新方式へ移行）の
+// 受け入れ条件(a)(b)を検証する。
 // 実行: npx tsx --test lib/suggest/program_engine.test.ts
 //
-// スロットは実際のPROGRAM_SLOTS定義（lib/constants/program_slots.ts）のslot_idを使う。
-// day_number/所属tierは実カタログに依存するため、各テストのslot_idは
-// 使用するsessionMinsで実際にアクティブなものを選んでいる
-// （例: 胸のisolationスロット`chest_isolation`はtier3=90分でのみアクティブなため、
-// tier1(60分)の検証には非優先部位`biceps`(tier1から常時アクティブ)を使う）。
+// カテゴリは実際のprogram_composition.ts定義のidを使う。day_numberは実際に
+// buildExerciseCategories/distributeToDaysで算出されるものを使う
+// （例: 優先部位のカテゴリ(chest_fly)はpriorities=['chest']でのみ生成される）。
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildProgramSuggestion, type ProgramEngineInput } from './program_engine'
-import { generateDaySlotIds } from './generate_program_slots'
-import { sessionDurationToTier, type FrequencyVariant } from '@/lib/constants/program_slots'
+import { buildExerciseCategories, distributeToDays, type DaysPerWeek, type SessionDurationMinutes } from './generate_program_composition'
+import type { PriorityMuscleOption } from '@/lib/constants/program_composition'
 import type {
   ProgramSlot,
   ProgramWeeklyParams,
@@ -23,22 +22,22 @@ import type {
 
 const PROGRAM_ID = 'test-program'
 const ENROLLMENT_ID = 'test-enrollment'
-const FREQ: FrequencyVariant = 2 // Full Body: 全動きパターンがDay1/2の両方で候補になり配置が単純
+const DAYS: DaysPerWeek = 2 // Full Body: 動きパターンがDay1/2の両方で候補になり配置が単純
 
-function resolveDayNumber(slotId: string, sessionMins: 60 | 75 | 90): number {
-  const maxTier = sessionDurationToTier(sessionMins)
-  const dayMap = generateDaySlotIds(FREQ, maxTier)
-  for (const [day, slotIds] of dayMap) {
-    if (slotIds.has(slotId)) return day
+function resolveDayNumber(categoryId: string, priorities: PriorityMuscleOption[], days: DaysPerWeek = DAYS): number {
+  const categories = buildExerciseCategories(days, priorities)
+  const dayMap = distributeToDays(days, categories)
+  for (const [day, cats] of dayMap) {
+    if (cats.some(c => c.id === categoryId)) return day
   }
-  throw new Error(`slot ${slotId} is not active for freq=${FREQ} tier<=${maxTier}`)
+  throw new Error(`category ${categoryId} is not generated for days=${days} priorities=${priorities}`)
 }
 
-function makeSlot(slotId: string, muscleGroup: string, dayNumber: number, hasOneRm = false): ProgramSlot {
+function makeSlot(categoryId: string, muscleGroup: string, dayNumber: number, hasOneRm = false): ProgramSlot {
   return {
-    id: slotId,
+    id: categoryId,
     program_id: PROGRAM_ID,
-    slot_id: slotId,
+    slot_id: categoryId,
     day_number: dayNumber,
     muscle_group: muscleGroup,
     is_compound: hasOneRm,
@@ -67,19 +66,20 @@ function makeExercise(id: string, name: string, overrides: Partial<UserExercise>
     name,
     target_muscle: 'chest',
     recent_session_ids: [],
+    requires_one_rm: false,
     ...overrides,
   }
 }
 
 // 実運用データを模した週次パラメータ: sets 3,3,4,4 (volume) / 4,3,3 (intensity) / 2 (deload) / 2 (maxout)
-function makeIsolationWeeklyParams(slotId: string): ProgramWeeklyParams[] {
+function makeIsolationWeeklyParams(categoryId: string): ProgramWeeklyParams[] {
   const sets = [3, 3, 4, 4, 4, 3, 3, 2, 2]
   const rpes = [7.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.5, 9.0, 8.0]
   const phases: ProgramWeeklyParams['phase'][] = ['volume', 'volume', 'volume', 'volume', 'intensity', 'intensity', 'intensity', 'deload', 'maxout']
   return sets.map((working_sets, i) => ({
-    id: `${slotId}-w${i + 1}`,
+    id: `${categoryId}-w${i + 1}`,
     program_id: PROGRAM_ID,
-    slot_id: slotId,
+    slot_id: categoryId,
     week_number: i + 1,
     top_set_pct_rm: null,
     top_set_reps: null,
@@ -97,12 +97,12 @@ function makeIsolationWeeklyParams(slotId: string): ProgramWeeklyParams[] {
   }))
 }
 
-function makeCompoundWeeklyParams(slotId: string, topSetRpeByWeek: Record<number, number>): ProgramWeeklyParams[] {
+function makeCompoundWeeklyParams(categoryId: string, topSetRpeByWeek: Record<number, number>): ProgramWeeklyParams[] {
   const phases: ProgramWeeklyParams['phase'][] = ['volume', 'volume', 'volume', 'volume', 'intensity', 'intensity', 'intensity', 'deload', 'maxout']
   return phases.map((phase, i) => ({
-    id: `${slotId}-w${i + 1}`,
+    id: `${categoryId}-w${i + 1}`,
     program_id: PROGRAM_ID,
-    slot_id: slotId,
+    slot_id: categoryId,
     week_number: i + 1,
     top_set_pct_rm: 0.8,
     top_set_reps: 5,
@@ -121,29 +121,37 @@ function makeCompoundWeeklyParams(slotId: string, topSetRpeByWeek: Record<number
 }
 
 function buildInput(opts: {
-  slot_id: string
+  category_id: string
   muscle_group: string
   hasOneRm?: boolean
-  sessionMins: 60 | 75 | 90
+  sessionMins: SessionDurationMinutes
   currentWeek: number
   weekly_params: ProgramWeeklyParams[]
-  priorityMuscles?: UserProgramEnrollment['priority_muscles']
+  priorityMuscles?: PriorityMuscleOption[]
+  days?: DaysPerWeek
+  skipOneRmRecord?: boolean
 }): ProgramEngineInput {
-  const dayNumber = resolveDayNumber(opts.slot_id, opts.sessionMins)
-  const slot = makeSlot(opts.slot_id, opts.muscle_group, dayNumber, opts.hasOneRm)
-  const exercise = makeExercise('ex1', 'テスト種目', { target_muscle: opts.muscle_group as UserExercise['target_muscle'] })
+  const priorities = opts.priorityMuscles ?? []
+  const days = opts.days ?? DAYS
+  const dayNumber = resolveDayNumber(opts.category_id, priorities, days)
+  const slot = makeSlot(opts.category_id, opts.muscle_group, dayNumber, opts.hasOneRm)
+  const exercise = makeExercise('ex1', 'テスト種目', {
+    target_muscle: opts.muscle_group as UserExercise['target_muscle'],
+    requires_one_rm: opts.hasOneRm ?? false,
+  })
   const assignment: UserSlotAssignment = {
-    id: 'a1', user_id: 'u1', enrollment_id: ENROLLMENT_ID, slot_id: opts.slot_id, exercise_id: 'ex1', created_at: '2026-01-01',
+    id: 'a1', user_id: 'u1', enrollment_id: ENROLLMENT_ID, slot_id: opts.category_id, exercise_id: 'ex1', created_at: '2026-01-01',
   }
   const enrollment: UserProgramEnrollment = {
     id: ENROLLMENT_ID,
     user_id: 'u1',
     program_id: PROGRAM_ID,
     current_week: opts.currentWeek,
-    days_per_week: FREQ,
+    days_per_week: days,
     session_duration_minutes: opts.sessionMins,
-    // 空配列 = 未選択（program_slots.tsのデフォルト「胸」にフォールバック）
-    priority_muscles: opts.priorityMuscles ?? [],
+    // priority_musclesはTargetMuscle[]型。chest/back/shoulders/legs/coreはPriorityMuscleOptionと
+    // 文字列が一致するためそのまま通る（program_engine.tsのtoPriorityMuscleOptions参照）。
+    priority_muscles: priorities as unknown as UserProgramEnrollment['priority_muscles'],
     started_at: '2026-01-01',
     completed_at: null,
     is_active: true,
@@ -156,31 +164,44 @@ function buildInput(opts: {
     weekly_params: opts.weekly_params,
     assignments: [assignment],
     exercises: [exercise],
-    one_rms: opts.hasOneRm ? [{ id: 'orm1', user_id: 'u1', slot_id: opts.slot_id, one_rm_kg: 100, recorded_at: '2026-01-01', source: 'manual_input' } as UserSlotOneRm] : [],
+    one_rms: (opts.hasOneRm && !opts.skipOneRmRecord) ? [{ id: 'orm1', user_id: 'u1', slot_id: opts.category_id, one_rm_kg: 100, recorded_at: '2026-01-01', source: 'manual_input' } as UserSlotOneRm] : [],
     recent_sets_by_exercise: {},
   }
 }
 
-test('(a) ~60tier(tier1): アイソレーション種目はセット数が週1の値に固定される(優先/非優先を問わず)', () => {
-  const input = buildInput({
-    slot_id: 'biceps', muscle_group: 'arms',
-    sessionMins: 60, currentWeek: 3, // week3のDB値は4だが週1は3
-    weekly_params: makeIsolationWeeklyParams('biceps'),
+test('(a) 60分: アイソレーション種目もセット数=f(セッション時間)に従う(週次DB値に引きずられない)', () => {
+  // 旧仕様は「週1のDB値に固定」だったが、brainstorm #8の「セット数=f(セッション時間)」は
+  // 1RM管理種目に限らずアイソレーション種目にも適用されるべきだった（これまで
+  // hasOneRm:trueの非6パターンカテゴリにしか接続されておらず、アイソレーション側は
+  // 旧来の週次DB値のまま=60分でも3〜4セットになるバグが残っていた。2026-07-08、
+  // 「1RM管理種目以外でも60分なのに3〜4セットになる」フィードバック対応）
+  const input60 = buildInput({
+    category_id: 'biceps_1', muscle_group: 'arms',
+    sessionMins: 60, currentWeek: 3, // week3のDB値は4、週1は3だが、どちらでもなく2になるはず
+    weekly_params: makeIsolationWeeklyParams('biceps_1'),
   })
+  const suggestion60 = buildProgramSuggestion(input60)
+  const workingSets60 = suggestion60.slots[0].sets.filter(s => s.set_type === 'working')
+  assert.equal(workingSets60.length, 2, '60分はsetsForNonPatternCategory(60)=2になるはず')
 
-  const suggestion = buildProgramSuggestion(input)
-  const workingSets = suggestion.slots[0].sets.filter(s => s.set_type === 'working')
-  assert.equal(workingSets.length, 3, 'tier1では週1の値(3)に固定されるはず')
+  const input75 = buildInput({
+    category_id: 'biceps_1', muscle_group: 'arms',
+    sessionMins: 75, currentWeek: 3,
+    weekly_params: makeIsolationWeeklyParams('biceps_1'),
+  })
+  const suggestion75 = buildProgramSuggestion(input75)
+  const workingSets75 = suggestion75.slots[0].sets.filter(s => s.set_type === 'working')
+  assert.equal(workingSets75.length, 3, '75分(非優先部位)はsetsForNonPatternCategory(75)=3になるはず')
 })
 
-test('(a) ~60tier: RIRがフェーズに応じて漸進する(週1→週4でRPEが上がる)', () => {
-  const params = makeIsolationWeeklyParams('biceps')
+test('(a) 60分: RIRがフェーズに応じて漸進する(週1→週4でRPEが上がる)', () => {
+  const params = makeIsolationWeeklyParams('biceps_1')
 
   const week1 = buildProgramSuggestion(buildInput({
-    slot_id: 'biceps', muscle_group: 'arms', sessionMins: 60, currentWeek: 1, weekly_params: params,
+    category_id: 'biceps_1', muscle_group: 'arms', sessionMins: 60, currentWeek: 1, weekly_params: params,
   }))
   const week4 = buildProgramSuggestion(buildInput({
-    slot_id: 'biceps', muscle_group: 'arms', sessionMins: 60, currentWeek: 4, weekly_params: params,
+    category_id: 'biceps_1', muscle_group: 'arms', sessionMins: 60, currentWeek: 4, weekly_params: params,
   }))
 
   const week1Rpe = week1.slots[0].sets[0].target_rpe
@@ -188,11 +209,11 @@ test('(a) ~60tier: RIRがフェーズに応じて漸進する(週1→週4でRPE�
   assert.ok(week4Rpe > week1Rpe, `週4のRPE(${week4Rpe})は週1(${week1Rpe})より高いはず`)
 })
 
-test('(a) ~60tier: 1RM管理種目はボリューム期でRPEが9.0を超えない(RIR≥1)', () => {
+test('(a) 60分: 1RM管理種目はボリューム期でRPEが9.0を超えない(RIR≥1)', () => {
   const input = buildInput({
-    slot_id: 'chest_compound', muscle_group: 'chest', hasOneRm: true,
+    category_id: 'chest_press', muscle_group: 'chest', hasOneRm: true,
     sessionMins: 60, currentWeek: 1,
-    weekly_params: makeCompoundWeeklyParams('chest_compound', { 1: 9.5, 2: 9.8 }),
+    weekly_params: makeCompoundWeeklyParams('chest_press', { 1: 9.5, 2: 9.8 }),
   })
 
   const suggestion = buildProgramSuggestion(input)
@@ -202,9 +223,9 @@ test('(a) ~60tier: 1RM管理種目はボリューム期でRPEが9.0を超えな�
 
 test('(a) maxout週(週9)のAMRAPは1RM管理種目のRPEクランプの対象外', () => {
   const input = buildInput({
-    slot_id: 'chest_compound', muscle_group: 'chest', hasOneRm: true,
+    category_id: 'chest_press', muscle_group: 'chest', hasOneRm: true,
     sessionMins: 60, currentWeek: 9,
-    weekly_params: makeCompoundWeeklyParams('chest_compound', { 9: 10.0 }),
+    weekly_params: makeCompoundWeeklyParams('chest_press', { 9: 10.0 }),
   })
 
   const suggestion = buildProgramSuggestion(input)
@@ -212,50 +233,158 @@ test('(a) maxout週(週9)のAMRAPは1RM管理種目のRPEクランプの対象�
   assert.equal(topSet.target_rpe, 10.0, 'maxout週はクランプされずDBの値をそのまま使うはず')
 })
 
-test('(b) 60〜90/90tier: 優先部位(胸)はDBの週次working_setsどおりに漸増する', () => {
+test('(f) leg_hinge(カテゴリ既定hasOneRm:false、weekly_paramsがアイソレーション用データのみ)にデッドリフトのような1RM管理種目が割り当たっても、スロットが消えずメイン/追い込みセットが実際の1RMから計算される', () => {
+  // leg_hingeのweekly_paramsはtop_set_pct_rm等の%RM系フィールドを持たない（アイソレーション
+  // 用に作られたデータのため）。種目単位の判定でhasOneRm:trueになると、素朴には
+  // buildCompoundSetsが空配列を返しスロットごと消えてしまう（実機で発生した実バグ）。
+  // working_sets/rep_range/rpeから合成したメイン/追い込み構成にフォールバックすべきで、
+  // かつ実際に1RMが入力されていればその値から重量を計算する必要がある（初版は重量を
+  // 一律0にしてしまうバグがあった。2026-07-08、実機確認フィードバック対応の回帰防止）
   const input = buildInput({
-    slot_id: 'chest_isolation', muscle_group: 'chest',
+    category_id: 'leg_hinge', muscle_group: 'legs', hasOneRm: true,
+    sessionMins: 60, currentWeek: 1,
+    weekly_params: makeIsolationWeeklyParams('leg_hinge'),
+  })
+  const suggestion = buildProgramSuggestion(input)
+  assert.equal(suggestion.slots.length, 1, 'スロットが消えずに1件出るはず')
+  assert.ok(suggestion.slots[0].sets.length > 0, 'セットが空配列になってはいけない')
+  const topSet = suggestion.slots[0].sets.find(s => s.set_type === 'top')
+  assert.ok(topSet, 'top setがあるはず')
+  // buildInputのデフォルトone_rm_kgは100。ISOLATION_FALLBACK_TOP_SET_PCT_RM(0.8)で計算される
+  assert.equal(topSet!.suggested_weight_kg, 80, '1RM=100kgなら暫定%RM(0.8)でtop setは80kgになるはず')
+})
+
+test('(f) leg_hingeで1RM未設定の場合は、フォールバックでも重量が0（ブランク扱い）になる', () => {
+  const input = buildInput({
+    category_id: 'leg_hinge', muscle_group: 'legs', hasOneRm: true, skipOneRmRecord: true,
+    sessionMins: 60, currentWeek: 1,
+    weekly_params: makeIsolationWeeklyParams('leg_hinge'),
+  })
+  const suggestion = buildProgramSuggestion(input)
+  const topSet = suggestion.slots[0].sets.find(s => s.set_type === 'top')
+  assert.equal(topSet!.suggested_weight_kg, 0, '1RM未設定なら重量は0（ブランク扱い）のはず')
+})
+
+test('(c) 6パターン外の1RM管理カテゴリ(leg_2)は、週次固定値ではなくセッション時間でセット数が決まる', () => {
+  // makeCompoundWeeklyParamsはtop_set 1 + backoff_sets 3 = 4セットを返す設計だが、
+  // leg_2は6パターン(squat)そのものではないため、60分ならsetsForNonPatternCategory(60)=2に
+  // 収まるべき（2026-07-08、実機確認フィードバック対応の回帰防止）
+  const input60 = buildInput({
+    category_id: 'leg_2', muscle_group: 'legs', hasOneRm: true,
+    sessionMins: 60, currentWeek: 1, days: 3,
+    weekly_params: makeCompoundWeeklyParams('leg_2', {}),
+  })
+  const suggestion60 = buildProgramSuggestion(input60)
+  assert.equal(suggestion60.slots[0].sets.length, 2, '60分のleg_2は2セットになるはず（週次固定の4セットのままではいけない）')
+
+  const input90 = buildInput({
+    category_id: 'leg_2', muscle_group: 'legs', hasOneRm: true,
+    sessionMins: 90, currentWeek: 1, days: 3,
+    weekly_params: makeCompoundWeeklyParams('leg_2', {}),
+  })
+  const suggestion90 = buildProgramSuggestion(input90)
+  assert.equal(suggestion90.slots[0].sets.length, 3, '90分のleg_2は3セットになるはず')
+})
+
+test('(d) 1RM管理は種目単位で判定される: leg_hinge(カテゴリ既定はhasOneRm:false)でも、割り当てられた種目がrequires_one_rm:trueならtop/backoffセットになる', () => {
+  // デッドリフトはhip_hingeパターンの種目としてleg_hinge(hasOneRm:false)にも
+  // ルーマニアンデッドリフト等と同様に割り当てられ得るが、種目自体は1RM管理対象
+  // （program-slots-tier-matrix.tsvの「1RM管理」列）。カテゴリのhasOneRm:falseに
+  // 引きずられて1RMを聞かない・isolationセットになるのは誤り
+  // （2026-07-08、実機確認フィードバック対応の回帰防止）
+  const input = buildInput({
+    category_id: 'leg_hinge', muscle_group: 'legs', hasOneRm: true,
+    sessionMins: 60, currentWeek: 1,
+    weekly_params: makeCompoundWeeklyParams('leg_hinge', {}),
+  })
+  const suggestion = buildProgramSuggestion(input)
+  assert.ok(suggestion.slots[0].sets.some(s => s.set_type === 'top'), 'requires_one_rm:trueの種目はtop setを持つはず')
+})
+
+test('(d) 1RM管理は種目単位で判定される: leg_squat(カテゴリ既定はhasOneRm:true)でも、割り当てられた種目がrequires_one_rm:falseならisolationセットになる', () => {
+  // ブルガリアンスクワット等、squatパターンでもrequires_one_rm:falseの種目が
+  // leg_squatカテゴリに割り当てられた場合、1RM未入力を前提にworking setだけになるべき
+  const input = buildInput({
+    category_id: 'leg_squat', muscle_group: 'legs', hasOneRm: false,
+    sessionMins: 60, currentWeek: 1,
+    weekly_params: makeIsolationWeeklyParams('leg_squat'),
+  })
+  const suggestion = buildProgramSuggestion(input)
+  assert.ok(suggestion.slots[0].sets.every(s => s.set_type === 'working'), 'requires_one_rm:falseの種目はworking setのみのはず')
+})
+
+test('(e) 1RM未設定でも、requires_one_rm:trueの種目はメイン/追い込みセット構成のまま重量だけ0になる', () => {
+  // 「1RMを入力しなかった場合でもメイン/追い込みセット表示にしたい。重量はブランクで
+  // 良い」というフィードバック対応。旧来はworking一律・直近重量からの推測だったが、
+  // buildCompoundSets系にoneRm=0を渡してtop/backoff構成を維持するよう変更した
+  // （2026-07-08）
+  const input = buildInput({
+    category_id: 'chest_press', muscle_group: 'chest', hasOneRm: true, skipOneRmRecord: true,
+    sessionMins: 60, currentWeek: 1,
+    weekly_params: makeCompoundWeeklyParams('chest_press', {}),
+  })
+  const suggestion = buildProgramSuggestion(input)
+  const topSet = suggestion.slots[0].sets.find(s => s.set_type === 'top')
+  assert.ok(topSet, '1RM未設定でもtop setは存在するはず')
+  assert.equal(topSet!.suggested_weight_kg, 0, '1RM未設定時のtop setの重量は0（ブランク扱い）のはず')
+  assert.ok(suggestion.slots[0].sets.some(s => s.set_type === 'backoff'), '1RM未設定でもbackoff setは存在するはず')
+})
+
+test('(c) 6パターンのleg_squatは引き続き週次固定値(backoff_sets)どおりのセット数になる', () => {
+  const input = buildInput({
+    category_id: 'leg_squat', muscle_group: 'legs', hasOneRm: true,
+    sessionMins: 60, currentWeek: 1,
+    weekly_params: makeCompoundWeeklyParams('leg_squat', {}),
+  })
+  const suggestion = buildProgramSuggestion(input)
+  assert.equal(suggestion.slots[0].sets.length, 4, '6パターン(squat)は60分でも週次固定の4セット(top1+backoff3)のままのはず')
+})
+
+test('(b) 75分/90分: 優先部位(胸)はDBの週次working_setsどおりに漸増する', () => {
+  const input = buildInput({
+    category_id: 'chest_fly', muscle_group: 'chest',
     sessionMins: 90, currentWeek: 3, // week3のDB値は4
-    weekly_params: makeIsolationWeeklyParams('chest_isolation'),
+    weekly_params: makeIsolationWeeklyParams('chest_fly'),
+    priorityMuscles: ['chest'],
   })
 
   const suggestion = buildProgramSuggestion(input)
   const workingSets = suggestion.slots[0].sets.filter(s => s.set_type === 'working')
-  assert.equal(workingSets.length, 4, '優先部位はtier2/3でDBの週次値どおり漸増するはず')
+  assert.equal(workingSets.length, 4, '優先部位は75分/90分でDBの週次値どおり漸増するはず')
 })
 
-test('(b) 60〜90/90tier: 非優先部位(腕)はセット数が週1の値に据え置かれる', () => {
+test('(b) 75分/90分: 非優先部位(腕)はセット数がsetsForNonPatternCategory(minutes)に固定される(週次DB値には引きずられない)', () => {
   const input = buildInput({
-    slot_id: 'biceps', muscle_group: 'arms',
-    sessionMins: 90, currentWeek: 3, // week3のDB値は4だが非優先なので据え置き
-    weekly_params: makeIsolationWeeklyParams('biceps'),
+    category_id: 'biceps_1', muscle_group: 'arms',
+    sessionMins: 90, currentWeek: 3, // week3のDB値は4だが非優先なのでsetsForNonPatternCategory(90)=3に固定
+    weekly_params: makeIsolationWeeklyParams('biceps_1'),
   })
 
   const suggestion = buildProgramSuggestion(input)
   const workingSets = suggestion.slots[0].sets.filter(s => s.set_type === 'working')
-  assert.equal(workingSets.length, 3, '非優先部位は週1の値(3)に据え置かれるはず')
+  assert.equal(workingSets.length, 3, '非優先部位はsetsForNonPatternCategory(90)=3に固定されるはず')
 })
 
-test('(b) ユーザーが優先部位を選択している場合、そちらが優先されデフォルト(胸)は上書きされる', () => {
-  // 胸(デフォルト優先部位)をユーザーが選択しなかった場合、tier2/3でも据え置きになる
-  const chestNotSelected = buildInput({
-    slot_id: 'chest_isolation', muscle_group: 'chest',
+test('(b) ユーザーの優先部位選択によってボリューム漸進の対象が切り替わる', () => {
+  // priority=['back']のとき、priority枠(rank10)に入るback_2は75分/90分で漸増する
+  const backSelected = buildInput({
+    category_id: 'back_2', muscle_group: 'back',
     sessionMins: 90, currentWeek: 3,
-    weekly_params: makeIsolationWeeklyParams('chest_isolation'),
-    priorityMuscles: ['arms'], // 胸を選んでいない
+    weekly_params: makeIsolationWeeklyParams('back_2'),
+    priorityMuscles: ['back'],
   })
-  const chestSuggestion = buildProgramSuggestion(chestNotSelected)
-  const chestWorkingSets = chestSuggestion.slots[0].sets.filter(s => s.set_type === 'working')
-  assert.equal(chestWorkingSets.length, 3, 'ユーザーが胸を選ばなければデフォルトより優先されず据え置きになるはず')
+  const backSuggestion = buildProgramSuggestion(backSelected)
+  const backWorkingSets = backSuggestion.slots[0].sets.filter(s => s.set_type === 'working')
+  assert.equal(backWorkingSets.length, 4, 'ユーザーが背中を優先部位に選べば背中がボリューム漸進するはず')
 
-  // 逆にユーザーが腕を優先部位に選んでいれば、腕(通常は非優先)がボリューム漸進する
-  const armsSelected = buildInput({
-    slot_id: 'biceps', muscle_group: 'arms',
+  // 同じpriority=['back']でも、選ばれていない腕(biceps_1、base9由来で常時存在)は据え置き
+  const armsNotSelected = buildInput({
+    category_id: 'biceps_1', muscle_group: 'arms',
     sessionMins: 90, currentWeek: 3,
-    weekly_params: makeIsolationWeeklyParams('biceps'),
-    priorityMuscles: ['arms'],
+    weekly_params: makeIsolationWeeklyParams('biceps_1'),
+    priorityMuscles: ['back'],
   })
-  const armsSuggestion = buildProgramSuggestion(armsSelected)
+  const armsSuggestion = buildProgramSuggestion(armsNotSelected)
   const armsWorkingSets = armsSuggestion.slots[0].sets.filter(s => s.set_type === 'working')
-  assert.equal(armsWorkingSets.length, 4, 'ユーザーが腕を優先部位に選べば腕がボリューム漸進するはず')
+  assert.equal(armsWorkingSets.length, 3, '選ばれていない部位は据え置きになるはず')
 })

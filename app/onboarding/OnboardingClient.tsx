@@ -3,9 +3,19 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronLeft, Smartphone, Zap, Sliders, Sparkles } from 'lucide-react'
-import { PROGRAM_SLOTS, slotHasOneRm, sessionDurationToTier, isSlotActiveForFreq } from '@/lib/constants/program_slots'
-import { generateDaySlotIds } from '@/lib/suggest/generate_program_slots'
-import { MUSCLE_ORDER as PRIORITY_MUSCLE_ORDER, TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
+import {
+  BASE_CATEGORIES_BY_RANK,
+  LEG_DEFAULT_CATEGORY,
+  type CompositionCategory,
+} from '@/lib/constants/program_composition'
+import {
+  buildExerciseCategories,
+  distributeToDays,
+  isOneRmDemotedAtDays,
+  type DaysPerWeek,
+  type SessionDurationMinutes,
+} from '@/lib/suggest/generate_program_composition'
+import { PRIORITY_MUSCLE_OPTION_ORDER, PRIORITY_MUSCLE_OPTION_LABELS, MAX_PRIORITY_MUSCLES, type PriorityMuscleOption } from '@/types'
 
 // ──────────────────────────────────────────────────────────
 // Types
@@ -15,7 +25,10 @@ export type ExerciseMasterRow = {
   id: string
   name: string
   target_muscle: string
-  slot_type: string
+  movement_pattern: string
+  /** この種目が1RM管理の対象かどうか（種目ごとの属性。program_composition.tsの
+   *  カテゴリ単位のhasOneRmではなく、これが実際の1RM入力要否の正）。 */
+  requires_one_rm: boolean
 }
 
 const MUSCLE_LABELS: Record<string, string> = {
@@ -30,10 +43,32 @@ const MUSCLE_LABELS: Record<string, string> = {
 const MUSCLE_ORDER = ['chest', 'back', 'shoulders', 'legs', 'arms', 'core']
 
 // ──────────────────────────────────────────────────────────
-// Slot metadata（lib/constants/program_slots.ts が単一情報源）
+// カテゴリ一覧（lib/constants/program_composition.ts が単一情報源）
 // ──────────────────────────────────────────────────────────
 
-const SLOT_DEFS = PROGRAM_SLOTS
+const ALL_CATEGORIES: CompositionCategory[] = [...BASE_CATEGORIES_BY_RANK.values(), LEG_DEFAULT_CATEGORY]
+
+/** そのカテゴリでスワップ候補になる種目（brainstorm #3: 6パターンは動きパターン一致、それ以外は部位一致）。 */
+function matchingExercises(category: CompositionCategory, exercises: ExerciseMasterRow[]): ExerciseMasterRow[] {
+  return exercises.filter(e =>
+    category.isSixPattern ? e.movement_pattern === category.movementPattern : e.target_muscle === category.muscle
+  )
+}
+
+/**
+ * カテゴリに割り当てられた種目が実際に1RM管理の対象かどうか。種目ごとの属性
+ * （exercise.requires_one_rm）が正で、週2日の格下げ対象カテゴリは強制的にfalseにする
+ * （program_engine.tsのhasOneRm判定と同じロジック、2026-07-08実機確認フィードバック対応）。
+ */
+function exerciseRequiresOneRm(
+  category: CompositionCategory,
+  exerciseName: string,
+  exerciseByName: Map<string, ExerciseMasterRow>,
+  days: DaysPerWeek,
+): boolean {
+  if (isOneRmDemotedAtDays(category, days)) return false
+  return exerciseByName.get(exerciseName)?.requires_one_rm ?? false
+}
 
 const GEN_MESSAGES = [
   'あなたのデータを分析しています',
@@ -67,12 +102,18 @@ type Props = { exercises: ExerciseMasterRow[] }
 
 export default function OnboardingClient({ exercises }: Props) {
   const router = useRouter()
+  const exerciseByName = new Map(exercises.map(e => [e.name, e]))
   const [step, setStep] = useState<Step>('frequency')
-  const [daysPerWeek, setDaysPerWeek] = useState<2 | 3 | 4>(4)
-  const [sessionMinutes, setSessionMinutes] = useState<60 | 75 | 90>(90)
-  const [priorityMuscles, setPriorityMuscles] = useState<Set<TargetMuscle>>(new Set(['chest']))
+  const [daysPerWeek, setDaysPerWeek] = useState<DaysPerWeek>(4)
+  const [sessionMinutes, setSessionMinutes] = useState<SessionDurationMinutes>(90)
+  // 空 = 未選択（全身くまなく）。旧システムにあった「未選択なら胸」フォールバックは
+  // 廃止したため、ここでも特定の部位を初期選択状態にしない（2026-07-08）。
+  const [priorityMuscles, setPriorityMuscles] = useState<Set<PriorityMuscleOption>>(new Set())
   const [selectedExercises, setSelectedExercises] = useState<Set<string>>(new Set())
   const [slotSelections, setSlotSelections] = useState<Record<string, string>>({})
+  // ユーザーが「今やっている種目」として明示的に選んだ結果、割り当てられたカテゴリID
+  // （デフォルトで自動補完されたカテゴリは含まない。1RM入力の要否判定に使う）
+  const [userSelectedCategoryIds, setUserSelectedCategoryIds] = useState<Set<string>>(new Set())
   const [oneRms, setOneRms] = useState<Record<string, OneRmEntry>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -107,14 +148,14 @@ export default function OnboardingClient({ exercises }: Props) {
 
   // 9週間プログラムのシート（UpperLowerBodyhypertrophy9weeks_sheet.xlsx）で
   // 指定されている種目をデフォルトにする。sort_order順の先頭とは一致しない場合があるため明示指定
-  const SLOT_DEFAULT_OVERRIDES: Partial<Record<string, string>> = {
-    chest_isolation: 'ケーブルフライ',
-    back_horizontal_pull: 'チェストサポーテッドロウ',
-    triceps: 'ライイングトライセプスEX',
-    chest_triceps_compound: 'ナローベンチプレス',
-    quad_glute_secondary: 'ハイバースクワット',
-    biceps: 'ダンベルカール',
-    biceps_alt: 'インクラインダンベルカール',
+  const CATEGORY_DEFAULT_OVERRIDES: Partial<Record<string, string>> = {
+    chest_fly: 'ケーブルフライ',
+    back_row: 'チェストサポーテッドロウ',
+    triceps_1: 'ライイングトライセプスEX',
+    leg_2: 'ハイバースクワット',
+    leg_default: 'ハイバースクワット',
+    biceps_1: 'ダンベルカール',
+    biceps_2: 'インクラインダンベルカール',
   }
 
   // オンボーディングの種目選択チェックリストには表示しない種目名
@@ -125,44 +166,63 @@ export default function OnboardingClient({ exercises }: Props) {
     'ケーブルフライ（下部）',
   ])
 
-  const defaultBySlotType = (slot_type: string): string => {
-    const preferred = SLOT_DEFAULT_OVERRIDES[slot_type]
-    if (preferred) {
-      const found = exercises.find(e => e.slot_type === slot_type && e.name === preferred)
-      if (found) return found.name
-    }
-    return exercises.find(e => e.slot_type === slot_type)?.name ?? ''
+  /**
+   * 日数×priority選択から必要なカテゴリ一覧を求め、各カテゴリに種目を割り当てる。
+   * 同じ部位の複数カテゴリ（例: chest_fly, chest_3）が同じ種目を重複して選ばないよう、
+   * 一度使った種目名は次のカテゴリの候補から除外しながら順番に割り当てる。
+   */
+  const buildSlotSelections = (): { names: Record<string, string>; userSelected: Set<string> } => {
+    const categories = buildExerciseCategories(daysPerWeek, Array.from(priorityMuscles))
+    const usedNames = new Set<string>()
+    const names: Record<string, string> = {}
+    const userSelected = new Set<string>()
+
+    categories.forEach(category => {
+      const candidates = matchingExercises(category, exercises)
+      let picked = candidates.find(e => selectedExercises.has(e.name) && !usedNames.has(e.name))
+      if (picked) userSelected.add(category.id)
+      if (!picked) {
+        const overrideName = CATEGORY_DEFAULT_OVERRIDES[category.id]
+        picked = overrideName ? candidates.find(e => e.name === overrideName && !usedNames.has(e.name)) : undefined
+      }
+      if (!picked) picked = candidates.find(e => !usedNames.has(e.name))
+      if (!picked) picked = candidates[0]
+
+      names[category.id] = picked?.name ?? ''
+      if (picked) usedNames.add(picked.name)
+    })
+
+    return { names, userSelected }
   }
 
   const handleFrequencyNext = () => setStep('priority_muscles')
 
-  const togglePriorityMuscle = (muscle: TargetMuscle) => {
+  const togglePriorityMuscle = (muscle: PriorityMuscleOption) => {
     setPriorityMuscles(prev => {
       const next = new Set(prev)
-      if (next.has(muscle)) next.delete(muscle)
-      else next.add(muscle)
+      if (next.has(muscle)) {
+        next.delete(muscle)
+      } else if (next.size < MAX_PRIORITY_MUSCLES) {
+        next.add(muscle)
+      }
       return next
     })
   }
 
   const handleExercisesNext = async () => {
-    const mp = sessionDurationToTier(sessionMinutes)
-    const newSlotSelections: Record<string, string> = {}
-
-    SLOT_DEFS.filter(s => isSlotActiveForFreq(s, daysPerWeek, mp)).forEach(slot => {
-      const picked = exercises.find(
-        e => e.slot_type === slot.slot_id && selectedExercises.has(e.name)
-      )
-      newSlotSelections[slot.slot_id] = picked?.name ?? defaultBySlotType(slot.slot_id)
-    })
+    const { names: newSlotSelections, userSelected } = buildSlotSelections()
     setSlotSelections(newSlotSelections)
+    setUserSelectedCategoryIds(userSelected)
 
-    const oneRmSlots = SLOT_DEFS.filter(s =>
-      slotHasOneRm(s, daysPerWeek) &&
-      (newSlotSelections[s.slot_id] ?? defaultBySlotType(s.slot_id)) !== ''
+    // ユーザーが「今やっている種目」として選ばなかった（＝デフォルト自動補完された）
+    // カテゴリは、今やっていない種目のため重量が分からない前提で1RMを聞かない。
+    // 1RM管理の要否は割り当てられた種目自体の属性で判定する（カテゴリ単位ではない、
+    // 2026-07-08実機確認フィードバック対応）
+    const oneRmCategories = ALL_CATEGORIES.filter(c =>
+      userSelected.has(c.id) && exerciseRequiresOneRm(c, newSlotSelections[c.id] ?? '', exerciseByName, daysPerWeek)
     )
 
-    if (oneRmSlots.length === 0) {
+    if (oneRmCategories.length === 0) {
       setSaving(true)
       try {
         const enrollRes = await fetch('/api/program/enroll', {
@@ -193,7 +253,7 @@ export default function OnboardingClient({ exercises }: Props) {
     }
 
     const initial: Record<string, OneRmEntry> = {}
-    oneRmSlots.forEach(slot => { initial[slot.slot_id] = defaultOneRmEntry() })
+    oneRmCategories.forEach(category => { initial[category.id] = defaultOneRmEntry() })
     setOneRms(initial)
     setCurrentOneRmIndex(0)
     setStep('one_rms')
@@ -221,9 +281,8 @@ export default function OnboardingClient({ exercises }: Props) {
     }))
   }
 
-  const visible1RmSlots = SLOT_DEFS.filter(s =>
-    slotHasOneRm(s, daysPerWeek) &&
-    (slotSelections[s.slot_id] ?? defaultBySlotType(s.slot_id)) !== ''
+  const visible1RmSlots = ALL_CATEGORIES.filter(c =>
+    userSelectedCategoryIds.has(c.id) && exerciseRequiresOneRm(c, slotSelections[c.id] ?? '', exerciseByName, daysPerWeek)
   )
 
   const advanceOneRm = () => {
@@ -257,11 +316,11 @@ export default function OnboardingClient({ exercises }: Props) {
             .filter(([, exercise_name]) => exercise_name !== '')
             .map(([slot_id, exercise_name]) => ({ slot_id, exercise_name })),
           one_rms: visible1RmSlots
-            .filter(slot => parseFloat(oneRms[slot.slot_id]?.final_kg ?? '') > 0)
-            .map(slot => ({
-              slot_id: slot.slot_id,
-              one_rm_kg: parseFloat(oneRms[slot.slot_id]!.final_kg),
-              source: oneRms[slot.slot_id]?.source ?? 'manual_input',
+            .filter(category => parseFloat(oneRms[category.id]?.final_kg ?? '') > 0)
+            .map(category => ({
+              slot_id: category.id,
+              one_rm_kg: parseFloat(oneRms[category.id]!.final_kg),
+              source: oneRms[category.id]?.source ?? 'manual_input',
             })),
         }),
       })
@@ -297,20 +356,20 @@ export default function OnboardingClient({ exercises }: Props) {
 
   // ── program_intro ────────────────────────────────────────
   if (step === 'program_intro') {
-    const mp = sessionDurationToTier(sessionMinutes)
-    const daySlotIds = generateDaySlotIds(daysPerWeek, mp)
+    const categories = buildExerciseCategories(daysPerWeek, Array.from(priorityMuscles))
+    const dayCategories = distributeToDays(daysPerWeek, categories)
     const programByDay = Array.from({ length: daysPerWeek }, (_, i) => {
       const day = (i + 1) as 1 | 2 | 3 | 4
-      const slotIdsForDay = daySlotIds.get(day) ?? new Set<string>()
+      const categoriesForDay = dayCategories.get(day) ?? []
       return {
         day,
-        slots: SLOT_DEFS
-          .filter(s => slotIdsForDay.has(s.slot_id))
-          .map(s => ({
-            ...s,
-            has_one_rm: slotHasOneRm(s, daysPerWeek),
-            exercise: slotSelections[s.slot_id] ?? '',
-            isUserSelected: selectedExercises.has(slotSelections[s.slot_id] ?? ''),
+        slots: categoriesForDay
+          .map(c => ({
+            slot_id: c.id,
+            label: c.label,
+            has_one_rm: exerciseRequiresOneRm(c, slotSelections[c.id] ?? '', exerciseByName, daysPerWeek),
+            exercise: slotSelections[c.id] ?? '',
+            isUserSelected: userSelectedCategoryIds.has(c.id),
           }))
           .filter(s => s.exercise),
       }
@@ -318,8 +377,8 @@ export default function OnboardingClient({ exercises }: Props) {
 
     const hasAutoAdded = programByDay.some(d => d.slots.some(s => !s.isUserSelected))
 
-    const hasIsolation = SLOT_DEFS.some(
-      s => !slotHasOneRm(s, daysPerWeek) && isSlotActiveForFreq(s, daysPerWeek, mp) && slotSelections[s.slot_id]
+    const hasIsolation = categories.some(c =>
+      slotSelections[c.id] && !exerciseRequiresOneRm(c, slotSelections[c.id] ?? '', exerciseByName, daysPerWeek)
     )
 
     return (
@@ -550,8 +609,8 @@ export default function OnboardingClient({ exercises }: Props) {
 
     if (!currentSlot) return null
 
-    const entry = oneRms[currentSlot.slot_id] ?? defaultOneRmEntry()
-    const assignedExercise = slotSelections[currentSlot.slot_id] ?? defaultBySlotType(currentSlot.slot_id)
+    const entry = oneRms[currentSlot.id] ?? defaultOneRmEntry()
+    const assignedExercise = slotSelections[currentSlot.id] ?? ''
     const isCurrentValid = parseFloat(entry.final_kg) > 0
 
     return (
@@ -637,8 +696,8 @@ export default function OnboardingClient({ exercises }: Props) {
                       onChange={e =>
                         setOneRms(prev => ({
                           ...prev,
-                          [currentSlot.slot_id]: {
-                            ...(prev[currentSlot.slot_id] ?? defaultOneRmEntry()),
+                          [currentSlot.id]: {
+                            ...(prev[currentSlot.id] ?? defaultOneRmEntry()),
                             final_kg: e.target.value,
                             source: 'manual_input',
                           },
@@ -648,15 +707,15 @@ export default function OnboardingClient({ exercises }: Props) {
                     />
                     <span className="text-sm text-zinc-400 shrink-0">kg</span>
                   </div>
-                  {currentSlot.slot_id === 'quad_glute_secondary' && (() => {
-                    const squatRm = parseFloat(oneRms['quad_glute_primary']?.final_kg ?? '')
+                  {(currentSlot.id === 'leg_2' || currentSlot.id === 'leg_default') && (() => {
+                    const squatRm = parseFloat(oneRms['leg_squat']?.final_kg ?? '')
                     if (!squatRm || squatRm <= 0) return null
                     const derived = Math.round(squatRm * 0.8 / 2.5) * 2.5
                     return (
                       <button
                         onClick={() => setOneRms(prev => ({
                           ...prev,
-                          quad_glute_secondary: { ...(prev.quad_glute_secondary ?? defaultOneRmEntry()), final_kg: String(derived), source: 'manual_input' },
+                          [currentSlot.id]: { ...(prev[currentSlot.id] ?? defaultOneRmEntry()), final_kg: String(derived), source: 'manual_input' },
                         }))}
                         className="mt-1.5 text-xs text-zinc-400 dark:text-zinc-500 underline underline-offset-2"
                       >
@@ -682,8 +741,8 @@ export default function OnboardingClient({ exercises }: Props) {
                       onChange={e =>
                         setOneRms(prev => ({
                           ...prev,
-                          [currentSlot.slot_id]: {
-                            ...(prev[currentSlot.slot_id] ?? defaultOneRmEntry()),
+                          [currentSlot.id]: {
+                            ...(prev[currentSlot.id] ?? defaultOneRmEntry()),
                             epley_weight: e.target.value,
                           },
                         }))
@@ -699,8 +758,8 @@ export default function OnboardingClient({ exercises }: Props) {
                       onChange={e =>
                         setOneRms(prev => ({
                           ...prev,
-                          [currentSlot.slot_id]: {
-                            ...(prev[currentSlot.slot_id] ?? defaultOneRmEntry()),
+                          [currentSlot.id]: {
+                            ...(prev[currentSlot.id] ?? defaultOneRmEntry()),
                             epley_reps: e.target.value,
                           },
                         }))
@@ -710,7 +769,7 @@ export default function OnboardingClient({ exercises }: Props) {
                     <span className="text-sm text-zinc-400 shrink-0">回</span>
                   </div>
                   <button
-                    onClick={() => computeEpley(currentSlot.slot_id)}
+                    onClick={() => computeEpley(currentSlot.id)}
                     className="w-full py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                   >
                     推定する
@@ -788,25 +847,27 @@ export default function OnboardingClient({ exercises }: Props) {
           </div>
           <h1 className="text-xl font-semibold text-black dark:text-white">優先的に鍛えたい部位は？</h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            選んだ部位はセッション75分・90分でセット数が段階的に増えていきます（60分では発動しません）
+            選んだ部位は種目が追加され、セッション75分・90分ではセット数も段階的に増えます（60分ではセット数は増えません）。最大{MAX_PRIORITY_MUSCLES}つまで選べます。
           </p>
         </div>
 
         <div className="px-6 py-8 space-y-3">
-          {PRIORITY_MUSCLE_ORDER.map(muscle => {
+          {PRIORITY_MUSCLE_OPTION_ORDER.map(muscle => {
             const isSelected = priorityMuscles.has(muscle)
+            const isDisabled = !isSelected && priorityMuscles.size >= MAX_PRIORITY_MUSCLES
             return (
               <button
                 key={muscle}
                 onClick={() => togglePriorityMuscle(muscle)}
-                className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 transition-colors ${
+                disabled={isDisabled}
+                className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 transition-colors disabled:opacity-40 ${
                   isSelected
                     ? 'border-black dark:border-white bg-black dark:bg-white'
                     : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
                 }`}
               >
                 <span className={`text-base font-semibold ${isSelected ? 'text-white dark:text-black' : 'text-black dark:text-white'}`}>
-                  {TARGET_MUSCLE_LABELS[muscle]}
+                  {PRIORITY_MUSCLE_OPTION_LABELS[muscle]}
                 </span>
                 {isSelected && <Check className="w-5 h-5 text-white dark:text-black" />}
               </button>
@@ -831,20 +892,22 @@ export default function OnboardingClient({ exercises }: Props) {
 
   // ── exercises ────────────────────────────────────────────
   if (step === 'exercises') {
-    // 頻度に関わらず全23スロットが対象（週2・3回はDay配分が変わるだけで種目自体は減らない）
-    const activeSlotIds = new Set(SLOT_DEFS.map(s => s.slot_id))
-    const visibleExercises = exercises.filter(
-      e => activeSlotIds.has(e.slot_type) && !HIDDEN_ONBOARDING_NAMES.has(e.name)
-    )
+    // exercisesは既にmovement_patternを持つもの（=いずれかのカテゴリに該当しうる種目）のみ
+    // サーバー側で絞り込み済み（app/onboarding/page.tsx参照）
+    const visibleExercises = exercises.filter(e => !HIDDEN_ONBOARDING_NAMES.has(e.name))
+
+    // arms・coreは同じ「腕・コア」ラベルで1グループにまとめて表示する
+    // （別々のグループにすると同じ見出しが2回表示されてしまうため）
+    const groupKey = (muscle: string) => (muscle === 'core' ? 'arms' : muscle)
 
     const groupMap: Record<string, string[]> = {}
     for (const ex of visibleExercises) {
-      const muscle = ex.target_muscle
-      if (!groupMap[muscle]) groupMap[muscle] = []
-      groupMap[muscle].push(ex.name)
+      const key = groupKey(ex.target_muscle)
+      if (!groupMap[key]) groupMap[key] = []
+      groupMap[key].push(ex.name)
     }
     const visibleGroups = MUSCLE_ORDER
-      .filter(m => groupMap[m]?.length)
+      .filter(m => groupKey(m) === m && groupMap[m]?.length)
       .map(m => ({ muscle: m, label: MUSCLE_LABELS[m] ?? m, exercises: groupMap[m] }))
 
     return (

@@ -7,7 +7,7 @@ import TrainingLevelSelector from './TrainingLevelSelector'
 import AddToHomeScreenSection from '@/components/ui/AddToHomeScreenSection'
 import ProgramSection from './ProgramSection'
 import PriorityMusclesSelector from './PriorityMusclesSelector'
-import type { TrainingLevel, TargetMuscle } from '@/types'
+import type { TrainingLevel, PriorityMuscleOption } from '@/types'
 
 function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
@@ -114,7 +114,7 @@ export default async function SettingsPage() {
 
         {enrollment?.id && (
           <PriorityMusclesSelector
-            initialMuscles={(enrollment.priority_muscles as TargetMuscle[] | null) ?? []}
+            initialMuscles={(enrollment.priority_muscles as PriorityMuscleOption[] | null) ?? []}
           />
         )}
 

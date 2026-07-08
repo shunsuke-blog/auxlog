@@ -10,20 +10,36 @@ import type {
   ProgramPhase,
   UserProgramEnrollment,
   TrainingSet,
-  TargetMuscle,
 } from '@/types'
 import { INTENSITY_TECHNIQUE_LABELS } from '@/types'
+import type { PriorityMuscleOption, CompositionCategory } from '@/lib/constants/program_composition'
 import {
-  PROGRAM_SLOTS,
-  slotHasOneRm,
-  sessionDurationToTier,
-  isPriorityMuscleForUser,
-  findSupersetPartnerSlotId,
-  type FrequencyVariant,
-} from '@/lib/constants/program_slots'
-import { generateDaySlotIds } from '@/lib/suggest/generate_program_slots'
+  buildExerciseCategories,
+  distributeToDays,
+  isOneRmDemotedAtDays,
+  findSupersetPartnerCategory,
+  setsForNonPatternCategory,
+  type DaysPerWeek,
+  type SessionDurationMinutes,
+} from '@/lib/suggest/generate_program_composition'
 
-const SLOT_DEF_MAP = new Map(PROGRAM_SLOTS.map(s => [s.slot_id, s]))
+/**
+ * enrollment.priority_musclesはまだTargetMuscle[]型（二頭・三頭を区別できない）のため、
+ * 'arms'はどちらにもマッピングできず現時点では優先部位として扱えない
+ * （brainstorm #10「二頭・三頭を別選択肢にする」実装待ち、未着手）。
+ * chest/back/shoulders/legs/coreはTargetMuscleとPriorityMuscleOptionの文字列が一致するため
+ * そのまま通す。
+ */
+function toPriorityMuscleOptions(targetMuscles: readonly string[] | null | undefined): PriorityMuscleOption[] {
+  const valid = new Set(['chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'core'])
+  return (targetMuscles ?? []).filter((m): m is PriorityMuscleOption => valid.has(m))
+}
+
+/** そのカテゴリの部位がpriority選択に含まれるか（腕はbiceps/tricepsどちらかで判定）。 */
+function categoryMuscleIsPriority(category: CompositionCategory, priorities: readonly PriorityMuscleOption[]): boolean {
+  if (category.muscle === 'arms') return priorities.includes('biceps') || priorities.includes('triceps')
+  return priorities.includes(category.muscle as PriorityMuscleOption)
+}
 
 export type ProgramEngineInput = {
   enrollment: UserProgramEnrollment
@@ -93,6 +109,79 @@ function buildCompoundSets(params: ProgramWeeklyParams, oneRm: number): SetSugge
   return sets
 }
 
+// 6パターン以外の1RM管理カテゴリ（例: leg_2）は、%RMという重量計算方法だけ既存の
+// buildCompoundSetsと共有しつつ、セット数は週次固定値ではなくbrainstorm #8の
+// 「セット数=f(セッション時間)」に従わせる。backoff_setsの数を無視し、
+// targetCountちょうどになるまでtop set→backoff setの順に詰める
+// （2026-07-08、実機確認フィードバック対応。isSixPatternのみ旧来のbuildCompoundSetsのまま）。
+function buildCompoundSetsForCount(params: ProgramWeeklyParams, oneRm: number, targetCount: number): SetSuggestion[] {
+  const sets: SetSuggestion[] = []
+
+  if (params.top_set_pct_rm != null && (params.top_set_reps != null || params.top_set_is_amrap) && targetCount > 0) {
+    const rawRpe = params.top_set_rpe ?? 9
+    const targetRpe = params.phase === 'volume'
+      ? Math.min(rawRpe, COMPOUND_VOLUME_PHASE_RPE_CEILING)
+      : rawRpe
+
+    sets.push({
+      set_type: 'top',
+      suggested_weight_kg: roundWeight(oneRm * params.top_set_pct_rm),
+      target_reps: params.top_set_is_amrap ? 'amrap' : params.top_set_reps!,
+      target_rpe: targetRpe,
+    })
+  }
+
+  const remaining = targetCount - sets.length
+  if (remaining > 0 && params.backoff_pct_rm && params.backoff_reps) {
+    const backoffWeight = roundWeight(oneRm * params.backoff_pct_rm)
+    for (let i = 0; i < remaining; i++) {
+      sets.push({
+        set_type: 'backoff',
+        suggested_weight_kg: backoffWeight,
+        target_reps: params.backoff_reps,
+        target_rpe: 8,
+      })
+    }
+  }
+
+  return sets
+}
+
+// back_row/back_pull/leg_hingeのようなカテゴリはカテゴリ既定がhasOneRm:falseのため、
+// weekly_paramsがアイソレーション用フィールド(working_sets/rep_range/rpe)だけで作られ、
+// top_set_pct_rm等の%RM系フィールドを持たない。ここに1RM管理される種目（例:
+// デッドリフト）が種目単位の判定で割り当てられると、buildCompoundSets系が空配列を
+// 返しスロットごと非表示になってしまうため、アイソレーション側のデータから
+// メイン/追い込み構成を合成するフォールバック。%RMはこのカテゴリ専用のチューニング値が
+// ないため、他の1RM管理カテゴリ(chest_press/shoulder_press/leg_squat)の週1実績値
+// （top:0.75〜0.8、backoff:0.73〜0.76）を参考にした暫定値を使う。oneRm=0（1RM未入力）
+// ならroundWeight(0*pct)=0のままなので、前ターンの「重量はブランクでいい」方針も両立する
+// （2026-07-08、実機確認フィードバック対応。当初は重量を一律0にしていたが、実際に1RMが
+// 入力されているのに反映されないバグだったため修正）。
+const ISOLATION_FALLBACK_TOP_SET_PCT_RM = 0.8
+const ISOLATION_FALLBACK_BACKOFF_PCT_RM = 0.75
+
+function buildCompoundSetsFromIsolationParams(params: ProgramWeeklyParams, oneRm: number, targetCount: number): SetSuggestion[] {
+  const totalSets = targetCount > 0 ? targetCount : (params.working_sets ?? 3)
+  if (totalSets <= 0) return []
+
+  const reps = params.rep_range_min ?? 5
+  const rawRpe = params.rpe ?? 8
+  const topRpe = params.phase === 'volume' ? Math.min(rawRpe, COMPOUND_VOLUME_PHASE_RPE_CEILING) : rawRpe
+
+  const sets: SetSuggestion[] = [{
+    set_type: 'top',
+    suggested_weight_kg: roundWeight(oneRm * ISOLATION_FALLBACK_TOP_SET_PCT_RM),
+    target_reps: reps,
+    target_rpe: topRpe,
+  }]
+  const backoffWeight = roundWeight(oneRm * ISOLATION_FALLBACK_BACKOFF_PCT_RM)
+  for (let i = 1; i < totalSets; i++) {
+    sets.push({ set_type: 'backoff', suggested_weight_kg: backoffWeight, target_reps: reps, target_rpe: 8 })
+  }
+  return sets
+}
+
 function suggestIsolationWeight(params: ProgramWeeklyParams, recentSets: TrainingSet[]): number {
   const workingSets = recentSets.filter(s => !s.is_warmup)
   if (workingSets.length === 0) return 0
@@ -128,19 +217,20 @@ function buildIsolationSets(
 }
 
 // ── tier別漸進レバー ──
-// 60分tier、または60〜90/90分tierの非優先部位は、ボリューム漸進が発動しない
+// 60分、または60〜90/90分の非優先部位は、ボリューム漸進が発動しない
 // （このスロットの「漸進のレバー」は量ではなくエフォートになる）。
 // 根拠: 低ボリューム時ほどエフォート（RIR）が代償として重要になり、限界手前(RIR1)は
 // 完全限界(RIR0)とほぼ同等の肥大が得られる。ボリューム漸進は筋肉ごとに行うのが本来の
 // 使い方であり、全身一律ではない（実装依頼書 2026-07-06）。
 // 優先部位はユーザーがオンボーディング/設定で選択する（enrollment.priority_muscles）。
-// 未選択（空配列）ならisPriorityMuscleForUserがコード定数のデフォルト（胸）にフォールバックする。
-function volumeRampsThisTier(
-  muscleGroup: TargetMuscle,
-  maxTier: 1 | 2 | 3,
-  userPriorityMuscles: readonly TargetMuscle[] | null | undefined,
+// 2026-07-08、brainstorm #9の指摘により`maxTier >= 2`から`session_duration_minutes >= 75`に
+// 命名変更（ロジックは同一、新方式の「カテゴリ内tier」概念との用語衝突を解消するため）。
+function volumeRampsForCategory(
+  category: CompositionCategory,
+  sessionDurationMinutes: SessionDurationMinutes,
+  priorities: readonly PriorityMuscleOption[],
 ): boolean {
-  return maxTier >= 2 && isPriorityMuscleForUser(muscleGroup, userPriorityMuscles)
+  return sessionDurationMinutes >= 75 && categoryMuscleIsPriority(category, priorities)
 }
 
 // RIRをRPE(=10-RIR)に変換して返す。ボリューム期は週1のRIR2.5→週4のRIR0.5へ線形に漸進、
@@ -153,13 +243,6 @@ function effortRampTargetRpe(weekNumber: number, phase: ProgramPhase): number {
   }
   if (phase === 'intensity') return 8.5
   return 7.0
-}
-
-// ボリュームが漸進しないスロットの固定セット数 = 週1のDB値（=このメソサイクルの
-// 出発点の量）。9週分のweekly_paramsが渡されている前提（現在週だけの抽出ではない）。
-function fixedWorkingSetsBaseline(slotId: string, allWeeklyParams: ProgramWeeklyParams[]): number | null {
-  const week1 = allWeeklyParams.find(p => p.slot_id === slotId && p.week_number === 1)
-  return week1?.working_sets ?? null
 }
 
 function slotNotes(params: ProgramWeeklyParams): string | undefined {
@@ -181,24 +264,23 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
     recent_sets_by_exercise,
   } = input
 
-  const maxTier = sessionDurationToTier((enrollment.session_duration_minutes ?? 90) as 60 | 75 | 90)
-  const freq = enrollment.days_per_week as FrequencyVariant
+  const minutes = (enrollment.session_duration_minutes ?? 90) as SessionDurationMinutes
+  const days = enrollment.days_per_week as DaysPerWeek
+  const priorities = toPriorityMuscleOptions(enrollment.priority_muscles)
 
-  // 日別の配置は lib/suggest/generate_program_slots.ts（部位×動きパターンベースの動的生成）
-  // を正とする。DB program_slots の day_number/priority は4日版の初期値としてのみ使い、
-  // ここでは参照しない。
-  const daySlotIds = generateDaySlotIds(freq, maxTier).get(day_number) ?? new Set<string>()
-  const daySlots = slots
-    .filter(s => daySlotIds.has(s.slot_id))
-    .sort((a, b) => a.sort_order - b.sort_order)
+  // 種目の選定・日別配置は lib/suggest/generate_program_composition.ts（新方式:
+  // 種目数=f(日数)+priority選択、Day配分=貪欲法）を正とする。DB program_slots の
+  // day_number/priority/sort_orderは未使用（program_composition.tsが正）。
+  const allCategories = buildExerciseCategories(days, priorities)
+  const dayCategories = distributeToDays(days, allCategories).get(day_number) ?? []
 
-  // weekly_paramsは9週分まとめて渡される前提（fixedWorkingSetsBaselineが週1を参照するため）。
   // 現在週の行だけをスロットごとの参照用マップにする。
   const currentWeekParams = weekly_params.filter(p => p.week_number === enrollment.current_week)
   const paramsMap = new Map(currentWeekParams.map(p => [p.slot_id, p]))
   const assignmentMap = new Map(assignments.map(a => [a.slot_id, a]))
   const exerciseMap = new Map(exercises.map(e => [e.id, e]))
   const oneRmMap = new Map(one_rms.map(r => [r.slot_id, r]))
+  const slotByCategoryId = new Map(slots.map(s => [s.slot_id, s]))
 
   const phase: ProgramPhase = (() => {
     const w = enrollment.current_week
@@ -210,11 +292,14 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
 
   const slotSuggestions: SlotSuggestion[] = []
 
-  for (const slot of daySlots) {
-    const params = paramsMap.get(slot.slot_id)
+  for (const category of dayCategories) {
+    const slot = slotByCategoryId.get(category.id)
+    if (!slot) continue
+
+    const params = paramsMap.get(category.id)
     if (!params || params.is_excluded) continue
 
-    const assignment = assignmentMap.get(slot.slot_id)
+    const assignment = assignmentMap.get(category.id)
     if (!assignment) continue
 
     const exercise = exerciseMap.get(assignment.exercise_id)
@@ -222,40 +307,50 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
 
     let sets: SetSuggestion[]
 
-    const slotDef = SLOT_DEF_MAP.get(slot.slot_id)
-    const hasOneRm = slotDef ? slotHasOneRm(slotDef, freq) : slot.has_one_rm
+    // 1RM管理は種目ごとの属性（exercise.requires_one_rm）が正。同じ動きパターンでも
+    // 1RM管理する種目としない種目が混在する（例: デッドリフト=true、ルーマニアンデッドリフト=false）
+    // ため、カテゴリ単位では判定できない（2026-07-08、実機確認フィードバック対応）。
+    // 週2日の格下げ対象カテゴリだけは、選ばれた種目に関わらず1RM管理を強制的にオフにする。
+    const hasOneRm = exercise.requires_one_rm && !isOneRmDemotedAtDays(category, days)
 
     if (hasOneRm) {
-      const oneRmRecord = oneRmMap.get(slot.slot_id)
-      if (oneRmRecord) {
-        sets = buildCompoundSets(params, oneRmRecord.one_rm_kg)
-      } else {
-        // 1RM未設定: 直近の記録重量を使用、なければ weight=0 で表示
-        const recentWorkingSets = (recent_sets_by_exercise[exercise.id] ?? []).filter(s => !s.is_warmup)
-        const lastWeight = recentWorkingSets.length > 0
-          ? Math.max(...recentWorkingSets.map(s => s.weight_kg))
-          : 0
-        const count = (params.top_set_pct_rm != null ? 1 : 0) + (params.backoff_sets ?? 0) || 3
-        sets = Array.from({ length: count }, () => ({
-          set_type: 'working' as const,
-          suggested_weight_kg: lastWeight,
-          target_reps: params.backoff_reps ?? params.rep_range_min ?? 5,
-          target_rpe: 8,
-        }))
+      // 6パターン該当カテゴリ（チェストプレス・肩プレス・スクワット）だけが、既存の
+      // 週次漸進システム（weekly_paramsのtop_set/backoff_sets）でセット数まで決める
+      // 対象。それ以外の1RM管理カテゴリ（例: leg_2）は%RMで重量だけ引き継ぎ、セット数は
+      // brainstorm #8の「セット数=f(セッション時間)」に従う（2026-07-08、実機確認対応）。
+      const targetCount = category.isSixPattern ? null : setsForNonPatternCategory(minutes)
+
+      // 1RM未設定でもメイン/追い込みセットの構成（種目・レップ・RPE）は変えず、
+      // 重量だけ0（表示側で「—」扱い）にする。oneRm=0を渡せば%RM計算がそのまま0になる
+      // ため、既存のbuildCompoundSets系をそのまま再利用できる（2026-07-08、
+      // 「1RM未入力でもメイン/追い込み表示にしたい、重量はブランクでいい」という
+      // フィードバック対応。旧来の「working」一律・直近重量からの推測は廃止）。
+      const oneRmRecord = oneRmMap.get(category.id)
+      const oneRmKg = oneRmRecord?.one_rm_kg ?? 0
+      sets = targetCount != null
+        ? buildCompoundSetsForCount(params, oneRmKg, targetCount)
+        : buildCompoundSets(params, oneRmKg)
+
+      // カテゴリ既定がhasOneRm:falseのweekly_params（アイソレーション用データのみ）に、
+      // 種目単位の判定で1RM管理種目が割り当てられた場合のフォールバック
+      if (sets.length === 0) {
+        sets = buildCompoundSetsFromIsolationParams(params, oneRmKg, targetCount ?? 0)
       }
     } else {
       const recentSets = recent_sets_by_exercise[exercise.id] ?? []
-      const muscleGroup = slotDef?.muscle_group ?? (slot.muscle_group as TargetMuscle)
 
-      if (volumeRampsThisTier(muscleGroup, maxTier, enrollment.priority_muscles)) {
-        // 優先部位 かつ tier2/3: 既存どおりDBの週次working_sets/rpeをそのまま使う
+      if (volumeRampsForCategory(category, minutes, priorities)) {
+        // 優先部位 かつ75分/90分: 既存どおりDBの週次working_sets/rpeをそのまま使う
         // （ここがボリューム漸進のターゲット方式）
         sets = buildIsolationSets(params, recentSets)
       } else {
-        // 非優先部位、または tier1(60分): セット数を週1の値に固定し、RIRをフェーズで漸進させる
-        const fixedSets = fixedWorkingSetsBaseline(slot.slot_id, weekly_params) ?? params.working_sets
+        // 非優先部位、または60分: セット数はbrainstorm #8の「セット数=f(セッション時間)」に
+        // 従って固定し（週1のDB値ではなく、旧tier別漸進レバーが参照していた
+        // fixedWorkingSetsBaselineは廃止）、RIRだけをフェーズで漸進させる
+        // （2026-07-08、「1RM管理種目以外でも60分なのに3〜4セットになる」フィードバック対応。
+        // これまでhasOneRm:trueの非6パターンカテゴリにしか適用されていなかった）。
         sets = buildIsolationSets(params, recentSets, {
-          workingSets: fixedSets,
+          workingSets: setsForNonPatternCategory(minutes),
           targetRpe: effortRampTargetRpe(enrollment.current_week, phase),
         })
       }
@@ -267,17 +362,17 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
     const phaseNote = slotNotes(params)
     if (phaseNote) noteFragments.push(phaseNote)
 
-    // ~60tier: アイソレーション最終セットに強度テクニックを許可
-    if (maxTier === 1 && !hasOneRm && exercise.intensity_technique !== 'none') {
+    // 60分: アイソレーション最終セットに強度テクニックを許可
+    if (minutes === 60 && !hasOneRm && exercise.intensity_technique !== 'none') {
       const label = INTENSITY_TECHNIQUE_LABELS[exercise.intensity_technique]
       noteFragments.push(`最終セットは${label}で追い込みOK`)
     }
 
-    // 拮抗筋スーパーセット: 時間が逼迫するtier(60〜90分)でのみ提示
-    if (maxTier === 2) {
-      const partnerId = findSupersetPartnerSlotId(slot.slot_id, daySlotIds)
-      const partnerExerciseName = partnerId
-        ? exerciseMap.get(assignmentMap.get(partnerId)?.exercise_id ?? '')?.name
+    // 拮抗筋スーパーセット: 時間が逼迫する75分でのみ提示
+    if (minutes === 75) {
+      const partnerCategory = findSupersetPartnerCategory(category, dayCategories)
+      const partnerExerciseName = partnerCategory
+        ? exerciseMap.get(assignmentMap.get(partnerCategory.id)?.exercise_id ?? '')?.name
         : undefined
       if (partnerExerciseName) {
         noteFragments.push(`「${partnerExerciseName}」とスーパーセットで時短も可能`)
@@ -285,7 +380,7 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
     }
 
     slotSuggestions.push({
-      slot_id: slot.slot_id,
+      slot_id: category.id,
       slot,
       exercise,
       sets,
