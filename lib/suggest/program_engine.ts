@@ -182,6 +182,18 @@ function buildCompoundSetsFromIsolationParams(params: ProgramWeeklyParams, oneRm
   return sets
 }
 
+// 1RMが未登録の種目向けフォールバック。デフォルト自動補完された種目はオンボーディングで
+// 1RMを聞かれない（今やっていない種目のため答えられない、2026-07-08訂正）ため、正式な1RMが
+// 一度も無い状態であっても、ユーザーが実際にログした直近セットがあればEpley推定式
+// （オンボーディングの手動Epley推定と同じ式）で1RMを見積もる。ログが1件も無い
+// （本当に未経験の種目）場合のみ0（表示側で「—」扱い、既存方針を維持）。
+function estimateOneRmFromRecentSets(recentSets: TrainingSet[]): number {
+  const workingSets = recentSets.filter(s => !s.is_warmup)
+  if (workingSets.length === 0) return 0
+  const estimates = workingSets.map(s => s.weight_kg * (1 + s.reps / 30))
+  return Math.round(Math.max(...estimates) / 2.5) * 2.5
+}
+
 function suggestIsolationWeight(params: ProgramWeeklyParams, recentSets: TrainingSet[]): number {
   const workingSets = recentSets.filter(s => !s.is_warmup)
   if (workingSets.length === 0) return 0
@@ -306,6 +318,7 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
     if (!exercise) continue
 
     let sets: SetSuggestion[]
+    const recentSets = recent_sets_by_exercise[exercise.id] ?? []
 
     // 1RM管理は種目ごとの属性（exercise.requires_one_rm）が正。同じ動きパターンでも
     // 1RM管理する種目としない種目が混在する（例: デッドリフト=true、ルーマニアンデッドリフト=false）
@@ -320,13 +333,14 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
       // brainstorm #8の「セット数=f(セッション時間)」に従う（2026-07-08、実機確認対応）。
       const targetCount = category.isSixPattern ? null : setsForNonPatternCategory(minutes)
 
-      // 1RM未設定でもメイン/追い込みセットの構成（種目・レップ・RPE）は変えず、
-      // 重量だけ0（表示側で「—」扱い）にする。oneRm=0を渡せば%RM計算がそのまま0になる
-      // ため、既存のbuildCompoundSets系をそのまま再利用できる（2026-07-08、
-      // 「1RM未入力でもメイン/追い込み表示にしたい、重量はブランクでいい」という
-      // フィードバック対応。旧来の「working」一律・直近重量からの推測は廃止）。
+      // 正式な1RMが無い場合、実際にログした直近セットがあればEpley推定で1RMを見積もる
+      // （デフォルト自動補完された種目はオンボーディングで1RMを聞かれないため、正式な
+      // 1RMが無いままログだけ蓄積するケースがある。2026-07-08、ダンベルショルダープレスの
+      // 重量が一切提案されないバグの修正——「聞いても分からない値を聞く」のではなく
+      // 「実際に記録された値から推定する」方針に変更）。ログも無い場合のみ0
+      // （表示側で「—」扱い、メイン/追い込みの構成自体は変えない既存方針を維持）。
       const oneRmRecord = oneRmMap.get(category.id)
-      const oneRmKg = oneRmRecord?.one_rm_kg ?? 0
+      const oneRmKg = oneRmRecord?.one_rm_kg ?? estimateOneRmFromRecentSets(recentSets)
       sets = targetCount != null
         ? buildCompoundSetsForCount(params, oneRmKg, targetCount)
         : buildCompoundSets(params, oneRmKg)
@@ -337,8 +351,6 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
         sets = buildCompoundSetsFromIsolationParams(params, oneRmKg, targetCount ?? 0)
       }
     } else {
-      const recentSets = recent_sets_by_exercise[exercise.id] ?? []
-
       if (volumeRampsForCategory(category, minutes, priorities)) {
         // 優先部位 かつ75分/90分: 既存どおりDBの週次working_sets/rpeをそのまま使う
         // （ここがボリューム漸進のターゲット方式）

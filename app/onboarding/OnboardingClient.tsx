@@ -48,10 +48,16 @@ const MUSCLE_ORDER = ['chest', 'back', 'shoulders', 'legs', 'arms', 'core']
 
 const ALL_CATEGORIES: CompositionCategory[] = [...BASE_CATEGORIES_BY_RANK.values(), LEG_DEFAULT_CATEGORY]
 
-/** そのカテゴリでスワップ候補になる種目（brainstorm #3: 6パターンは動きパターン一致、それ以外は部位一致）。 */
+/**
+ * そのカテゴリでスワップ候補になる種目。movementPatternを持つカテゴリはそれで絞り込む
+ * （腕は二頭/三頭、肩はプレス/側方/後部のように、同じ部位でも動きパターンが違えば
+ * 別カテゴリとして区別する意味がなくなるため）。movementPatternを持たないカテゴリのみ
+ * 部位一致にフォールバックする（2026-07-08、バーベルカールが三頭2種目目に誤割当される
+ * バグの修正。brainstorm #3の「動きパターンでは絞らない」は撤回）。
+ */
 function matchingExercises(category: CompositionCategory, exercises: ExerciseMasterRow[]): ExerciseMasterRow[] {
   return exercises.filter(e =>
-    category.isSixPattern ? e.movement_pattern === category.movementPattern : e.target_muscle === category.muscle
+    category.movementPattern ? e.movement_pattern === category.movementPattern : e.target_muscle === category.muscle
   )
 }
 
@@ -215,7 +221,10 @@ export default function OnboardingClient({ exercises }: Props) {
     setUserSelectedCategoryIds(userSelected)
 
     // ユーザーが「今やっている種目」として選ばなかった（＝デフォルト自動補完された）
-    // カテゴリは、今やっていない種目のため重量が分からない前提で1RMを聞かない。
+    // カテゴリは、今やっていない種目のため重量が分からない前提で1RMを聞かない
+    // （聞いても答えられないため無意味、2026-07-08訂正）。デフォルト補完された
+    // requires_one_rm種目の重量提案は、1RM入力の代わりに実際にログした直近セットから
+    // program_engine.tsが自動推定する（suggestIsolationWeightと同様のフォールバック）。
     // 1RM管理の要否は割り当てられた種目自体の属性で判定する（カテゴリ単位ではない、
     // 2026-07-08実機確認フィードバック対応）
     const oneRmCategories = ALL_CATEGORIES.filter(c =>

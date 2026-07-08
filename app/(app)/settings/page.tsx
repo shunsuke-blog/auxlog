@@ -6,8 +6,7 @@ import LogoutButton from './LogoutButton'
 import TrainingLevelSelector from './TrainingLevelSelector'
 import AddToHomeScreenSection from '@/components/ui/AddToHomeScreenSection'
 import ProgramSection from './ProgramSection'
-import PriorityMusclesSelector from './PriorityMusclesSelector'
-import type { TrainingLevel, PriorityMuscleOption } from '@/types'
+import type { TrainingLevel } from '@/types'
 
 function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
@@ -39,7 +38,7 @@ export default async function SettingsPage() {
       .single(),
     supabase
       .from('user_program_enrollments')
-      .select('id, priority_muscles')
+      .select('id')
       .eq('user_id', user.id)
       .eq('is_active', true)
       .maybeSingle(),
@@ -111,12 +110,6 @@ export default async function SettingsPage() {
         </Link>
         
         <TrainingLevelSelector initialLevel={trainingLevel} />
-
-        {enrollment?.id && (
-          <PriorityMusclesSelector
-            initialMuscles={(enrollment.priority_muscles as PriorityMuscleOption[] | null) ?? []}
-          />
-        )}
 
         <ProgramSection enrollmentId={enrollment?.id ?? null} />
 

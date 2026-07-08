@@ -373,6 +373,20 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
         </div>
       )}
 
+      {/* 全種目完了 → 次の週へボタン（2026-07-08、下部に埋もれて気付きにくいとの
+          フィードバックを受けてコンテンツ最上部に移動） */}
+      {weekStatus?.all_complete && currentWeek < 9 && (
+        <div className="px-5 pt-1">
+          <button
+            onClick={advanceWeek}
+            disabled={advancingWeek}
+            className="w-full py-4 rounded-3xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-50 transition-opacity"
+          >
+            {advancingWeek ? '更新中...' : `Week ${currentWeek} 完了 → Week ${currentWeek + 1} へ`}
+          </button>
+        </div>
+      )}
+
       {/* コンテンツ */}
       <div className="px-5 py-4 space-y-4">
         {loading ? (
@@ -454,17 +468,6 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
                 </SwipeableCard>
               )
             })}
-
-            {/* 全種目完了 → 次の週へボタン */}
-            {weekStatus?.all_complete && currentWeek < 9 && (
-              <button
-                onClick={advanceWeek}
-                disabled={advancingWeek}
-                className="w-full py-4 rounded-3xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-50 transition-opacity"
-              >
-                {advancingWeek ? '更新中...' : `Week ${currentWeek} 完了 → Week ${currentWeek + 1} へ`}
-              </button>
-            )}
 
             {/* 種目追加ボタン */}
             <button

@@ -81,11 +81,13 @@ export default async function CoachingPage() {
     (rawSlotExercises ?? []).map(ex => [ex.name as string, ex.requires_one_rm as boolean])
   )
 
-  // カテゴリごとのスワップ候補（brainstorm #3: 6パターンは動きパターン一致、それ以外は部位一致）
+  // カテゴリごとのスワップ候補。movementPatternを持つカテゴリはそれで一致するものだけ
+  // （腕の二頭/三頭、肩のプレス/側方/後部を混同しないため。2026-07-08、
+  // OnboardingClient.tsxのmatchingExercisesと同じロジックに統一）
   const slotOptions = new Map<string, string[]>()
   for (const category of ALL_CATEGORIES) {
     const options = (rawSlotExercises ?? [])
-      .filter(ex => category.isSixPattern
+      .filter(ex => category.movementPattern
         ? ex.movement_pattern === category.movementPattern
         : ex.target_muscle === category.muscle)
       .map(ex => ex.name as string)
@@ -221,6 +223,7 @@ export default async function CoachingPage() {
         daysPerWeek: enrollment.days_per_week,
         sessionDurationMinutes: enrollment.session_duration_minutes,
         startedAt: enrollment.started_at,
+        priorityMuscles: priorities,
       }}
       dayData={dayData}
       weightHistory={weightHistory}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { ChevronRight } from 'lucide-react'
 import SlotExerciseModal from './SlotExerciseModal'
+import { PRIORITY_MUSCLE_OPTION_LABELS, type PriorityMuscleOption } from '@/types'
 
 const WeightProgressChart = dynamic(() => import('./WeightProgressChart'), { ssr: false })
 
@@ -115,6 +116,7 @@ type Props = {
     daysPerWeek: number
     sessionDurationMinutes: number | null
     startedAt: string | null
+    priorityMuscles: PriorityMuscleOption[]
   }
   dayData: DayData[]
   weightHistory: WeightHistory[]
@@ -129,7 +131,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
   const [savingSlot, setSavingSlot] = useState(false)
   const [slotError, setSlotError] = useState<string | null>(null)
 
-  const { id: enrollmentId, currentWeek, daysPerWeek, sessionDurationMinutes, startedAt } = enrollment
+  const { id: enrollmentId, currentWeek, daysPerWeek, sessionDurationMinutes, startedAt, priorityMuscles } = enrollment
 
   const handleSelectExercise = async (exerciseName: string) => {
     if (!editingSlot) return
@@ -257,6 +259,18 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
                     </p>
                   </div>
                 )}
+                {/* 優先部位は種目構成・Day配分そのものに関わり、現在の割り当て
+                    (user_slot_assignments)を作り直さない限り安全に変更できないため、
+                    ここでは表示のみ（変更はプログラムのリセットから）。
+                    2026-07-08、設定画面の編集UIは削除しこちらに移設 */}
+                <div>
+                  <p className="text-[10px] text-zinc-400 mb-0.5">優先部位</p>
+                  <p className="text-sm font-semibold text-black dark:text-white">
+                    {priorityMuscles.length > 0
+                      ? priorityMuscles.map(m => PRIORITY_MUSCLE_OPTION_LABELS[m]).join('・')
+                      : '全身くまなく'}
+                  </p>
+                </div>
               </div>
             </div>
 

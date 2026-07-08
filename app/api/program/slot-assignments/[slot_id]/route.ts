@@ -38,15 +38,18 @@ export async function PATCH(
   if (is_hidden !== undefined) updates.is_hidden = is_hidden
 
   if (exercise_name !== undefined) {
-    // このスロットで選択可能な種目かどうかを検証（brainstorm #3の入れ替え可能性ルール）:
-    // 6パターン該当カテゴリは動きパターンで一致、それ以外は部位で一致するものだけ許可する。
+    // このスロットで選択可能な種目かどうかを検証。movementPatternを持つカテゴリは
+    // それで一致するものだけ許可し（腕の二頭/三頭、肩のプレス/側方/後部などを混同しないため）、
+    // movementPatternを持たないカテゴリのみ部位一致で許可する
+    // （2026-07-08、brainstorm #3の「動きパターンでは絞らない」を撤回。OnboardingClient.tsxの
+    // matchingExercisesと同じロジック）。
     const category = CATEGORY_BY_ID.get(slot_id)!
     let query = supabase
       .from('exercise_master')
       .select('id, is_compound')
       .eq('name', exercise_name)
-    query = category.isSixPattern
-      ? query.eq('movement_pattern', category.movementPattern!)
+    query = category.movementPattern
+      ? query.eq('movement_pattern', category.movementPattern)
       : query.eq('target_muscle', category.muscle)
     const { data: master, error: masterError } = await query.maybeSingle()
 
