@@ -38,13 +38,20 @@ export async function POST(request: Request) {
       .eq('id', user.id)
   }
 
-  const origin = request.headers.get('origin')
-    ?? process.env.NEXT_PUBLIC_APP_URL
-    ?? 'https://auxlog.app'
+  // origin はクライアントが送るOriginヘッダーを使わず、信頼できるサーバー側の値のみ使う
+  // （Originヘッダーを信頼すると、攻撃者が任意ドメインをreturn_urlに混入できてしまう
+  // オープンリダイレクトになるため、2026-07-09コードレビューで修正）。
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'https://auxlog.app'
+
+  // returnPathも「/」始まりの相対パスのみ許可し、`//evil.com`のようなプロトコル相対URLや
+  // 絶対URLが紛れ込まないようにする
+  const safeReturnPath = returnPath && returnPath.startsWith('/') && !returnPath.startsWith('//')
+    ? returnPath
+    : '/settings'
 
   const session = await stripe.billingPortal.sessions.create({
     customer: customerId,
-    return_url: `${origin}${returnPath ?? '/settings'}`,
+    return_url: `${origin}${safeReturnPath}`,
   })
 
   return NextResponse.json({ url: session.url })

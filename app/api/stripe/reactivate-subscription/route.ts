@@ -43,13 +43,19 @@ export async function POST() {
     return NextResponse.json({ error: message }, { status: 500 })
   }
 
-  await supabase
+  // Stripe側は既に成立しているため、この書き込みが失敗しても5xxにはせずログのみ残す
+  // （customer.subscription.createdのWebhookが後追いで状態を修正する、
+  // 2026-07-09コードレビュー対応）。
+  const { error: saveError } = await supabase
     .from('users')
     .update({
       stripe_subscription_id: subscription.id,
       subscription_status: subscription.status,
     })
     .eq('id', user.id)
+  if (saveError) {
+    console.error('[reactivate-subscription] subscription状態の保存失敗:', saveError.message)
+  }
 
   return NextResponse.json({ subscription_id: subscription.id })
 }

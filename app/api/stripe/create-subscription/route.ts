@@ -33,10 +33,13 @@ export async function POST() {
     })
     customerId = customer.id
     // Customer作成直後にDBへ保存（以降の処理が失敗してもIDが失われない）
-    await supabase
+    const { error: customerSaveError } = await supabase
       .from('users')
       .update({ stripe_customer_id: customerId })
       .eq('id', user.id)
+    if (customerSaveError) {
+      console.error('[create-subscription] stripe_customer_id保存失敗:', customerSaveError.message)
+    }
   }
 
   let subscription
@@ -58,8 +61,11 @@ export async function POST() {
     ? new Date(subscription.trial_end * 1000).toISOString()
     : null
 
-  // Subscription作成直後にDBへ保存（以降の処理が失敗してもIDが失われない）
-  await supabase
+  // Subscription作成直後にDBへ保存（以降の処理が失敗してもIDが失われない）。
+  // この書き込みが失敗してもStripe側は既に成立しているため、ここでは5xxにせずログのみ
+  // 残す（customer.subscription.createdのWebhookが後追いで状態を修正する、
+  // 2026-07-09コードレビュー対応）。
+  const { error: subscriptionSaveError } = await supabase
     .from('users')
     .update({
       stripe_subscription_id: subscription.id,
@@ -67,6 +73,9 @@ export async function POST() {
       ...(trialEnd ? { trial_ends_at: trialEnd } : {}),
     })
     .eq('id', user.id)
+  if (subscriptionSaveError) {
+    console.error('[create-subscription] subscription状態の保存失敗:', subscriptionSaveError.message)
+  }
 
   // 新規登録通知
   if (process.env.RESEND_API_KEY) {

@@ -27,10 +27,17 @@ export async function POST() {
     const subscription = await stripe.subscriptions.update(userData.stripe_subscription_id, {
       cancel_at_period_end: false,
     })
-    await supabase
+    // Supabaseクライアントはクエリ失敗時に例外を投げないため、このtry/catchはStripe呼び出しの
+    // 失敗しか捕捉できていなかった。Stripe側は既に成立しているため、DB書き込み失敗時も
+    // 5xxにはせずログのみ残す（customer.subscription.updatedのWebhookが後追いで修正する、
+    // 2026-07-09コードレビュー対応）。
+    const { error: saveError } = await supabase
       .from('users')
       .update({ subscription_status: subscription.status })
       .eq('id', user.id)
+    if (saveError) {
+      console.error('[resume-subscription] subscription状態の保存失敗:', saveError.message)
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ error: message }, { status: 500 })

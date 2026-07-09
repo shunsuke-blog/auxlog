@@ -45,13 +45,19 @@ export async function POST() {
     ? new Date(sub.current_period_end * 1000).toISOString()
     : (sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null)
 
-  await supabase
+  // Stripe側は既に解約予約済みのため、この書き込みが失敗しても5xxにはせずログのみ残す
+  // （customer.subscription.updatedのWebhookが後追いで状態を修正する、
+  // 2026-07-09コードレビュー対応）。
+  const { error: saveError } = await supabase
     .from('users')
     .update({
       subscription_status: 'canceling',
       ...(serviceEndsAt ? { trial_ends_at: serviceEndsAt } : {}),
     })
     .eq('id', user.id)
+  if (saveError) {
+    console.error('[cancel-subscription] subscription状態の保存失敗:', saveError.message)
+  }
 
   return NextResponse.json({ success: true, ends_at: serviceEndsAt })
 }
