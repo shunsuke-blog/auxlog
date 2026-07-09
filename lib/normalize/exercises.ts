@@ -27,7 +27,7 @@ export type RawUserExercise = {
 
 const VALID_MUSCLES = Object.keys(TARGET_MUSCLE_LABELS)
 
-export function normalizeExercise(e: RawUserExercise): UserExercise {
+function normalizeExercise(e: RawUserExercise): UserExercise {
   const name = e.custom_name ?? e.exercise_master?.name ?? ''
   const rawMuscle = e.custom_target_muscle ?? e.exercise_master?.target_muscle ?? ''
   const isBodyweight = e.custom_name

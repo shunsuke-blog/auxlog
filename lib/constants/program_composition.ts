@@ -119,8 +119,3 @@ export const PRIORITY_CATEGORY_MAP: Record<PriorityMuscleOption, { category: Com
   core: { category: core2, skipRank: 19 },
   legs: { category: calves, skipRank: 21 },
 }
-
-/** 必須6動きパターン（brainstorm #1）。 */
-export const SIX_REQUIRED_PATTERNS: readonly MovementPattern[] = [
-  'horizontal_press', 'vertical_press', 'horizontal_pull', 'vertical_pull', 'squat', 'hip_hinge',
-]
