@@ -12,6 +12,7 @@ import type {
   TrainingSet,
 } from '@/types'
 import { INTENSITY_TECHNIQUE_LABELS } from '@/types'
+import { estimateOneRm } from '@/lib/utils/epley'
 import type { PriorityMuscleOption, CompositionCategory } from '@/lib/constants/program_composition'
 import {
   buildExerciseCategories,
@@ -190,8 +191,8 @@ function buildCompoundSetsFromIsolationParams(params: ProgramWeeklyParams, oneRm
 function estimateOneRmFromRecentSets(recentSets: TrainingSet[]): number {
   const workingSets = recentSets.filter(s => !s.is_warmup)
   if (workingSets.length === 0) return 0
-  const estimates = workingSets.map(s => s.weight_kg * (1 + s.reps / 30))
-  return Math.round(Math.max(...estimates) / 2.5) * 2.5
+  const estimates = workingSets.map(s => estimateOneRm(s.weight_kg, s.reps, 2.5))
+  return Math.max(...estimates)
 }
 
 function suggestIsolationWeight(params: ProgramWeeklyParams, recentSets: TrainingSet[]): number {

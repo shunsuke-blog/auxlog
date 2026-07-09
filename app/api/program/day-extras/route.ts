@@ -106,6 +106,17 @@ export async function POST(request: Request) {
 
   if (!enrollment) return NextResponse.json({ error: 'アクティブなプログラムがありません' }, { status: 404 })
 
+  // exercise_idが自分自身のuser_exercisesであることを確認する（FK制約は存在確認のみで
+  // 所有権までは保証しないため、2026-07-09コードレビュー対応）
+  const { data: ownedExercise } = await supabase
+    .from('user_exercises')
+    .select('id')
+    .eq('id', exercise_id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (!ownedExercise) return NextResponse.json({ error: 'この種目は使用できません' }, { status: 403 })
+
   const { error } = await supabase
     .from('user_program_day_extras')
     .insert({ user_id: user.id, enrollment_id: enrollment.id, exercise_id, day_number })

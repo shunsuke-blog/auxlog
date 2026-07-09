@@ -16,6 +16,7 @@ import {
   type SessionDurationMinutes,
 } from '@/lib/suggest/generate_program_composition'
 import { PRIORITY_MUSCLE_OPTION_ORDER, PRIORITY_MUSCLE_OPTION_LABELS, MAX_PRIORITY_MUSCLES, type PriorityMuscleOption } from '@/types'
+import { estimateOneRm } from '@/lib/utils/epley'
 
 // ──────────────────────────────────────────────────────────
 // Types
@@ -283,7 +284,7 @@ export default function OnboardingClient({ exercises }: Props) {
     const w = parseFloat(entry.epley_weight)
     const r = parseInt(entry.epley_reps)
     if (isNaN(w) || isNaN(r) || w <= 0 || r <= 0) return
-    const estimated = Math.round(w * (1 + r / 30) / 2.5) * 2.5
+    const estimated = estimateOneRm(w, r, 2.5)
     setOneRms(prev => ({
       ...prev,
       [slot_id]: { ...(prev[slot_id] ?? defaultOneRmEntry()), final_kg: String(estimated), source: 'epley_estimated' },

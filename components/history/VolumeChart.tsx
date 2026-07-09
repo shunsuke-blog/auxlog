@@ -6,6 +6,7 @@ import {
 } from 'recharts'
 import { ChevronsUpDown } from 'lucide-react'
 import type { UserExercise, HistorySession } from '@/types'
+import { estimateOneRm } from '@/lib/utils/epley'
 
 type Metric = 'max' | 'volume' | '1rm'
 
@@ -19,11 +20,6 @@ const METRICS: { key: Metric; label: string }[] = [
   { key: 'volume', label: '総挙上量' },
   { key: '1rm', label: '推定1RM' },
 ]
-
-function epley1RM(weight: number, reps: number) {
-  if (reps === 1) return weight
-  return Math.round(weight * (1 + reps / 30))
-}
 
 export default function VolumeChart({ sessions, exercises }: Props) {
   const [selectedExerciseId, setSelectedExerciseId] = useState<string>(
@@ -62,7 +58,7 @@ export default function VolumeChart({ sessions, exercises }: Props) {
         } else if (metric === 'volume') {
           value = exSets.reduce((sum, set) => sum + set.weight_kg * set.reps, 0)
         } else {
-          value = Math.max(...exSets.map(set => epley1RM(set.weight_kg, set.reps)))
+          value = Math.max(...exSets.map(set => estimateOneRm(set.weight_kg, set.reps)))
         }
         return { date, value }
       })
