@@ -22,14 +22,23 @@ export async function GET() {
   weekStart.setDate(weekStart.getDate() + (enrollment.current_week - 1) * 7)
   const weekStartStr = weekStart.toISOString().split('T')[0]
 
-  // 今週のセッションIDを取得
-  const { data: sessions, error: sessionsError } = await supabase
-    .from('training_sessions')
-    .select('id')
-    .eq('user_id', user.id)
-    .gte('trained_at', weekStartStr)
+  // 今週のセッションIDと全スロット割り当て（全Day）は互いに依存しないため並列取得
+  // （2026-07-10、ホーム画面の体感速度改善でラウンドトリップを1回減らす）
+  const [{ data: sessions, error: sessionsError }, { data: assignments, error: assignmentsError }] = await Promise.all([
+    supabase
+      .from('training_sessions')
+      .select('id')
+      .eq('user_id', user.id)
+      .gte('trained_at', weekStartStr),
+    supabase
+      .from('user_slot_assignments')
+      .select('exercise_id')
+      .eq('enrollment_id', enrollment.id)
+      .eq('is_hidden', false),
+  ])
 
   if (sessionsError) return dbError('今週のセッション取得に失敗しました', sessionsError)
+  if (assignmentsError) return dbError('種目割り当ての取得に失敗しました', assignmentsError)
 
   const sessionIds = (sessions ?? []).map((s: { id: string }) => s.id)
 
@@ -46,15 +55,6 @@ export async function GET() {
 
     completedExerciseIds = [...new Set((sets ?? []).map((s: { exercise_id: string }) => s.exercise_id))]
   }
-
-  // 全スロット割り当て（全Day）を取得
-  const { data: assignments, error: assignmentsError } = await supabase
-    .from('user_slot_assignments')
-    .select('exercise_id')
-    .eq('enrollment_id', enrollment.id)
-    .eq('is_hidden', false)
-
-  if (assignmentsError) return dbError('種目割り当ての取得に失敗しました', assignmentsError)
 
   const allExerciseIds = (assignments ?? []).map((a: { exercise_id: string }) => a.exercise_id)
   const completedSet = new Set(completedExerciseIds)

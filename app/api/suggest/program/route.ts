@@ -39,8 +39,14 @@ export async function GET(request: Request) {
   if (enrollError) return NextResponse.json({ error: enrollError.message }, { status: 500 })
   if (!enrollment) return NextResponse.json({ error: 'アクティブなプログラムがありません' }, { status: 404 })
 
-  // 並列取得: スロット・週次パラメータ・割り当て・種目・1RM
-  const [slotsRes, paramsRes, assignmentsRes, exercisesRes, oneRmsRes] = await Promise.all([
+  const cutoffDate = new Date()
+  cutoffDate.setDate(cutoffDate.getDate() - 14)
+  const cutoffStr = cutoffDate.toISOString().split('T')[0]
+
+  // 並列取得: スロット・週次パラメータ・割り当て・種目・1RM・直近セッション
+  // （直近セッションはenrollment/assignmentsに依存しないため、ここで同時に取得して
+  // ラウンドトリップを1回減らす。2026-07-10、ホーム画面の体感速度改善）
+  const [slotsRes, paramsRes, assignmentsRes, exercisesRes, oneRmsRes, recentSessionsRes] = await Promise.all([
     supabase
       .from('program_slots')
       .select('*')
@@ -63,6 +69,12 @@ export async function GET(request: Request) {
       .select('*')
       .eq('user_id', user.id)
       .order('recorded_at', { ascending: false }),
+    supabase
+      .from('training_sessions')
+      .select('id')
+      .eq('user_id', user.id)
+      .gte('trained_at', cutoffStr)
+      .limit(RECENT_SESSIONS_LIMIT),
   ])
 
   if (slotsRes.error || paramsRes.error || assignmentsRes.error) {
@@ -82,18 +94,7 @@ export async function GET(request: Request) {
   const recentSetsByExercise: Record<string, TrainingSet[]> = {}
 
   if (exerciseIds.length > 0) {
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - 14)
-    const cutoffStr = cutoffDate.toISOString().split('T')[0]
-
-    const { data: recentSessions } = await supabase
-      .from('training_sessions')
-      .select('id')
-      .eq('user_id', user.id)
-      .gte('trained_at', cutoffStr)
-      .limit(RECENT_SESSIONS_LIMIT)
-
-    const sessionIds = (recentSessions ?? []).map(s => s.id)
+    const sessionIds = (recentSessionsRes.data ?? []).map(s => s.id)
     if (sessionIds.length > 0) {
       const { data: recentSets } = await supabase
         .from('training_sets')
