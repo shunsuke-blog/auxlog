@@ -20,6 +20,7 @@ const shoulderRearDelt = BASE_CATEGORIES_BY_RANK.get(12)! // 肩後部
 const shoulderLateral = BASE_CATEGORIES_BY_RANK.get(13)!  // 肩側方
 const shoulderPress = BASE_CATEGORIES_BY_RANK.get(2)! // バーチカルプレス(6パターン)
 const leg2 = BASE_CATEGORIES_BY_RANK.get(16)! // 脚2種目目（スクワット or ヒップヒンジ）
+const back2 = BASE_CATEGORIES_BY_RANK.get(14)! // 背中2種目目（ホリゾンタルロウ or バーチカルプル）
 
 function ex(name: string, target_muscle: string, movement_pattern: string, requires_one_rm = false): ExerciseMasterRow {
   return { id: name, name, target_muscle, movement_pattern, requires_one_rm }
@@ -66,6 +67,18 @@ test('matchingExercises: movementPatternが配列指定のカテゴリ(脚2種�
   const benchPress = ex('ベンチプレス', 'chest', 'horizontal_press', true)
   const candidates = matchingExercises(leg2, [highBarSquat, hipThrust, legPress, benchPress])
   assert.deepEqual(candidates.map(c => c.name).sort(), ['ハイバースクワット', 'ヒップスラスト', 'レッグプレス'])
+})
+
+test('matchingExercises: movementPatternが配列指定のカテゴリ(背中2種目目)はいずれかに一致すればよい(回帰テスト)', () => {
+  // brainstorm #10「背中｜ホリゾンタルロウ/バーチカルプルのいずれか(2種目目相当)」。leg_2と同じ
+  // 動きパターン厳密化の際に horizontal_pull 単一に制限してしまい、ラットプルダウン等の
+  // バーチカルプル系種目が選べなくなっていたバグの修正
+  const bentOverRow = ex('ベントオーバーロウ', 'back', 'horizontal_pull')
+  const latPulldown = ex('ラットプルダウン', 'back', 'vertical_pull')
+  const seatedCableRow = ex('シーテッドケーブルロウ', 'back', 'horizontal_pull')
+  const benchPress2 = ex('ベンチプレス', 'chest', 'horizontal_press', true)
+  const candidates = matchingExercises(back2, [bentOverRow, latPulldown, seatedCableRow, benchPress2])
+  assert.deepEqual(candidates.map(c => c.name).sort(), ['シーテッドケーブルロウ', 'ベントオーバーロウ', 'ラットプルダウン'])
 })
 
 test('exerciseRequiresOneRm: 種目のrequires_one_rmを反映する', () => {

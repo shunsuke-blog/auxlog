@@ -74,7 +74,8 @@ const triceps1: CompositionCategory = { id: 'triceps_1', muscle: 'arms', isSixPa
 
 const shoulderRearDelt: CompositionCategory = { id: 'shoulder_rear_delt', muscle: 'shoulders', isSixPattern: false, movementPattern: 'shoulder_horizontal_abduction', label: '肩後部', hasOneRm: false, supersetPairGroup: 'chest_rear_delt' }
 const shoulderLateral: CompositionCategory = { id: 'shoulder_lateral', muscle: 'shoulders', isSixPattern: false, movementPattern: 'shoulder_abduction', label: '肩側方', hasOneRm: false }
-const back2: CompositionCategory = { id: 'back_2', muscle: 'back', isSixPattern: false, movementPattern: 'horizontal_pull', label: '背中2種目目', hasOneRm: false }
+// ホリゾンタルロウ or バーチカルプルのどちらでもよい（brainstorm #10「背中｜ホリゾンタルロウ/バーチカルプルのいずれか」）
+const back2: CompositionCategory = { id: 'back_2', muscle: 'back', isSixPattern: false, movementPattern: ['horizontal_pull', 'vertical_pull'], label: '背中2種目目', hasOneRm: false }
 const chestFly: CompositionCategory = { id: 'chest_fly', muscle: 'chest', isSixPattern: false, movementPattern: 'shoulder_horizontal_adduction', label: '胸2種目目（フライ系）', hasOneRm: false, supersetPairGroup: 'chest_rear_delt' }
 // スクワット or ヒップヒンジのどちらでもよい（brainstorm #10「脚2種目目（スクワット or ヒンジ）」）
 const leg2: CompositionCategory = { id: 'leg_2', muscle: 'legs', isSixPattern: false, movementPattern: ['squat', 'hip_hinge'], label: '脚2種目目', hasOneRm: true }
