@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import CoachingClient from './CoachingClient'
 import type { DayData, WeightHistory } from './CoachingClient'
-import { BASE_CATEGORIES_BY_RANK, LEG_DEFAULT_CATEGORY, type CompositionCategory } from '@/lib/constants/program_composition'
+import { BASE_CATEGORIES_BY_RANK, LEG_DEFAULT_CATEGORY, type CompositionCategory, type MovementPattern } from '@/lib/constants/program_composition'
 import { buildExerciseCategories, distributeToDays, isOneRmDemotedAtDays, type DaysPerWeek } from '@/lib/suggest/generate_program_composition'
 import type { PriorityMuscleOption } from '@/types'
 
@@ -83,12 +83,16 @@ export default async function CoachingPage() {
 
   // カテゴリごとのスワップ候補。movementPatternを持つカテゴリはそれで一致するものだけ
   // （腕の二頭/三頭、肩のプレス/側方/後部を混同しないため。2026-07-08、
-  // OnboardingClient.tsxのmatchingExercisesと同じロジックに統一）
+  // OnboardingClient.tsxのmatchingExercisesと同じロジックに統一）。movementPatternは
+  // 配列指定も可能（例: 脚2種目目のスクワット or ヒップヒンジ、2026-07-10）
   const slotOptions = new Map<string, string[]>()
   for (const category of ALL_CATEGORIES) {
+    const patterns = category.movementPattern
+      ? (Array.isArray(category.movementPattern) ? category.movementPattern : [category.movementPattern])
+      : null
     const options = (rawSlotExercises ?? [])
-      .filter(ex => category.movementPattern
-        ? ex.movement_pattern === category.movementPattern
+      .filter(ex => patterns
+        ? patterns.includes(ex.movement_pattern as MovementPattern)
         : ex.target_muscle === category.muscle)
       .map(ex => ex.name as string)
     slotOptions.set(category.id, options)

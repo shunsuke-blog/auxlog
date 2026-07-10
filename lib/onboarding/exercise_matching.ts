@@ -4,7 +4,7 @@
 // テストが無かったためバーベルカール誤割当バグ(movement_pattern未考慮)に
 // 気づけなかった反省から、テスト可能な形に分離した）。
 
-import type { CompositionCategory, PriorityMuscleOption } from '@/lib/constants/program_composition'
+import type { CompositionCategory, PriorityMuscleOption, MovementPattern } from '@/lib/constants/program_composition'
 import { buildExerciseCategories, isOneRmDemotedAtDays, type DaysPerWeek } from '@/lib/suggest/generate_program_composition'
 
 export type ExerciseMasterRow = {
@@ -40,13 +40,19 @@ export const HIDDEN_ONBOARDING_NAMES = new Set([
 /**
  * そのカテゴリでスワップ候補になる種目。movementPatternを持つカテゴリはそれで絞り込む
  * （腕は二頭/三頭、肩はプレス/側方/後部のように、同じ部位でも動きパターンが違えば
- * 別カテゴリとして区別する意味がなくなるため）。movementPatternを持たないカテゴリのみ
- * 部位一致にフォールバックする（2026-07-08、バーベルカールが三頭2種目目に誤割当される
- * バグの修正。brainstorm #3の「動きパターンでは絞らない」は撤回）。
+ * 別カテゴリとして区別する意味がなくなるため）。movementPatternは配列指定も可能で、
+ * その場合はいずれかに一致すればよい（例: 脚2種目目はスクワット or ヒップヒンジ、
+ * brainstorm #10。2026-07-10、動きパターン厳密化がleg_2の「or」設計を壊していたバグの修正）。
+ * movementPatternを持たないカテゴリのみ部位一致にフォールバックする（2026-07-08、
+ * バーベルカールが三頭2種目目に誤割当されるバグの修正。brainstorm #3の
+ * 「動きパターンでは絞らない」は二頭・三頭については撤回）。
  */
 export function matchingExercises(category: CompositionCategory, exercises: ExerciseMasterRow[]): ExerciseMasterRow[] {
+  const patterns = category.movementPattern
+    ? (Array.isArray(category.movementPattern) ? category.movementPattern : [category.movementPattern])
+    : null
   return exercises.filter(e =>
-    category.movementPattern ? e.movement_pattern === category.movementPattern : e.target_muscle === category.muscle
+    patterns ? patterns.includes(e.movement_pattern as MovementPattern) : e.target_muscle === category.muscle
   )
 }
 

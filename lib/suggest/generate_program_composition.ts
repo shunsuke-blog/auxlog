@@ -141,7 +141,9 @@ function eligibleDays(days: DaysPerWeek, category: CompositionCategory): number[
         horizontal_press: 1, vertical_pull: 1, squat: 1,
         vertical_press: 2, horizontal_pull: 2, hip_hinge: 2,
       }
-      const d = dayForPattern[category.movementPattern ?? '']
+      // 6パターン該当カテゴリはmovementPatternが必ず単一値（配列指定は脚2種目目等の
+      // 6パターン外カテゴリのみ、brainstorm #10）
+      const d = dayForPattern[typeof category.movementPattern === 'string' ? category.movementPattern : '']
       return d != null ? [d] : [1, 2]
     }
     return [1, 2]
@@ -155,7 +157,7 @@ function eligibleDays(days: DaysPerWeek, category: CompositionCategory): number[
         horizontal_pull: 2, vertical_pull: 2,
         squat: 3, hip_hinge: 3,
       }
-      const d = dayForPattern[category.movementPattern ?? '']
+      const d = dayForPattern[typeof category.movementPattern === 'string' ? category.movementPattern : '']
       return d != null ? [d] : [1, 2, 3]
     }
     if (category.muscle === 'chest' || category.muscle === 'shoulders') return [1]

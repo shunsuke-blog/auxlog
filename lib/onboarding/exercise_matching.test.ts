@@ -19,6 +19,7 @@ const triceps2 = BASE_CATEGORIES_BY_RANK.get(18)! // 三頭2種目目
 const shoulderRearDelt = BASE_CATEGORIES_BY_RANK.get(12)! // 肩後部
 const shoulderLateral = BASE_CATEGORIES_BY_RANK.get(13)!  // 肩側方
 const shoulderPress = BASE_CATEGORIES_BY_RANK.get(2)! // バーチカルプレス(6パターン)
+const leg2 = BASE_CATEGORIES_BY_RANK.get(16)! // 脚2種目目（スクワット or ヒップヒンジ）
 
 function ex(name: string, target_muscle: string, movement_pattern: string, requires_one_rm = false): ExerciseMasterRow {
   return { id: name, name, target_muscle, movement_pattern, requires_one_rm }
@@ -53,6 +54,18 @@ test('matchingExercises: 肩側方/後部も同じ部位内で動きパターン
 test('matchingExercises: 6パターンカテゴリも動きパターンで絞り込む', () => {
   const exercises = [ex('オーバーヘッドプレス', 'shoulders', 'vertical_press'), rearDeltFly]
   assert.deepEqual(matchingExercises(shoulderPress, exercises).map(c => c.name), ['オーバーヘッドプレス'])
+})
+
+test('matchingExercises: movementPatternが配列指定のカテゴリ(脚2種目目)はいずれかに一致すればよい(回帰テスト)', () => {
+  // brainstorm #10「脚2種目目（スクワット or ヒンジ）」。2026-07-10、動きパターン厳密化の際に
+  // 誤って単一パターン(squatのみ)に制限してしまい、ヒップスラスト等のヒンジ系種目が
+  // 選べなくなっていたバグの修正
+  const highBarSquat = ex('ハイバースクワット', 'legs', 'squat', true)
+  const hipThrust = ex('ヒップスラスト', 'legs', 'hip_hinge', false)
+  const legPress = ex('レッグプレス', 'legs', 'squat', true)
+  const benchPress = ex('ベンチプレス', 'chest', 'horizontal_press', true)
+  const candidates = matchingExercises(leg2, [highBarSquat, hipThrust, legPress, benchPress])
+  assert.deepEqual(candidates.map(c => c.name).sort(), ['ハイバースクワット', 'ヒップスラスト', 'レッグプレス'])
 })
 
 test('exerciseRequiresOneRm: 種目のrequires_one_rmを反映する', () => {

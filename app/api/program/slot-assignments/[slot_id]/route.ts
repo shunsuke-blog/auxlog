@@ -40,16 +40,20 @@ export async function PATCH(
   if (exercise_name !== undefined) {
     // このスロットで選択可能な種目かどうかを検証。movementPatternを持つカテゴリは
     // それで一致するものだけ許可し（腕の二頭/三頭、肩のプレス/側方/後部などを混同しないため）、
-    // movementPatternを持たないカテゴリのみ部位一致で許可する
+    // movementPatternを持たないカテゴリのみ部位一致で許可する。movementPatternは
+    // 配列指定も可能（例: 脚2種目目のスクワット or ヒップヒンジ、2026-07-10）
     // （2026-07-08、brainstorm #3の「動きパターンでは絞らない」を撤回。OnboardingClient.tsxの
     // matchingExercisesと同じロジック）。
     const category = CATEGORY_BY_ID.get(slot_id)!
+    const patterns = category.movementPattern
+      ? (Array.isArray(category.movementPattern) ? category.movementPattern : [category.movementPattern])
+      : null
     let query = supabase
       .from('exercise_master')
       .select('id, is_compound')
       .eq('name', exercise_name)
-    query = category.movementPattern
-      ? query.eq('movement_pattern', category.movementPattern)
+    query = patterns
+      ? query.in('movement_pattern', patterns)
       : query.eq('target_muscle', category.muscle)
     const { data: master, error: masterError } = await query.maybeSingle()
 

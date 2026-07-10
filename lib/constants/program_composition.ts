@@ -35,10 +35,12 @@ export type CompositionCategory = {
   /** カテゴリの一意なID。同じIDは「同じ役割」を表し、重複排除・上限カウントの単位になる。 */
   id: string
   muscle: TargetMuscle
-  /** 必須6動きパターンに該当するか。該当する場合はmovementPatternで動きパターン内スワップ、
-   *  該当しない場合は同じ部位の種目同士でスワップする（brainstorm #3）。 */
+  /** 必須6動きパターンに該当するか（表示上の分類、マッチングにはmovementPatternを使う）。 */
   isSixPattern: boolean
-  movementPattern?: MovementPattern
+  /** マッチング・スワップ候補の絞り込みに使う動きパターン。複数指定した場合はいずれかに
+   *  一致すればよい（例: 脚2種目目はスクワット or ヒップヒンジを許容、brainstorm #10）。
+   *  未指定のカテゴリは無い想定だが、その場合は部位一致にフォールバックする。 */
+  movementPattern?: MovementPattern | MovementPattern[]
   label: string
   /** %RM管理の重いコンパウンドかどうか（program_engine.tsのbuildCompoundSets/buildIsolationSets分岐）。 */
   hasOneRm: boolean
@@ -74,7 +76,8 @@ const shoulderRearDelt: CompositionCategory = { id: 'shoulder_rear_delt', muscle
 const shoulderLateral: CompositionCategory = { id: 'shoulder_lateral', muscle: 'shoulders', isSixPattern: false, movementPattern: 'shoulder_abduction', label: '肩側方', hasOneRm: false }
 const back2: CompositionCategory = { id: 'back_2', muscle: 'back', isSixPattern: false, movementPattern: 'horizontal_pull', label: '背中2種目目', hasOneRm: false }
 const chestFly: CompositionCategory = { id: 'chest_fly', muscle: 'chest', isSixPattern: false, movementPattern: 'shoulder_horizontal_adduction', label: '胸2種目目（フライ系）', hasOneRm: false, supersetPairGroup: 'chest_rear_delt' }
-const leg2: CompositionCategory = { id: 'leg_2', muscle: 'legs', isSixPattern: false, movementPattern: 'squat', label: '脚2種目目', hasOneRm: true }
+// スクワット or ヒップヒンジのどちらでもよい（brainstorm #10「脚2種目目（スクワット or ヒンジ）」）
+const leg2: CompositionCategory = { id: 'leg_2', muscle: 'legs', isSixPattern: false, movementPattern: ['squat', 'hip_hinge'], label: '脚2種目目', hasOneRm: true }
 const biceps2: CompositionCategory = { id: 'biceps_2', muscle: 'arms', isSixPattern: false, movementPattern: 'elbow_flexion', label: '二頭2種目目', hasOneRm: false, supersetPairGroup: 'arm_flex_ext' }
 const triceps2: CompositionCategory = { id: 'triceps_2', muscle: 'arms', isSixPattern: false, movementPattern: 'elbow_extension', label: '三頭2種目目', hasOneRm: false, supersetPairGroup: 'arm_flex_ext' }
 const core2: CompositionCategory = { id: 'core_2', muscle: 'core', isSixPattern: false, movementPattern: 'trunk_flexion', label: '腹筋2種目目', hasOneRm: false }
