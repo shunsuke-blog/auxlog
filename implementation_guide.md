@@ -2,7 +2,9 @@
 
 ## ⚡ 方向転換について（2026-07-03 doc sync）
 
-2026-06-26〜28の開発でプロダクトの方向性が転換した。現在のAuxlogは「前回記録から自動提案するアプリ」ではなく、9週間プログラム（Volume→Intensity→Deload→MaxOut）を軸にしたコーチング可視化プラットフォーム。詳細は `requirements.md` 冒頭の同名セクション、および `program-based-logic-design.md` を参照。旧の適応型提案ロジック（`lib/suggest/engine.ts`）はプログラム外種目のフォールバックとして現存している。
+2026-06-26〜28の開発でプロダクトの方向性が転換した。現在のAuxlogは「前回記録から自動提案するアプリ」ではなく、9週間プログラム（Volume→Intensity→Deload→MaxOut）を軸にしたコーチング可視化プラットフォーム。詳細は `requirements.md` 冒頭の同名セクション、および `program-based-logic-design.md` を参照。旧の適応型提案ロジック（`lib/suggest/engine.ts`）は`/api/suggest`（記録画面の種目追加フロー）向けに現存しているが、旧来のホーム画面スワイプUI（`HomeMenu.tsx`）は2026-07-09に削除済み（詳細は`requirements.md`参照）。
+
+**種目選定ロジックの再刷新（2026-07-08）**: `program-based-logic-design.md`が説明する旧スロット方式はさらにcanonical順位ベースのカテゴリ方式（`program_composition.ts`）へ全面置き換えされた。現在の一次情報源は`program-composition-redesign-brainstorm.md`。
 
 ## このドキュメントの位置づけ
 フェーズ1（MVP）の実装が完了した状態を記録したドキュメント。

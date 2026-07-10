@@ -4,8 +4,9 @@
 
 2026-06-26〜28の開発でプロダクトの方向性が転換した。以下、齟齬防止のため現状を明記する（`requirements.md` と同内容）。
 
-- **現在のAuxlogの定義**: 9週間プログラム（Volume→Intensity→Deload→MaxOut）管理・コーチング可視化プラットフォーム。詳細ロジック・データモデルは `program-based-logic-design.md` を参照（本ドキュメントには重複記載しない）。
-- **§5「メニュー提案ロジック詳細（engine.ts）」の扱い**: `program-based-logic-design.md` §13 では「`lib/engine.ts` を全面書き換え・旧ロジックは削除」と計画されていたが、**実装では旧ロジック（`lib/suggest/engine.ts`）は削除されず現存**しており、プログラムスロットに紐づかない種目のフォールバックとして動作している。新ロジックは別ファイル `lib/suggest/program_engine.ts` に実装されている（設計書の想定とファイル構成が異なる点に注意）。
+- **現在のAuxlogの定義**: 9週間プログラム（Volume→Intensity→Deload→MaxOut）管理・コーチング可視化プラットフォーム。詳細ロジック・データモデルは `program-based-logic-design.md` を参照（本ドキュメントには重複記載しない）。**ただし`program-based-logic-design.md`自体が説明する種目選定ロジック（スロット方式）は2026-07-08にさらに刷新されている（下記参照）。**
+- **§5「メニュー提案ロジック詳細（engine.ts）」の扱い**: `program-based-logic-design.md` §13 では「`lib/engine.ts` を全面書き換え・旧ロジックは削除」と計画されていたが、**実装では旧ロジック（`lib/suggest/engine.ts`）は削除されず現存**しており、`/api/suggest`（記録画面の種目追加フロー）から呼ばれている。新ロジックは別ファイル `lib/suggest/program_engine.ts` に実装されている（設計書の想定とファイル構成が異なる点に注意）。旧来のスワイプ式ホーム画面提案UI（`HomeMenu.tsx`）は2026-07-09に削除済み（§6.1参照）。
+- **種目選定ロジックの再刷新（2026-07-08）**: `program-based-logic-design.md`が説明する旧スロット方式（`program_slots.ts`、tier=スロット単位）はcanonical順位ベースのカテゴリ方式（`program_composition.ts`）へ全面置き換えされた。現在の一次情報源は`program-composition-redesign-brainstorm.md`。
 - **背景**: `.company/coaching/coaching_business_plan.md` §0・§7、`.company/ceo/decisions/2026-07-01-business-plan-update-auxlog-coaching.md` を参照。
 
 ---
@@ -171,16 +172,32 @@ CREATE TABLE users (
 );
 ```
 
-#### exercise_master（システム共通種目マスタ）
+#### exercise_master（システム共通種目マスタ、⚡ 2026-07-10更新: プログラムカテゴリ関連カラムを追記）
 ```sql
 CREATE TABLE exercise_master (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   target_muscle TEXT NOT NULL,
-  -- chest / back / legs / shoulders / arms
+  -- chest / back / legs / shoulders / arms / core
+  movement_pattern TEXT,
+  -- horizontal_press / vertical_press / horizontal_pull / vertical_pull / squat /
+  -- hip_hinge / elbow_flexion / elbow_extension 等。program_composition.tsの
+  -- カテゴリ判定に使用（2026-07-08〜）
+  tier INTEGER,
+  -- 種目の推奨度（1が最もデフォルト推奨）。オンボーディングはtier<=2のみ表示
+  requires_one_rm BOOLEAN DEFAULT false,
+  -- 1RM管理(%RMベース重量算出)が必要かどうか。種目単位の属性（カテゴリ単位ではない）
+  intensity_technique TEXT,
+  -- 60分プログラムのアイソレーション最終セットに許可する強度テクニック
+  -- (rest_pause / myo_reps / none)
   sort_order INTEGER NOT NULL DEFAULT 0,
+  -- 種目ピッカーの表示順。部位ブロック(1000刻み)→動きパターンのサブブロック(100刻み)
+  -- →種目(5刻み)の階層的な番号体系（2026-07-10〜）
   is_bodyweight BOOLEAN DEFAULT false,  -- 自重種目フラグ
   is_compound BOOLEAN DEFAULT false,    -- コンパウンド種目フラグ（回復日数計算に使用）
+  slot_type TEXT,
+  -- 旧スロット方式(program_slots.ts)の名残。現在のロジックでは未使用
+  -- （movement_pattern/target_muscleに置き換え済み。種目のアイデンティティ特定用に残置）
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
@@ -614,23 +631,20 @@ export type SetTarget = {
 
 ## 6. コンポーネント設計
 
-### 6.1 ホーム画面
+### 6.1 ホーム画面（⚡ 2026-07-09更新: 旧HomeMenu構成は削除済み）
+
+エンロールが必須のため、`app/(app)/page.tsx` は常にエンロール済み（`ProgramDayView`を返す）か`/onboarding`へリダイレクトのいずれかで、それ以外の分岐は無い。旧来の「未エンロール時に前回記録から提案するスワイプUI」（`HomeMenu.tsx`・`SwipeableExerciseCard.tsx`・`ExerciseCard.tsx`・`lib/constants/swipe.ts`）は、この分岐構造上絶対に到達しない死んだコードだったため2026-07-09に削除した。
 
 **app/(app)/page.tsx**（サーバーコンポーネント）
-- SSRで提案データを取得
-- `normalizeExercises` で種目データを正規化
-- 種目未登録時は `/onboarding` にリダイレクト
-- `HomeMenu` クライアントコンポーネントに渡す
+- ユーザーの`users`（トライアル状態計算用）・`user_program_enrollments`を並列取得
+- エンロールが無ければ `/onboarding` にリダイレクト
+- `ProgramDayView` クライアントコンポーネントに`enrollment`と`trialDaysLeft`を渡す
 
-**HomeMenu.tsx**（クライアントコンポーネント）
-- スワイプ削除状態を sessionStorage で管理（当日のみ有効）
-- 「+」ボタンで非表示種目や全種目から追加モーダルを表示
-- `SwipeableExerciseCard` を種目ごとにレンダリング
-
-**SwipeableExerciseCard.tsx**
-- スワイプ左で削除ボタンを表示（`SWIPE.REVEAL_WIDTH = 72px`）
-- `SWIPE.DELETE_THRESHOLD = 140px` 以上で即時削除
-- `SWIPE.SNAP_THRESHOLD = 36px` 以上でスナップ表示
+**ProgramDayView.tsx**（クライアントコンポーネント、`components/home/`）
+- Dayセレクター・「今週のフォーカス」（フェーズ説明）・プログラムスロットごとの種目カード・追加種目カードを表示
+- 各カードは `SwipeableCard` でラップし、スワイプ左で `is_hidden` をDBに保存（非表示は永続、旧来のsessionStorage当日限定とは異なる）
+- 週の全スロット完了で「Week N 完了 → Week N+1 へ」ボタンをコンテンツ最上部に表示（2026-07-09、下部で気付きにくいとのフィードバックで移動）
+- 「+ 種目を追加」ボタンでプログラム外の追加種目を選択するモーダルを表示
 
 ### 6.2 記録入力画面（app/(app)/record/page.tsx）
 

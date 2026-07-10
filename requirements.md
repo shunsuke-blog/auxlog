@@ -5,8 +5,9 @@
 このドキュメントは元々「筋トレメニュー自動提案アプリ」として書かれたが、2026-06-26〜28の開発でプロダクトの方向性が転換した。以下、齟齬防止のため現状を明記する。
 
 - **現在のAuxlogの定義**: 9週間プログラム（Volume→Intensity→Deload→MaxOut）管理・コーチング可視化プラットフォーム。詳細ロジックは `program-based-logic-design.md` を参照。
-- **旧ロジックの扱い**: `program-based-logic-design.md` §13 では「`lib/engine.ts` を全面書き換え・旧ロジックは削除」と計画されていたが、**実装では旧ロジック（`lib/suggest/engine.ts` の適応型提案）は削除されず現存**しており、プログラムスロットに紐づかない種目（プログラム外の追加種目など）のフォールバックとして今も動作している。つまり以下の §2.3・§2.4 に書かれた「前回記録から次回メニューを提案する」ロジックは**廃止済みではなく、"プログラム外の種目にのみ適用される二次的ロジック"に降格**している。新規に画面や文言を作る際は、対象がプログラム経由の種目かどうかをまず確認すること。
+- **旧ロジックの扱い**: `program-based-logic-design.md` §13 では「`lib/engine.ts` を全面書き換え・旧ロジックは削除」と計画されていたが、**実装では旧ロジック（`lib/suggest/engine.ts` の適応型提案）は削除されず現存**しており、`/api/suggest`（`app/(app)/record/page.tsx`の種目追加フロー）から今も呼ばれている。つまり以下の §2.3 に書かれた「前回記録から次回メニューを提案する」ロジックは**廃止済みではなく、"記録画面での種目追加候補の算出にのみ使う二次的ロジック"に降格**している。**§2.4（ホーム画面）で説明しているスワイプ式のメニュー提案UI自体は2026-07-09に削除済み**（エンロール必須化により到達不能コードになっていたため。`components/home/HomeMenu.tsx`等）。現在のホーム画面は`ProgramDayView`（§2.7参照）のみで、プログラム外提案ロジックのUIは存在しない。新規に画面や文言を作る際は、対象がプログラム経由の種目かどうかをまず確認すること。
 - **背景**: この製品転換は事業計画（コーチング事業とAuxlogの一体化）に伴うもの。詳細は `.company/coaching/coaching_business_plan.md` §0・§7、および `.company/ceo/decisions/2026-07-01-business-plan-update-auxlog-coaching.md` を参照。
+- **プログラム内部ロジックの再刷新（2026-07-08）**: `program-based-logic-design.md`が説明する旧スロット方式（`program_slots.ts`）はさらに canonical順位ベースのカテゴリ方式（`program_composition.ts`）へ全面置き換えされた。現在の一次情報源は`program-composition-redesign-brainstorm.md`。詳細は§2.7参照。
 
 ---
 
@@ -141,12 +142,13 @@ Auxlog
 - タップ1回で切り替え
 - ウォームアップセットはRIRトグルを非表示
 
-#### 2.4 ホーム画面
-- アプリを開いた瞬間に今日のメニューが提案表示される（SSRによる高速表示）
-- 各提案カードをスワイプ左で「今日はやらない」として非表示にできる
-- 「+」ボタンで非表示にした種目や追加したい種目をその日のメニューに追加できる
-- 非表示状態はsessionStorageで当日のみ保持（ページリロード後も維持）
-- 全種目を完了させると「今日のメニュー完了！」メッセージを表示
+#### 2.4 ホーム画面（⚡ 2026-07-09更新: 旧スワイプ式提案UIは削除済み、以下が現行仕様）
+エンロール（9週間プログラム登録）は必須のため、ホーム画面は`ProgramDayView`（`components/home/ProgramDayView.tsx`）のみで構成される。旧来の「前回記録から提案」ベースのスワイプUI（`HomeMenu.tsx`等）は到達不能コードだったため削除済み（詳細は冒頭の方向転換セクション参照）。
+- Dayセレクターで曜日構成（Day1〜4等）を切り替え
+- 「今週のフォーカス」カードで現在のフェーズ（Volume/Intensity/Deload/MaxOut）を説明
+- その日のプログラムスロットごとに種目カードを表示。各カードをスワイプ左で「今日はやらない」として非表示にできる（`is_hidden`をDBに保存、当日限定ではなく永続）
+- 「+ 種目を追加」ボタンでプログラム外の追加種目をその日のメニューに追加できる
+- 週の全スロット完了で「Week N 完了 → Week N+1 へ」ボタンがコンテンツ最上部に表示される（2026-07-09、下部で気付きにくいとのフィードバックにより移動）
 
 #### 2.5 トレーニング履歴の閲覧
 - 週次カレンダー（WeekCalendar）で日付を選択してセッション絞り込み
@@ -292,15 +294,20 @@ Auxlog
 | training_level | text | beginner/intermediate/advanced（デフォルト: intermediate） |
 | created_at | timestamp | 登録日時 |
 
-### exercise_master（システム共通種目マスタ）
+### exercise_master（システム共通種目マスタ、⚡ 2026-07-10更新: プログラムカテゴリ関連カラムを追記）
 | カラム | 型 | 説明 |
 |--------|-----|------|
 | id | uuid | PK |
 | name | text | 種目名 |
-| target_muscle | text | 対象部位 |
-| sort_order | integer | 表示順 |
+| target_muscle | text | 対象部位（chest/back/shoulders/legs/arms/core） |
+| movement_pattern | text | 動きパターン（horizontal_press/elbow_flexion等）。プログラムのカテゴリ判定に使用（`program_composition.ts`） |
+| tier | integer | 種目の推奨度（1が最もデフォルト推奨、数字が大きいほどバリエーション的）。オンボーディングはtier<=2のみ表示 |
+| requires_one_rm | boolean | 1RM管理（%RMベースの重量算出）が必要な種目かどうか。種目単位の属性（カテゴリ単位ではない） |
+| intensity_technique | text | 60分プログラムのアイソレーション最終セットに許可する強度テクニック（rest_pause/myo_reps/none） |
+| sort_order | integer | 表示順（種目ピッカーでの並び順、部位ブロック→動きパターンのサブブロック→種目の階層的な番号体系） |
 | is_bodyweight | boolean | 自重種目フラグ（デフォルトfalse） |
 | is_compound | boolean | コンパウンド種目フラグ（デフォルトfalse） |
+| slot_type | text | 旧スロット方式の名残。現在のロジックでは未使用（movement_pattern/target_muscleに置き換え済み） |
 | created_at | timestamp | 登録日時 |
 
 ### user_exercises（ユーザーが選んだ種目）
