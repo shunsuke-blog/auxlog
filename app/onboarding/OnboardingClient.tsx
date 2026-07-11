@@ -287,7 +287,15 @@ export default function OnboardingClient({ exercises }: Props) {
 
   const handleGenerate = async () => {
     setGenerating(true)
-    const ok = await handleComplete()
+    setGenMsgIndex(0)
+    // 実処理はAPI呼び出しだけだと一瞬で終わり、GEN_MESSAGESの演出が1つも見えないまま
+    // 次の画面に切り替わってしまう。メッセージを一巡させる時間を最低表示時間として
+    // 保証し、期待感を持たせる（2026-07-11、オーナー要望）
+    const MIN_GENERATING_MS = GEN_MESSAGES.length * 1500
+    const [ok] = await Promise.all([
+      handleComplete(),
+      new Promise<void>(resolve => setTimeout(resolve, MIN_GENERATING_MS)),
+    ])
     if (!ok) setGenerating(false)
   }
 
