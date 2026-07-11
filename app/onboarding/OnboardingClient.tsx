@@ -54,6 +54,10 @@ const GEN_MESSAGES = [
   '最終調整をしています',
 ]
 
+// 生成中画面の最低表示時間。GEN_MESSAGESが一巡する長さに合わせる
+const GENERATING_MIN_MS = GEN_MESSAGES.length * 1500
+const waitForGeneratingMin = () => new Promise<void>(resolve => setTimeout(resolve, GENERATING_MIN_MS))
+
 // ──────────────────────────────────────────────────────────
 // Component
 // ──────────────────────────────────────────────────────────
@@ -160,21 +164,28 @@ export default function OnboardingClient({ exercises }: Props) {
     )
 
     if (oneRmCategories.length === 0) {
+      // 1RM入力ステップを経由しないルートだが、生成中演出は同様に見せる
+      // （2026-07-11、オーナー要望）
+      setGenerating(true)
+      setGenMsgIndex(0)
       setSaving(true)
       try {
-        const enrollRes = await fetch('/api/program/enroll', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            days_per_week: daysPerWeek,
-            session_duration_minutes: sessionMinutes,
-            priority_muscles: Array.from(priorityMuscles),
-            slot_assignments: Object.entries(newSlotSelections)
-              .filter(([, exercise_name]) => exercise_name !== '')
-              .map(([slot_id, exercise_name]) => ({ slot_id, exercise_name })),
-            one_rms: [],
+        const [enrollRes] = await Promise.all([
+          fetch('/api/program/enroll', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              days_per_week: daysPerWeek,
+              session_duration_minutes: sessionMinutes,
+              priority_muscles: Array.from(priorityMuscles),
+              slot_assignments: Object.entries(newSlotSelections)
+                .filter(([, exercise_name]) => exercise_name !== '')
+                .map(([slot_id, exercise_name]) => ({ slot_id, exercise_name })),
+              one_rms: [],
+            }),
           }),
-        })
+          waitForGeneratingMin(),
+        ])
         if (!enrollRes.ok) {
           const data = await enrollRes.json().catch(() => ({}))
           throw new Error((data as { error?: string }).error ?? '登録に失敗しました')
@@ -183,6 +194,7 @@ export default function OnboardingClient({ exercises }: Props) {
         setStep('program_intro')
       } catch (e) {
         setError(e instanceof Error ? e.message : '登録に失敗しました')
+        setGenerating(false)
       } finally {
         setSaving(false)
       }
@@ -288,15 +300,44 @@ export default function OnboardingClient({ exercises }: Props) {
   const handleGenerate = async () => {
     setGenerating(true)
     setGenMsgIndex(0)
-    // 実処理はAPI呼び出しだけだと一瞬で終わり、GEN_MESSAGESの演出が1つも見えないまま
-    // 次の画面に切り替わってしまう。メッセージを一巡させる時間を最低表示時間として
-    // 保証し、期待感を持たせる（2026-07-11、オーナー要望）
-    const MIN_GENERATING_MS = GEN_MESSAGES.length * 1500
-    const [ok] = await Promise.all([
-      handleComplete(),
-      new Promise<void>(resolve => setTimeout(resolve, MIN_GENERATING_MS)),
-    ])
+    const [ok] = await Promise.all([handleComplete(), waitForGeneratingMin()])
     if (!ok) setGenerating(false)
+  }
+
+  // ── 生成中画面（AI演出） ──────────────────────────────────
+  // 実処理（enroll API）だけだと一瞬で終わり、GEN_MESSAGESの演出が1つも見えないまま
+  // 次の画面に切り替わってしまう。メッセージが一巡する時間を最低表示時間として保証し、
+  // 期待感を持たせる（2026-07-11、オーナー要望）。stepに関わらず表示するため、
+  // step分岐より前でチェックする（1RM入力が不要なユーザーもこの画面を経由するため）
+  if (generating) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-10 px-8">
+        <style>{`
+          @keyframes auxlog-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          .auxlog-spinner { animation: auxlog-spin 0.9s linear infinite; }
+          @keyframes auxlog-fade-msg {
+            0%,100% { opacity: 0; transform: translateY(4px); }
+            20%,80% { opacity: 1; transform: translateY(0); }
+          }
+          .auxlog-msg { animation: auxlog-fade-msg 1.5s ease-in-out; }
+        `}</style>
+        <div className="relative flex items-center justify-center w-32 h-32">
+          <div className="absolute inset-0 rounded-full border-4 border-white/15 border-t-white auxlog-spinner" />
+          <div className="w-20 h-20 rounded-full bg-white/8 border border-white/20 flex items-center justify-center">
+            <span className="text-3xl">⚡</span>
+          </div>
+        </div>
+        <div className="text-center space-y-3">
+          <p className="text-white text-2xl font-bold tracking-tight">プログラムを生成中</p>
+          <p key={genMsgIndex} className="auxlog-msg text-white/50 text-sm">
+            {GEN_MESSAGES[genMsgIndex]}
+          </p>
+        </div>
+      </div>
+    )
   }
 
   // ── program_intro ────────────────────────────────────────
@@ -517,38 +558,6 @@ export default function OnboardingClient({ exercises }: Props) {
 
   // ── one_rms ─────────────────────────────────────────────
   if (step === 'one_rms') {
-    // AI 生成中画面
-    if (generating) {
-      return (
-        <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-10 px-8">
-          <style>{`
-            @keyframes auxlog-spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-            .auxlog-spinner { animation: auxlog-spin 0.9s linear infinite; }
-            @keyframes auxlog-fade-msg {
-              0%,100% { opacity: 0; transform: translateY(4px); }
-              20%,80% { opacity: 1; transform: translateY(0); }
-            }
-            .auxlog-msg { animation: auxlog-fade-msg 1.5s ease-in-out; }
-          `}</style>
-          <div className="relative flex items-center justify-center w-32 h-32">
-            <div className="absolute inset-0 rounded-full border-4 border-white/15 border-t-white auxlog-spinner" />
-            <div className="w-20 h-20 rounded-full bg-white/8 border border-white/20 flex items-center justify-center">
-              <span className="text-3xl">⚡</span>
-            </div>
-          </div>
-          <div className="text-center space-y-3">
-            <p className="text-white text-2xl font-bold tracking-tight">プログラムを生成中</p>
-            <p key={genMsgIndex} className="auxlog-msg text-white/50 text-sm">
-              {GEN_MESSAGES[genMsgIndex]}
-            </p>
-          </div>
-        </div>
-      )
-    }
-
     const currentSlot = visible1RmSlots[currentOneRmIndex]
     const isLastSlot = currentOneRmIndex === visible1RmSlots.length - 1
 
