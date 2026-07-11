@@ -12,8 +12,6 @@ import type {
   TrainingSet,
 } from '@/types'
 
-const RECENT_SESSIONS_LIMIT = 30
-
 const VALID_DAY_NUMBERS = new Set([1, 2, 3, 4])
 
 export async function GET(request: Request) {
@@ -69,12 +67,15 @@ export async function GET(request: Request) {
       .select('*')
       .eq('user_id', user.id)
       .order('recorded_at', { ascending: false }),
+    // 1回の記録保存ごとにtraining_sessions行が1件作られる（種目単位でスロットカードから
+    // 個別に保存するUXのため、1トレーニング日で種目数分の行ができうる）。件数で打ち切ると
+    // 直近14日分でも30件を超えて古い方から漏れることがあるため、日付範囲だけで絞り込む
+    // （2026-07-11、トライセプスプレスダウンの重量が引き継がれないバグの修正）
     supabase
       .from('training_sessions')
       .select('id')
       .eq('user_id', user.id)
-      .gte('trained_at', cutoffStr)
-      .limit(RECENT_SESSIONS_LIMIT),
+      .gte('trained_at', cutoffStr),
   ])
 
   if (slotsRes.error || paramsRes.error || assignmentsRes.error) {
