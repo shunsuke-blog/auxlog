@@ -329,23 +329,67 @@ function RecordContent() {
     executeSave(sets)
   }
 
+  // 直前の保存試行と一致するセッションが既にサーバーに存在するか確認する。
+  // 画面ロック等で送信中に通信が切れると、サーバー側の保存自体は完了しているのに
+  // レスポンスだけが端末に届かず、保存中表示が固まったまま/破棄確認ポップアップが
+  // 誤表示され続けるバグの対応（2026-07-11）。同じ内容で再送して重複保存になるのを
+  // 避けるため、再試行を促す前にここで実際に保存済みかどうかを確認する。
+  const findMatchingSavedSession = async (sets: ReturnType<typeof buildSets>): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/sessions?limit=3')
+      if (!res.ok) return false
+      const data = await res.json()
+      const sig = (arr: { exercise_id: string; set_number: number; weight_kg: number; reps: number; is_warmup: boolean }[]) =>
+        [...arr]
+          .sort((a, b) => a.exercise_id.localeCompare(b.exercise_id) || a.set_number - b.set_number)
+          .map(s => `${s.exercise_id}:${s.set_number}:${s.weight_kg}:${s.reps}:${s.is_warmup}`)
+          .join('|')
+      const targetSig = sig(sets)
+      type SavedSession = { trained_at: string; fatigue_level: number; memo: string | null; sets: typeof sets }
+      return ((data.sessions ?? []) as SavedSession[]).some(s =>
+        s.trained_at === trainedAt
+        && s.fatigue_level === fatigueLevel
+        && (s.memo ?? '') === memo
+        && s.sets.length === sets.length
+        && sig(s.sets) === targetSig
+      )
+    } catch {
+      return false
+    }
+  }
+
   const executeSave = async (sets: ReturnType<typeof buildSets>) => {
     setSaving(true)
     setPendingSets(null)
 
-    const res = await fetch('/api/sessions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trained_at: trainedAt, fatigue_level: fatigueLevel, memo, sets }),
-    })
+    try {
+      // 画面ロック等でリクエストが応答不能なまま固まり続けるのを防ぐタイムアウト
+      // （2026-07-11、保存中表示が永久に止まったままになるバグの対応）
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 20000)
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trained_at: trainedAt, fatigue_level: fatigueLevel, memo, sets }),
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId))
 
-    if (res.ok) {
-      const data = await res.json()
-      try { sessionStorage.removeItem('auxlog_suggest_v1') } catch { /* ignore */ }
-      setIsDirty(false)
-      setSaveResult(data.is_improved ? 'record' : data.is_volume_up ? 'volume_up' : 'good_job')
-    } else {
+      if (res.ok) {
+        const data = await res.json()
+        try { sessionStorage.removeItem('auxlog_suggest_v1') } catch { /* ignore */ }
+        setIsDirty(false)
+        setSaveResult(data.is_improved ? 'record' : data.is_volume_up ? 'volume_up' : 'good_job')
+        return
+      }
       setErrorMessage('保存に失敗しました。再試行してください')
+      setSaving(false)
+    } catch {
+      if (await findMatchingSavedSession(sets)) {
+        setIsDirty(false)
+        setSaveResult('good_job')
+        return
+      }
+      setErrorMessage('保存できませんでした。通信状態を確認してもう一度お試しください')
       setSaving(false)
     }
   }
