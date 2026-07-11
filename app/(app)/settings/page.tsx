@@ -3,10 +3,8 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronRight, Dumbbell, Mail } from 'lucide-react'
 import LogoutButton from './LogoutButton'
-import TrainingLevelSelector from './TrainingLevelSelector'
 import AddToHomeScreenSection from '@/components/ui/AddToHomeScreenSection'
 import ProgramSection from './ProgramSection'
-import type { TrainingLevel } from '@/types'
 
 function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
@@ -33,7 +31,7 @@ export default async function SettingsPage() {
   const [{ data: userData }, { data: enrollment }] = await Promise.all([
     supabase
       .from('users')
-      .select('email, subscription_status, trial_ends_at, is_admin, is_free, free_until, training_level')
+      .select('email, subscription_status, trial_ends_at, is_admin, is_free, free_until')
       .eq('id', user.id)
       .single(),
     supabase
@@ -48,7 +46,6 @@ export default async function SettingsPage() {
   const isFree = userData?.is_free ?? false
   const freeUntil = userData?.free_until ?? null
   const freeActive = isFree && (!freeUntil || new Date(freeUntil) > new Date())
-  const trainingLevel: TrainingLevel = (userData?.training_level as TrainingLevel) ?? 'intermediate'
   const status = isAdmin ? 'active' : (userData?.subscription_status ?? null)
   const trialEndsAt = userData?.trial_ends_at ?? ''
   const daysLeft = (status === 'trialing' || status === 'canceling') && trialEndsAt
@@ -108,8 +105,6 @@ export default async function SettingsPage() {
             </div>
           )}
         </Link>
-        
-        <TrainingLevelSelector initialLevel={trainingLevel} />
 
         <ProgramSection enrollmentId={enrollment?.id ?? null} />
 

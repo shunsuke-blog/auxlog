@@ -58,12 +58,6 @@ export const INTENSITY_TECHNIQUE_LABELS: Record<IntensityTechnique, string> = {
   none: '',
 };
 
-export const TRAINING_LEVEL_LABELS: Record<TrainingLevel, string> = {
-  beginner: '初級者',
-  intermediate: '中級者',
-  advanced: '上級者',
-};
-
 export type ExerciseMaster = {
   id: string;
   name: string;
