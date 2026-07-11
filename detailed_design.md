@@ -680,7 +680,7 @@ export type SetData = {
 ### 6.4 履歴画面
 
 **app/(app)/history/page.tsx**（サーバーコンポーネント）
-- SSRでセッション60件・種目を並行取得
+- SSRでセッション365件・種目を並行取得
 - `normalizeExercises` で正規化後に `HistoryClient` に渡す
 
 **HistoryClient.tsx**（クライアントコンポーネント）
@@ -704,6 +704,22 @@ export type SetData = {
 - 自重種目は回数推移のみ表示（メトリクス切り替えUI非表示）
 - 種目切り替えはカスタムアイコン（`ChevronsUpDown`）付き `select` で表示
 - ダークモード対応: `matchMedia` で `isDark` を検知してグラフ色を切り替え
+
+### 6.5 オンボーディング画面の種目自動割り当てロジック（lib/onboarding/exercise_matching.ts）
+
+**app/onboarding/page.tsx**（サーバーコンポーネント）
+- `exercise_master` を `.order('tier').order('sort_order')` で取得し、`OnboardingClient` に渡す（2026-07-10、`sort_order`単独ソートだと推奨度と無関係な順で自動選択されるバグを修正。`tier`が推奨度の一次基準）
+
+**matchingExercises(category, exercises)**
+- カテゴリの`movementPattern`が設定されていれば、種目の`movement_pattern`と一致するものだけを候補にする（部位が同じでも動きパターンが違う種目を混同しない。例: 二頭/三頭、肩プレス/側方/後部）
+- `movementPattern`は単一値のほか配列も指定でき、配列の場合はいずれかに一致すればよい（例: `leg_2`はsquat or hip_hinge、`back_2`はhorizontal_pull or vertical_pull。design docの「or」指定カテゴリのみ。brainstorm #10参照）
+- `movementPattern`が無いカテゴリのみ、部位（`target_muscle`）一致にフォールバックする
+
+**buildSlotSelections(params)** — 各カテゴリへの種目自動割り当て
+1. ユーザーが「今やっている種目」として明示チェックした種目があれば、それを優先的に割り当てる
+2. 無ければ `CATEGORY_DEFAULT_OVERRIDES`（9週間プログラムシートで指定されたデフォルト種目。例: `leg_2`→ハイバースクワット）を試す
+3. それも無ければ、`matchingExercises`の候補の中で**配列の先頭**（＝`tier`→`sort_order`順で最初に来る種目）を選ぶ
+4. 同じ種目名を複数カテゴリで重複させない（一度使った種目名は候補から除外）
 
 ---
 
