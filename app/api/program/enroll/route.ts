@@ -29,7 +29,7 @@ const todayJST = () =>
   new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' })
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
+  const supabase = await createClient(request)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

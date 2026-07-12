@@ -21,7 +21,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ slot_id: string }> }
 ) {
-  const supabase = await createClient()
+  const supabase = await createClient(request)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
