@@ -4,10 +4,10 @@ import { UpdateSessionSchema } from '@/lib/validation/schemas'
 import { validationError, dbError, notFound } from '@/lib/api/errors'
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
-  const supabase = await createClient()
+  const supabase = await createClient(request)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -35,7 +35,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
-  const supabase = await createClient()
+  const supabase = await createClient(request)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -84,10 +84,10 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
-  const supabase = await createClient()
+  const supabase = await createClient(request)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
