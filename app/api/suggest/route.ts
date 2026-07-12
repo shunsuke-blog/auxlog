@@ -7,8 +7,8 @@ import { VOLUME_TARGETS } from '@/lib/constants/training'
 import { todayInJST } from '@/lib/utils/date'
 import { userExercisesQuery } from '@/lib/api/queries'
 
-export async function GET() {
-  const supabase = await createClient()
+export async function GET(request: Request) {
+  const supabase = await createClient(request)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
