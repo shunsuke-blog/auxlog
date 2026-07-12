@@ -10,7 +10,19 @@ export function createServiceClient() {
   )
 }
 
-export async function createClient() {
+export async function createClient(request?: Request) {
+  const authHeader = request?.headers.get('authorization')
+
+  // モバイルアプリ等、Authorization: Bearer <token> を送ってくるクライアント向け。
+  // RLSはこのトークンのJWTでスコープされる（サービスロールではない）。
+  if (authHeader?.startsWith('Bearer ')) {
+    return createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: authHeader } } }
+    )
+  }
+
   const cookieStore = await cookies()
 
   return createServerClient(
