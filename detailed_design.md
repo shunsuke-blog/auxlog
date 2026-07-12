@@ -486,13 +486,33 @@ CREATE INDEX idx_user_exercises_user
 }
 ```
 
-**DELETE /api/exercises/[id]** - 論理削除（`is_active=false`）
+**DELETE /api/exercises/[id]** - 種目自体は論理削除（`is_active=false`）だが、紐づく`training_sets`は物理削除される（過去記録が失われる。確認モーダルあり）
 
 **GET /api/exercises/master** - システム種目マスタ一覧
 
+### 4.4 9週間プログラムAPI（⚡ 2026-07-12新規追加: §4.1〜4.3に抜けていた現在の主力機能のAPI群）
+
+**GET /api/suggest/program?day=1〜4** - 指定Dayの種目・重量・セット提案を返す（`buildProgramSuggestion`、§5参照）。スロット・週次パラメータ・種目・1RM・直近セッションを並列取得し、直近14日のセットを日付範囲のみで絞り込む（件数上限は設けない。2026-07-11、`.limit(30)`が原因で重量が引き継がれないバグを修正）
+
+**GET /api/suggest/program/week-status** - 今週の完了種目ID一覧と全完了フラグを返す（ホーム画面の完了バッジ・「Week N 完了」ボタン判定用）
+
+**POST /api/program/enroll**（zodバリデーションあり） - オンボーディング完了時にプログラムへ登録。`days_per_week`(2/3/4)・`session_duration_minutes`(60/75/90)・`priority_muscles`（最大2部位）・`slot_assignments`（スロットID×種目名）・`one_rms`を受け取り、`user_program_enrollments`・`user_slot_assignments`・`user_slot_one_rms`を作成する
+
+**DELETE /api/program/reset** - 現在のエンロールメントを全削除し、オンボーディングをやり直せる状態に戻す（実データを削除する破壊的操作）
+
+**POST /api/program/advance-week** - 現在の週を+1進める（週次進行の手動トリガー）
+
+**GET /api/program/day-extras?day=1〜4** - 指定Dayに追加されたプログラム外種目一覧を返す
+
+**POST /api/program/day-extras** - プログラム外種目をその日のメニューに追加する
+
+**DELETE /api/program/day-extras/[id]** - 追加した種目をその日のメニューから削除する
+
+**PATCH /api/program/slot-assignments/[slot_id]** - スロットの種目差し替え（`exercise_name`指定、`movement_pattern`一致で選択可能な種目かを検証）またはスロットの非表示切り替え（`is_hidden`）
+
 ---
 
-## 5. メニュー提案ロジック詳細（`lib/suggest/engine.ts`）（⚡ 現在はプログラム外種目のみのフォールバックロジック。主力の9週間プログラムロジックは `program-based-logic-design.md` §7〜8 の `lib/suggest/program_engine.ts` を参照）
+## 5. メニュー提案ロジック詳細（`lib/suggest/engine.ts`）（⚡ 現在はプログラム外種目のみのフォールバックロジック。主力の9週間プログラムロジックは `program-composition-redesign-brainstorm.md` と `lib/suggest/program_engine.ts` / `lib/suggest/generate_program_composition.ts` を参照）
 
 ### 5.1 設計方針
 

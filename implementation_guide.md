@@ -24,7 +24,7 @@
 - **スタイリング**: Tailwind CSS（`darkMode: 'media'`）
 - **アイコン**: lucide-react
 - **グラフ**: recharts
-- **DnD**: @dnd-kit/core, @dnd-kit/sortable
+- **DnD**: @dnd-kit/core, @dnd-kit/sortable（⚡ 2026-07-12確認: package.jsonには残っているが、現在コード内で使用箇所なし。未使用依存の可能性）
 - **バリデーション**: zod
 - **実装禁止事項**:
   - HTMLのformタグを使わない（Reactのイベントハンドラで処理）
@@ -102,10 +102,10 @@ if (!error) return successResponse  // Cookie が乗ったレスポンスを返�
 - [x] 種目管理API（`app/api/exercises/route.ts`, `app/api/exercises/[id]/route.ts`）
 - [x] 種目マスタAPI（`app/api/exercises/master/route.ts`）
 - [x] 種目管理画面（`app/(app)/exercises/page.tsx`）
-  - ドラッグ&ドロップ並び替え（@dnd-kit）
   - マスタ種目選択モーダル（部位グループ化）
   - カスタム種目追加タブ
-  - 論理削除
+  - 削除（確認モーダルあり。種目自体は`is_active=false`の論理削除だが、紐づく`training_sets`は物理削除される点に注意）
+  - ⚡ 2026-07-12確認: ドラッグ&ドロップ並び替えは現在のコードには無い（@dnd-kit未使用、上記「前提条件」参照）。標準セット数・標準レップ数の編集UIも無い
 - [x] オンボーディング画面（`app/onboarding/page.tsx`）
   - 種目0件のユーザーをリダイレクト
   - 複数種目の一括選択・登録
@@ -137,17 +137,17 @@ if (!error) return successResponse  // Cookie が乗ったレスポンスを返�
 - `generateWorkingSetTargets()` - ワーキングセット目標生成（疲労モデル付き）
 - `buildWarmupTargets()` - ウォームアップセット目標生成
 
-### STEP 7: ホーム画面
+### STEP 7: ホーム画面（フェーズ1 MVP時点の記録。⚡ 2026-07-09に`HomeMenu`系は全て削除され`ProgramDayView`に置き換え済み。現在の実装は`detailed_design.md` §6.1参照）
 
-**完了**
+**完了（当時）**
 - [x] ホームページ（`app/(app)/page.tsx`）- サーバーコンポーネント
-- [x] `HomeMenu` クライアントコンポーネント（スワイプ・追加モーダル）
-- [x] `SwipeableExerciseCard` - スワイプ削除対応カード
-- [x] スワイプ定数（`lib/constants/swipe.ts`）
-- [x] 非表示状態の sessionStorage 管理（当日のみ有効）
-- [x] 7日以上経過の種目: アンバーボーダーで強調表示
+- [x] ~~`HomeMenu` クライアントコンポーネント（スワイプ・追加モーダル）~~（2026-07-09削除）
+- [x] ~~`SwipeableExerciseCard` - スワイプ削除対応カード~~（2026-07-09削除）
+- [x] ~~スワイプ定数（`lib/constants/swipe.ts`）~~（2026-07-09削除）
+- [x] ~~非表示状態の sessionStorage 管理（当日のみ有効）~~（`is_hidden`のDB永続化に置き換え済み）
+- [x] ~~7日以上経過の種目: アンバーボーダーで強調表示~~（表示していた`SwipeableExerciseCard`が2026-07-09削除済み。`days_since_last`はエンジン内で今も計算されるが、表示するUIが無い。2026-07-12確認）
 
-**原設計からの追加機能**
+**原設計からの追加機能（当時）**
 - スワイプ削除（今日はやらない）
 - 種目の手動追加モーダル
 - 全種目完了時のメッセージ表示
@@ -197,10 +197,14 @@ const limit = Math.min(Math.max(1, rawLimit), 100)  // サーバー側で最大1
 - セッション削除機能
 - 自重種目のボリュームは回数表示、有酸素種目はkg表示
 
-### STEP 10: Stripe連携
+### STEP 10: Stripe連携（⚡ 2026-07-12更新: 本番稼働済み。「設定待ち」項目を実態に修正）
 
-**コード実装済み・本番設定待ち**
+**コード実装済み・本番稼働中**
 - [x] `app/api/stripe/create-subscription/route.ts`
+- [x] `app/api/stripe/cancel-subscription/route.ts`
+- [x] `app/api/stripe/create-portal-session/route.ts`
+- [x] `app/api/stripe/reactivate-subscription/route.ts`
+- [x] `app/api/stripe/resume-subscription/route.ts`
 - [x] `app/api/webhooks/stripe/route.ts`
 - [x] `lib/subscription.ts` - サブスクリプション状態チェック
 - [x] 設定画面（`app/(app)/settings/page.tsx`）
@@ -216,9 +220,9 @@ const limit = Math.min(Math.max(1, rawLimit), 100)  // サーバー側で最大1
 | 最高重量一覧（1RM） | ❌ 削除 | ✅ |
 | プログラムリセット | ✅ | ❌ |
 
-- [ ] Google OAuth 本番設定（Supabase + Google Cloud Console）
-- [ ] Stripe 本番商品・価格の設定
-- [ ] 課金状態によるアクセス制御の有効化
+- [x] Google OAuth 本番設定（Supabase + Google Cloud Console）
+- [x] Stripe 本番商品・価格の設定
+- [x] 課金状態によるアクセス制御の有効化（`canUseApp()`、`app/(app)/layout.tsx`）
 
 ### セキュリティ・品質改善（フェーズ1追加実装）
 
@@ -233,21 +237,13 @@ const limit = Math.min(Math.max(1, rawLimit), 100)  // サーバー側で最大1
 ## 次フェーズで実装する機能
 
 ### フェーズ2: 精度・UX向上
-1. **Google OAuth 本番設定**
-   - Supabase ダッシュボードでGoogle Provider を有効化
-   - Google Cloud Console でOAuth クライアントID作成
-   - 本番リダイレクトURIの設定
+（⚡ 2026-07-12更新: Google OAuth本番設定・Stripe本番設定は完了済みのため項目を削除。STEP10参照）
 
-2. **Stripe 本番設定**
-   - ¥480/月・30日間トライアルの商品・価格を作成
-   - Webhook エンドポイントの登録
-   - 課金状態によるアクセス制御を有効化（`canUseApp()` 関数は実装済み）
-
-3. **AIメニュー提案**
+1. **AIメニュー提案**
    - `lib/suggest/engine.ts` の `suggestMenu` を Anthropic API に切り替え
    - ルールベースはフォールバックとして維持
 
-4. **onboarding の改善**
+2. **onboarding の改善**
    - 初回ユーザーへの使い方ガイダンス追加
 
 ### フェーズ3: 拡張
@@ -261,7 +257,7 @@ const limit = Math.min(Math.max(1, rawLimit), 100)  // サーバー側で最大1
 
 - **機能を追加しない**: 指示書に記載されていない機能はMVPに含めない
 - **HTMLのformタグを使わない**: フォームはReactのイベントハンドラで処理する
-- **localStorageを使わない**: 状態管理はReact StateとSupabaseで行う（sessionStorageは当日限定の非表示管理のみ許容）
+- **localStorageを使わない**: 状態管理はReact StateとSupabaseで行う（sessionStorageは短命なキャッシュ・UI状態の受け渡し用途のみ許容。例: `auxlog_program_slot_*`のスロット重量受け渡し、`auxlog_suggest_v1`の提案キャッシュ、`auxlog_hidden_today`のプログラム外種目の当日非表示。永続化が必要なものは`is_hidden`等DBカラムを使う、2026-07-12更新）
 - **any型を極力使わない**: TypeScriptのstrictモードに従う
 - **インラインスタイルを使わない**: Tailwind CSSクラスのみ使用する（例外: `env(safe-area-inset-bottom)` の動的計算）
 - **コメントは日本語で書く**
@@ -276,7 +272,7 @@ const limit = Math.min(Math.max(1, rawLimit), 100)  // サーバー側で最大1
 - `TRAINING` 定数は `lib/constants/training.ts` から import
 - `suggestMenu` の戻り値は `Suggestion[]`（`proposed_set_targets: SetTarget[]` を含む）
 - 提案から除外する条件: `days_since_last < TRAINING.MIN_DAYS_BETWEEN_SESSIONS`
-- 7日以上経過のカード強調は `SwipeableExerciseCard` 側で判定（`days_since_last >= 7`）
+- 7日以上経過のカード強調（`days_since_last >= 7`）を表示していた`SwipeableExerciseCard`は2026-07-09削除済み。`days_since_last`自体は今も計算されるが、表示するUIは現在無い（2026-07-12確認）
 
 ### lib/normalize/exercises.ts
 - `RawUserExercise` 型（Supabase JOIN 結果）を `UserExercise` 型に変換
