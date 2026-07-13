@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronRight, Dumbbell, Mail } from 'lucide-react'
 import LogoutButton from './LogoutButton'
+import DeleteAccountButton from './DeleteAccountButton'
 import AddToHomeScreenSection from '@/components/ui/AddToHomeScreenSection'
 import ProgramSection from './ProgramSection'
 
@@ -133,6 +134,24 @@ export default async function SettingsPage() {
         <AddToHomeScreenSection />
 
         <LogoutButton />
+
+        <div className="pt-2 space-y-2 text-center">
+          <div className="flex items-center justify-center gap-3 text-xs text-zinc-400 dark:text-zinc-600">
+            <a href="https://auxlog.com/terms" target="_blank" rel="noopener noreferrer" className="hover:underline">
+              利用規約
+            </a>
+            <span>·</span>
+            <a href="https://auxlog.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline">
+              プライバシーポリシー
+            </a>
+            <span>·</span>
+            <a href="https://auxlog.com/tokushoho" target="_blank" rel="noopener noreferrer" className="hover:underline">
+              特定商取引法
+            </a>
+          </div>
+        </div>
+
+        <DeleteAccountButton />
       </div>
     </div>
   )
