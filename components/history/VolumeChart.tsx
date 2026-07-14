@@ -13,6 +13,7 @@ type Metric = 'max' | 'volume' | '1rm'
 type Props = {
   sessions: HistorySession[]
   exercises: UserExercise[]
+  programExerciseIds: string[]
 }
 
 const METRICS: { key: Metric; label: string }[] = [
@@ -21,9 +22,16 @@ const METRICS: { key: Metric; label: string }[] = [
   { key: '1rm', label: '推定1RM' },
 ]
 
-export default function VolumeChart({ sessions, exercises }: Props) {
+export default function VolumeChart({ sessions, exercises, programExerciseIds }: Props) {
+  // 現在のプログラムに組み込まれている種目のみを選択肢にする。
+  // プログラム未加入等でprogramExerciseIdsが空の場合は全種目にフォールバックする。
+  const programIdSet = new Set(programExerciseIds)
+  const selectableExercises = programIdSet.size > 0
+    ? exercises.filter(ex => programIdSet.has(ex.id))
+    : exercises
+
   const [selectedExerciseId, setSelectedExerciseId] = useState<string>(
-    exercises[0]?.id ?? ''
+    selectableExercises[0]?.id ?? ''
   )
   const [metric, setMetric] = useState<Metric>('volume')
 
@@ -66,7 +74,7 @@ export default function VolumeChart({ sessions, exercises }: Props) {
       .reverse()
   }, [sessions, selectedExerciseId, isBodyweight, metric])
 
-  if (exercises.length === 0) return null
+  if (selectableExercises.length === 0) return null
 
   const yLabel = isBodyweight ? '回数' : metric === 'volume' ? '総挙上量' : metric === '1rm' ? '推定1RM' : '最大重量'
   const unit = isBodyweight ? '回' : 'kg'
@@ -82,7 +90,7 @@ export default function VolumeChart({ sessions, exercises }: Props) {
             onChange={e => setSelectedExerciseId(e.target.value)}
             className="appearance-none text-xs text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 rounded-lg pl-2.5 pr-7 py-1.5 outline-none border-none cursor-pointer"
           >
-            {exercises.map(ex => (
+            {selectableExercises.map(ex => (
               <option key={ex.id} value={ex.id}>{ex.name}</option>
             ))}
           </select>

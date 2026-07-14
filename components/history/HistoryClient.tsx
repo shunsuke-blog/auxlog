@@ -14,9 +14,10 @@ const VolumeChart = dynamic(() => import('./VolumeChart'), { ssr: false })
 type Props = {
   sessions: HistorySession[]
   exercises: UserExercise[]
+  programExerciseIds: string[]
 }
 
-export default function HistoryClient({ sessions, exercises }: Props) {
+export default function HistoryClient({ sessions, exercises, programExerciseIds }: Props) {
   const [selectedDate, setSelectedDate] = useState<string | null>(todayLocalDate())
   const [showMonthCalendar, setShowMonthCalendar] = useState(false)
   const [focusDate, setFocusDate] = useState<string | null>(null)
@@ -50,7 +51,7 @@ export default function HistoryClient({ sessions, exercises }: Props) {
         />
 
         {exercises.length > 0 && (
-          <VolumeChart sessions={sessions} exercises={exercises} />
+          <VolumeChart sessions={sessions} exercises={exercises} programExerciseIds={programExerciseIds} />
         )}
 
         {selectedDate ? (

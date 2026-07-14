@@ -8,7 +8,7 @@ export default async function HistoryPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const [{ data: sessionsData }, { data: exercisesData }] = await Promise.all([
+  const [{ data: sessionsData }, { data: exercisesData }, { data: enrollment }] = await Promise.all([
     supabase
       .from('training_sessions')
       .select('*, training_sets(id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup, created_at)')
@@ -21,9 +21,38 @@ export default async function HistoryPage() {
       .eq('user_id', user.id)
       .eq('is_active', true)
       .order('sort_order'),
+    supabase
+      .from('user_program_enrollments')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle(),
   ])
 
   const exercises = normalizeExercises(exercisesData ?? [])
+
+  // グラフの種目選択を「現在のプログラムに組み込まれている種目」に絞るための一覧
+  // （スロット割り当て＋Day追加種目）。プログラム未加入時は空のまま→VolumeChart側で全件表示にフォールバック。
+  let programExerciseIds: string[] = []
+  if (enrollment) {
+    const [{ data: slotAssignments }, { data: dayExtras }] = await Promise.all([
+      supabase
+        .from('user_slot_assignments')
+        .select('exercise_id')
+        .eq('enrollment_id', enrollment.id)
+        .eq('is_hidden', false),
+      supabase
+        .from('user_program_day_extras')
+        .select('exercise_id')
+        .eq('enrollment_id', enrollment.id),
+    ])
+    programExerciseIds = [
+      ...new Set([
+        ...(slotAssignments ?? []).map(a => a.exercise_id),
+        ...(dayExtras ?? []).map(e => e.exercise_id),
+      ]),
+    ]
+  }
 
   const rawSessions = (sessionsData ?? []).map(s => {
     const sets = (s.training_sets ?? []) as TrainingSet[]
@@ -55,5 +84,5 @@ export default async function HistoryPage() {
     }
   })
 
-  return <HistoryClient sessions={sessions} exercises={exercises} />
+  return <HistoryClient sessions={sessions} exercises={exercises} programExerciseIds={programExerciseIds} />
 }
