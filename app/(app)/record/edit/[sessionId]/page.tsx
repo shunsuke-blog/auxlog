@@ -241,8 +241,14 @@ function EditContent() {
   const handleDelete = async () => {
     if (!confirm('この記録を削除しますか？')) return
     setDeleting(true)
-    const res = await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' })
-    if (res.ok) {
+    // 日単位の編集画面ではextraSessionIds(mergeで束ねた他種目のセッション)も
+    // 合わせて削除しないと、先頭の種目しか消えない(2026-07-15、実機フィードバック対応)
+    const results = await Promise.all(
+      [sessionId, ...extraSessionIds].map(id =>
+        fetch(`/api/sessions/${id}`, { method: 'DELETE' })
+      )
+    )
+    if (results.every(res => res.ok)) {
       router.push('/history')
     } else {
       showToast('削除に失敗しました')
