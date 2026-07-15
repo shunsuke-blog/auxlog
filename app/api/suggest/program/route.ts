@@ -7,6 +7,7 @@ import type {
   UserProgramEnrollment,
   ProgramSlot,
   ProgramWeeklyParams,
+  MovementPatternWeeklyParams,
   UserSlotAssignment,
   UserSlotOneRm,
   TrainingSet,
@@ -41,10 +42,10 @@ export async function GET(request: Request) {
   cutoffDate.setDate(cutoffDate.getDate() - 14)
   const cutoffStr = cutoffDate.toISOString().split('T')[0]
 
-  // 並列取得: スロット・週次パラメータ・割り当て・種目・1RM・直近セッション
+  // 並列取得: スロット・週次パラメータ・movement_pattern週次パラメータ・割り当て・種目・1RM・直近セッション
   // （直近セッションはenrollment/assignmentsに依存しないため、ここで同時に取得して
   // ラウンドトリップを1回減らす。2026-07-10、ホーム画面の体感速度改善）
-  const [slotsRes, paramsRes, assignmentsRes, exercisesRes, oneRmsRes, recentSessionsRes] = await Promise.all([
+  const [slotsRes, paramsRes, movementParamsRes, assignmentsRes, exercisesRes, oneRmsRes, recentSessionsRes] = await Promise.all([
     supabase
       .from('program_slots')
       .select('*')
@@ -54,6 +55,11 @@ export async function GET(request: Request) {
     // 参照するため、現在週だけでなく全9週分を取得する。
     supabase
       .from('program_weekly_params')
+      .select('*')
+      .eq('program_id', enrollment.program_id),
+    // 1RM管理種目の%RM進行データ（movement_pattern単位、全9週分。2026-07-15新設）。
+    supabase
+      .from('movement_pattern_weekly_params')
       .select('*')
       .eq('program_id', enrollment.program_id),
     supabase
@@ -78,7 +84,7 @@ export async function GET(request: Request) {
       .gte('trained_at', cutoffStr),
   ])
 
-  if (slotsRes.error || paramsRes.error || assignmentsRes.error) {
+  if (slotsRes.error || paramsRes.error || movementParamsRes.error || assignmentsRes.error) {
     return NextResponse.json({ error: 'データ取得に失敗しました' }, { status: 500 })
   }
 
@@ -121,6 +127,7 @@ export async function GET(request: Request) {
     day_number: dayNumber as 1 | 2 | 3 | 4,
     slots: (slotsRes.data ?? []) as ProgramSlot[],
     weekly_params: (paramsRes.data ?? []) as ProgramWeeklyParams[],
+    movement_pattern_weekly_params: (movementParamsRes.data ?? []) as MovementPatternWeeklyParams[],
     assignments: (assignmentsRes.data ?? []) as UserSlotAssignment[],
     exercises: normalizedExercises,
     one_rms: Array.from(latestOneRms.values()),

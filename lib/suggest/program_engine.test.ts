@@ -10,10 +10,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildProgramSuggestion, type ProgramEngineInput } from './program_engine'
 import { buildExerciseCategories, distributeToDays, type DaysPerWeek, type SessionDurationMinutes } from './generate_program_composition'
-import type { PriorityMuscleOption } from '@/lib/constants/program_composition'
+import { BASE_CATEGORIES_BY_RANK, LEG_DEFAULT_CATEGORY, type PriorityMuscleOption, type CompositionCategory } from '@/lib/constants/program_composition'
 import type {
   ProgramSlot,
   ProgramWeeklyParams,
+  MovementPatternWeeklyParams,
   UserProgramEnrollment,
   UserSlotAssignment,
   UserExercise,
@@ -23,6 +24,22 @@ import type {
 const PROGRAM_ID = 'test-program'
 const ENROLLMENT_ID = 'test-enrollment'
 const DAYS: DaysPerWeek = 2 // Full Body: 動きパターンがDay1/2の両方で候補になり配置が単純
+
+function categoryById(categoryId: string): CompositionCategory {
+  for (const c of BASE_CATEGORIES_BY_RANK.values()) {
+    if (c.id === categoryId) return c
+  }
+  if (LEG_DEFAULT_CATEGORY.id === categoryId) return LEG_DEFAULT_CATEGORY
+  throw new Error(`unknown category: ${categoryId}`)
+}
+
+// カテゴリのmovementPatternを1つ返す（配列指定のカテゴリ、例: leg_2/back_2は先頭を使う）。
+// テスト用exercise.movement_patternとmovement_pattern_weekly_paramsのキーを一致させるため。
+function categoryMovementPattern(categoryId: string): string {
+  const mp = categoryById(categoryId).movementPattern
+  if (!mp) throw new Error(`category ${categoryId} has no movementPattern`)
+  return Array.isArray(mp) ? mp[0] : mp
+}
 
 function resolveDayNumber(categoryId: string, priorities: PriorityMuscleOption[], days: DaysPerWeek = DAYS): number {
   const categories = buildExerciseCategories(days, priorities)
@@ -67,6 +84,7 @@ function makeExercise(id: string, name: string, overrides: Partial<UserExercise>
     target_muscle: 'chest',
     recent_session_ids: [],
     requires_one_rm: false,
+    movement_pattern: null,
     ...overrides,
   }
 }
@@ -120,6 +138,33 @@ function makeCompoundWeeklyParams(categoryId: string, topSetRpeByWeek: Record<nu
   }))
 }
 
+// weekly_params（カテゴリ単位）の%RM系フィールドから、movement_pattern単位の
+// movement_pattern_weekly_paramsを機械的に導出する。実運用ではDBの別テーブルだが、
+// テストでは「weekly_paramsが%RMを持つ想定」のケースをそのままmovement_pattern側に
+// 流用できるようにするためのテストヘルパー（buildInputのデフォルト挙動）。
+function deriveMovementPatternWeeklyParams(pattern: string, source: ProgramWeeklyParams[]): MovementPatternWeeklyParams[] {
+  return source.map(p => ({
+    id: `${pattern}-w${p.week_number}`,
+    program_id: p.program_id,
+    movement_pattern: pattern,
+    week_number: p.week_number,
+    top_set_pct_rm: p.top_set_pct_rm,
+    top_set_reps: p.top_set_reps,
+    top_set_is_amrap: p.top_set_is_amrap,
+    top_set_rpe: p.top_set_rpe,
+    backoff_sets: p.backoff_sets,
+    backoff_pct_rm: p.backoff_pct_rm,
+    backoff_reps: p.backoff_reps,
+    phase: p.phase,
+  }))
+}
+
+// makeCompoundWeeklyParamsと同じ形の値をmovement_pattern単位で直接作りたい場合のヘルパー
+// （カテゴリ側weekly_paramsとmovement_pattern_weekly_paramsを意図的に分けたいテスト用）。
+function makeMovementPatternWeeklyParams(pattern: string, topSetRpeByWeek: Record<number, number> = {}): MovementPatternWeeklyParams[] {
+  return deriveMovementPatternWeeklyParams(pattern, makeCompoundWeeklyParams(pattern, topSetRpeByWeek))
+}
+
 function buildInput(opts: {
   category_id: string
   muscle_group: string
@@ -127,6 +172,7 @@ function buildInput(opts: {
   sessionMins: SessionDurationMinutes
   currentWeek: number
   weekly_params: ProgramWeeklyParams[]
+  movement_pattern_weekly_params?: MovementPatternWeeklyParams[]
   priorityMuscles?: PriorityMuscleOption[]
   days?: DaysPerWeek
   skipOneRmRecord?: boolean
@@ -135,9 +181,13 @@ function buildInput(opts: {
   const days = opts.days ?? DAYS
   const dayNumber = resolveDayNumber(opts.category_id, priorities, days)
   const slot = makeSlot(opts.category_id, opts.muscle_group, dayNumber, opts.hasOneRm)
+  // hasOneRm時のみexerciseにmovement_patternを持たせる（カテゴリのmovementPatternをそのまま使う）。
+  // movement_pattern_weekly_paramsは明示指定が無ければweekly_paramsの%RMフィールドから導出する。
+  const movementPattern = opts.hasOneRm ? categoryMovementPattern(opts.category_id) : null
   const exercise = makeExercise('ex1', 'テスト種目', {
     target_muscle: opts.muscle_group as UserExercise['target_muscle'],
     requires_one_rm: opts.hasOneRm ?? false,
+    movement_pattern: movementPattern,
   })
   const assignment: UserSlotAssignment = {
     id: 'a1', user_id: 'u1', enrollment_id: ENROLLMENT_ID, slot_id: opts.category_id, exercise_id: 'ex1', created_at: '2026-01-01',
@@ -162,6 +212,8 @@ function buildInput(opts: {
     day_number: dayNumber as 1 | 2 | 3 | 4,
     slots: [slot],
     weekly_params: opts.weekly_params,
+    movement_pattern_weekly_params: opts.movement_pattern_weekly_params
+      ?? (movementPattern ? deriveMovementPatternWeeklyParams(movementPattern, opts.weekly_params) : []),
     assignments: [assignment],
     exercises: [exercise],
     one_rms: (opts.hasOneRm && !opts.skipOneRmRecord) ? [{ id: 'orm1', user_id: 'u1', slot_id: opts.category_id, one_rm_kg: 100, recorded_at: '2026-01-01', source: 'manual_input' } as UserSlotOneRm] : [],
@@ -233,36 +285,53 @@ test('(a) maxout週(週9)のAMRAPは1RM管理種目のRPEクランプの対象�
   assert.equal(topSet.target_rpe, 10.0, 'maxout週はクランプされずDBの値をそのまま使うはず')
 })
 
-test('(f) leg_hinge(カテゴリ既定hasOneRm:false、weekly_paramsがアイソレーション用データのみ)にデッドリフトのような1RM管理種目が割り当たっても、スロットが消えずメイン/追い込みセットが実際の1RMから計算される', () => {
-  // leg_hingeのweekly_paramsはtop_set_pct_rm等の%RM系フィールドを持たない（アイソレーション
-  // 用に作られたデータのため）。種目単位の判定でhasOneRm:trueになると、素朴には
-  // buildCompoundSetsが空配列を返しスロットごと消えてしまう（実機で発生した実バグ）。
-  // working_sets/rep_range/rpeから合成したメイン/追い込み構成にフォールバックすべきで、
-  // かつ実際に1RMが入力されていればその値から重量を計算する必要がある（初版は重量を
-  // 一律0にしてしまうバグがあった。2026-07-08、実機確認フィードバック対応の回帰防止）
+test('(f/2026-07-15) leg_hinge(カテゴリのweekly_paramsはアイソレーション用データのみ)にデッドリフトのような1RM管理種目が割り当たっても、種目のmovement_pattern(hip_hinge)経由でmovement_pattern_weekly_paramsから重量が計算される', () => {
+  // leg_hingeのカテゴリ単位weekly_paramsはtop_set_pct_rm等の%RM系フィールドを持たない
+  // （working_sets/rep_range/rpeなどis_excluded判定・アイソレーション用のデータのみ）。
+  // 2026-07-08時点では「カテゴリのweekly_paramsに%RMが無い」こと自体が問題で、暫定%RM
+  // (0.8/0.75)へのフォールバックで凌いでいた。2026-07-15の構造見直しで%RM進行データを
+  // movement_pattern単位(movement_pattern_weekly_params)に切り出したため、カテゴリの
+  // weekly_paramsが引き続きアイソレーション用データのみでも、種目のmovement_pattern
+  // (hip_hinge)に対応する行が別途あれば正しい%RMで計算される（暫定値ではなく実データ）。
   const input = buildInput({
     category_id: 'leg_hinge', muscle_group: 'legs', hasOneRm: true,
     sessionMins: 60, currentWeek: 1,
     weekly_params: makeIsolationWeeklyParams('leg_hinge'),
+    movement_pattern_weekly_params: makeMovementPatternWeeklyParams('hip_hinge'),
   })
   const suggestion = buildProgramSuggestion(input)
   assert.equal(suggestion.slots.length, 1, 'スロットが消えずに1件出るはず')
   assert.ok(suggestion.slots[0].sets.length > 0, 'セットが空配列になってはいけない')
   const topSet = suggestion.slots[0].sets.find(s => s.set_type === 'top')
   assert.ok(topSet, 'top setがあるはず')
-  // buildInputのデフォルトone_rm_kgは100。ISOLATION_FALLBACK_TOP_SET_PCT_RM(0.8)で計算される
-  assert.equal(topSet!.suggested_weight_kg, 80, '1RM=100kgなら暫定%RM(0.8)でtop setは80kgになるはず')
+  // buildInputのデフォルトone_rm_kgは100。makeMovementPatternWeeklyParamsのtop_set_pct_rm=0.8
+  assert.equal(topSet!.suggested_weight_kg, 80, '1RM=100kgならmovement_pattern_weekly_paramsの%RM(0.8)でtop setは80kgになるはず')
 })
 
-test('(f) leg_hingeで1RM未設定の場合は、フォールバックでも重量が0（ブランク扱い）になる', () => {
+test('(f/2026-07-15) movement_pattern_weekly_params側で1RM未設定の場合は、重量が0（ブランク扱い）になる', () => {
   const input = buildInput({
     category_id: 'leg_hinge', muscle_group: 'legs', hasOneRm: true, skipOneRmRecord: true,
     sessionMins: 60, currentWeek: 1,
     weekly_params: makeIsolationWeeklyParams('leg_hinge'),
+    movement_pattern_weekly_params: makeMovementPatternWeeklyParams('hip_hinge'),
   })
   const suggestion = buildProgramSuggestion(input)
   const topSet = suggestion.slots[0].sets.find(s => s.set_type === 'top')
   assert.equal(topSet!.suggested_weight_kg, 0, '1RM未設定なら重量は0（ブランク扱い）のはず')
+})
+
+test('(2026-07-15) movement_pattern_weekly_paramsに該当movement_patternの行が無ければ、暫定%RMにフォールバックせずスロットごとスキップされる', () => {
+  // 2026-07-08時点のbuildCompoundSetsFromIsolationParams（暫定%RM 0.8/0.75へのフォールバック）は
+  // 2026-07-15の構造見直しで廃止した。%RM進行データが本当に無い場合は、誤った暫定値で
+  // 重量を出すより「スロットが出ない」形で欠落を可視化すべき、という設計判断の回帰防止テスト。
+  const input = buildInput({
+    category_id: 'leg_hinge', muscle_group: 'legs', hasOneRm: true,
+    sessionMins: 60, currentWeek: 1,
+    weekly_params: makeIsolationWeeklyParams('leg_hinge'),
+    movement_pattern_weekly_params: [],
+  })
+  const suggestion = buildProgramSuggestion(input)
+  assert.equal(suggestion.slots.length, 0, 'movement_pattern_weekly_paramsにデータが無ければスロットは出ないはず')
 })
 
 test('(c) 6パターン外の1RM管理カテゴリ(leg_2)は、週次固定値ではなくセッション時間でセット数が決まる', () => {

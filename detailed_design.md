@@ -7,6 +7,7 @@
 - **現在のAuxlogの定義**: 9週間プログラム（Volume→Intensity→Deload→MaxOut）管理・コーチング可視化プラットフォーム。詳細ロジック・データモデルは `program-based-logic-design.md` を参照（本ドキュメントには重複記載しない）。**ただし`program-based-logic-design.md`自体が説明する種目選定ロジック（スロット方式）は2026-07-08にさらに刷新されている（下記参照）。**
 - **§5「メニュー提案ロジック詳細（engine.ts）」の扱い**: `program-based-logic-design.md` §13 では「`lib/engine.ts` を全面書き換え・旧ロジックは削除」と計画されていたが、**実装では旧ロジック（`lib/suggest/engine.ts`）は削除されず現存**しており、`/api/suggest`（記録画面の種目追加フロー）から呼ばれている。新ロジックは別ファイル `lib/suggest/program_engine.ts` に実装されている（設計書の想定とファイル構成が異なる点に注意）。旧来のスワイプ式ホーム画面提案UI（`HomeMenu.tsx`）は2026-07-09に削除済み（§6.1参照）。
 - **種目選定ロジックの再刷新（2026-07-08）**: `program-based-logic-design.md`が説明する旧スロット方式（`program_slots.ts`、tier=スロット単位）はcanonical順位ベースのカテゴリ方式（`program_composition.ts`）へ全面置き換えされた。現在の一次情報源は`program-composition-redesign-brainstorm.md`。
+- **%RM進行データの構造見直し（2026-07-15）**: 1RM管理要否（`exercise_master.requires_one_rm`）は種目単位の属性なのに対し、%RM進行データ（top_set_pct_rm等）はカテゴリ(slot_id)単位の`program_weekly_params`にしか持てなかった。このズレにより「カテゴリの既定は1RM非管理だが割り当てた種目は1RM管理」なケース（leg_hingeにデッドリフト、shoulder_press_2にダンベルショルダープレス等）で%RMデータが存在せず、暫定%RM(0.8/0.75)へのフォールバック（`buildCompoundSetsFromIsolationParams`）に頼っていた。%RM進行データを動きパターン(movement_pattern)単位の新テーブル`movement_pattern_weekly_params`に切り出し、フォールバックは廃止（該当movement_patternのデータが無ければスロットは提案に出ない）。詳細は§4.4、`requirements.md`§6（`movement_pattern_weekly_params`テーブル定義）、`lib/suggest/program_engine.ts`を参照。
 - **背景**: `.company/coaching/coaching_business_plan.md` §0・§7、`.company/ceo/decisions/2026-07-01-business-plan-update-auxlog-coaching.md` を参照。
 
 ---
@@ -492,7 +493,7 @@ CREATE INDEX idx_user_exercises_user
 
 ### 4.4 9週間プログラムAPI（⚡ 2026-07-12新規追加: §4.1〜4.3に抜けていた現在の主力機能のAPI群）
 
-**GET /api/suggest/program?day=1〜4** - 指定Dayの種目・重量・セット提案を返す（`buildProgramSuggestion`、§5参照）。スロット・週次パラメータ・種目・1RM・直近セッションを並列取得し、直近14日のセットを日付範囲のみで絞り込む（件数上限は設けない。2026-07-11、`.limit(30)`が原因で重量が引き継がれないバグを修正）
+**GET /api/suggest/program?day=1〜4** - 指定Dayの種目・重量・セット提案を返す（`buildProgramSuggestion`、§5参照）。スロット・週次パラメータ・movement_pattern週次パラメータ（2026-07-15〜、%RM進行データの出典）・種目・1RM・直近セッションを並列取得し、直近14日のセットを日付範囲のみで絞り込む（件数上限は設けない。2026-07-11、`.limit(30)`が原因で重量が引き継がれないバグを修正）
 
 **GET /api/suggest/program/week-status** - 今週の完了種目ID一覧と全完了フラグを返す（ホーム画面の完了バッジ・「Week N 完了」ボタン判定用）
 

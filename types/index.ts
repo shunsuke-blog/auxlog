@@ -91,6 +91,11 @@ export type UserExercise = {
    *  種目ごとの属性（例: 同じスクワットパターンでもハイバースクワットはtrue、
    *  ブルガリアンスクワットはfalse）。program_engine.tsのhasOneRm判定はこれが正。 */
   requires_one_rm: boolean;
+  /** exercise_master.movement_pattern。requires_one_rm:trueの種目をmovement_pattern_weekly_params
+   *  から引く際のキー。独自種目（custom_name）はmovement_patternの概念が無いためnull
+   *  （その場合requires_one_rmも常にfalseなので、hasOneRm判定でこのフィールドが
+   *  参照されることはない）。 */
+  movement_pattern: string | null;
 };
 
 export type TrainingSet = {
@@ -179,6 +184,21 @@ export type ProgramWeeklyParams = {
   rpe: number | null;
   phase: ProgramPhase;
   is_excluded: boolean;
+};
+
+export type MovementPatternWeeklyParams = {
+  id: string;
+  program_id: string;
+  movement_pattern: string;
+  week_number: number;
+  top_set_pct_rm: number | null;
+  top_set_reps: number | null;
+  top_set_is_amrap: boolean;
+  top_set_rpe: number | null;
+  backoff_sets: number | null;
+  backoff_pct_rm: number | null;
+  backoff_reps: number | null;
+  phase: ProgramPhase;
 };
 
 export type UserProgramEnrollment = {

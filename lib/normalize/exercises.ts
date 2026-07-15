@@ -22,7 +22,7 @@ export type RawUserExercise = {
   is_compound?: boolean
   created_at: string
   recent_session_ids?: string[] | null
-  exercise_master: { name: string; target_muscle: string; is_bodyweight: boolean; is_compound?: boolean; intensity_technique?: IntensityTechnique; requires_one_rm?: boolean } | null
+  exercise_master: { name: string; target_muscle: string; is_bodyweight: boolean; is_compound?: boolean; intensity_technique?: IntensityTechnique; requires_one_rm?: boolean; movement_pattern?: string | null } | null
 }
 
 const VALID_MUSCLES = Object.keys(TARGET_MUSCLE_LABELS)
@@ -63,6 +63,12 @@ function normalizeExercise(e: RawUserExercise): UserExercise {
     ? false
     : (e.exercise_master?.requires_one_rm ?? false)
 
+  // カスタム種目にはmovement_patternの概念を持たせていないためnull
+  // （requires_one_rmも常にfalseなので、hasOneRm判定でこの値が参照されることはない）。
+  const movement_pattern = e.custom_name
+    ? null
+    : (e.exercise_master?.movement_pattern ?? null)
+
   return {
     ...e,
     custom_target_muscle: e.custom_target_muscle as TargetMuscle | null,
@@ -72,6 +78,7 @@ function normalizeExercise(e: RawUserExercise): UserExercise {
     is_compound,
     intensity_technique,
     requires_one_rm,
+    movement_pattern,
     weight_increment_kg,
     recent_session_ids: e.recent_session_ids ?? [],
   }

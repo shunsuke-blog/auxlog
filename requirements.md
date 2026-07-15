@@ -171,13 +171,13 @@ Auxlog
 - セッション削除機能（確認ダイアログあり）
 - RPC関数（`update_session_with_sets`）によるアトミック更新
 
-#### 2.7 9週間プログラム機能（⚡ 現在の主力機能、2026-06-28〜実装。⚡ 2026-07-12更新: 2026-07-08の種目選定ロジック刷新に合わせて内容を修正）
+#### 2.7 9週間プログラム機能（⚡ 現在の主力機能、2026-06-28〜実装。⚡ 2026-07-15更新: %RM進行データをmovement_pattern単位に切り出し）
 研究ベースの9週間ハイパートロフィープログラムをAuxlogに組み込んだもの。前回記録からの適応提案（§2.3）ではなく、プログラムがあらかじめ決めた週次パラメータに沿って重量・レップを算出する。種目選定・日数配分の一次情報源は`program-composition-redesign-brainstorm.md`（`program-based-logic-design.md`・`program-frequency-variants-design.md`が説明する旧スロット方式は2026-07-08に全面置き換え済み）。
 
 - **4フェーズ構成**: W1〜W4 Volume Progression → W5〜W7 Intensity → W8 Deload → W9 Max Out（AMRAP）
 - **種目数は日数(2/3/4)で決まる**。6つの基本の動き（ホリゾンタルプレス・バーチカルプレス・ホリゾンタルロウ・バーチカルプル・スクワット・ヒップヒンジ）は日数に関わらず必ず含まれ、日数が増えるほどアクセサリー種目が追加される（canonical順位1-24のカットオフ方式、`lib/suggest/generate_program_composition.ts`）。週2日では`shoulder_press`・`leg_default`・`leg_2`カテゴリのみ1RM管理を強制的にオフにする（BIG3限定ではなく、種目ごとの`requires_one_rm`属性が正）
 - 1回のセット数は日数ではなくセッション時間（60/75/90分）で決まる。6パターンカテゴリのセット数のみ週次パラメータ（下記）が別途管理する
-- コンパウンド種目はユーザーの1RM入力から%RMベースで重量を自動算出。正式な1RMが無い場合は直近ログからEpley式で自動推定する
+- コンパウンド種目はユーザーの1RM入力から%RMベースで重量を自動算出。正式な1RMが無い場合は直近ログからEpley式で自動推定する。**%RM進行データ自体は動きパターン(movement_pattern)単位の`movement_pattern_weekly_params`テーブルが持つ**（2026-07-15〜。以前はカテゴリ(slot_id)単位の`program_weekly_params`が%RMも兼ねていたため、「カテゴリの既定は1RM非管理だが割り当てた種目は1RM管理」なケース（leg_hingeにデッドリフト等）で%RMデータが存在せず暫定値へフォールバックしていた。1RM管理要否は種目単位、%RM進行データは動きパターン単位、と役割を分離）
 - レップレンジ指定種目はRPE基準・実施回数を入力する形式
 - 週次進行管理（Week/フェーズを手動で進行）
 - **コーチングページ（`/coaching`）**: プログラムの全体像・現在地・フェーズ説明・重量推移グラフを表示
@@ -350,6 +350,24 @@ Auxlog
 | rir | boolean | 余裕あり=true / 限界=false |
 | is_warmup | boolean | ウォームアップフラグ（デフォルトfalse） |
 | created_at | timestamp | 登録日時 |
+
+### movement_pattern_weekly_params（⚡ 2026-07-15新規追加: 1RM管理種目の%RM進行データを動きパターン単位に切り出し）
+種目の1RM管理要否（`exercise_master.requires_one_rm`）は種目単位の属性だが、以前は%RM進行データ（top_set_pct_rm等）が`program_weekly_params`にカテゴリ(slot_id)単位でしか持てなかった。そのため「カテゴリの既定は1RM非管理だが、割り当てられた種目は1RM管理」というケース（leg_hingeにデッドリフト、shoulder_press_2にダンベルショルダープレス等）で%RMデータが存在せず、暫定%RM(0.8/0.75)へのフォールバックに頼っていた。この構造のズレを解消するため、%RM進行データを動きパターン(movement_pattern)単位に持たせ直したテーブル。requires_one_rm:trueの種目は、所属カテゴリに関わらず自身のmovement_patternでこのテーブルを引く（`lib/suggest/program_engine.ts`）。同じ動きパターンの1RM管理種目（例: squatパターンのローバースクワット・ハックスクワット・レッグプレス）は同じ%RM進行を共有する。該当movement_patternのデータが無い場合はフォールバックせず、そのスロットは提案に出ない（欠落を可視化する設計判断）。
+
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| id | uuid | PK |
+| program_id | uuid | FK → programs.id |
+| movement_pattern | text | 動きパターン（exercise_master.movement_patternと対応） |
+| week_number | integer | 週番号（1〜9） |
+| top_set_pct_rm | decimal | メインセットの%RM |
+| top_set_reps | integer | メインセットの目標レップ |
+| top_set_is_amrap | boolean | メインセットがAMRAPかどうか（週9のみtrue） |
+| top_set_rpe | decimal | メインセットの目標RPE |
+| backoff_sets | integer | 追い込みセット数（6パターンカテゴリのみ週次固定値として使用） |
+| backoff_pct_rm | decimal | 追い込みセットの%RM |
+| backoff_reps | integer | 追い込みセットの目標レップ |
+| phase | text | volume/intensity/deload/maxout |
 
 ---
 

@@ -1,6 +1,7 @@
 import type {
   ProgramSlot,
   ProgramWeeklyParams,
+  MovementPatternWeeklyParams,
   UserSlotAssignment,
   UserExercise,
   UserSlotOneRm,
@@ -47,6 +48,7 @@ export type ProgramEngineInput = {
   day_number: 1 | 2 | 3 | 4
   slots: ProgramSlot[]
   weekly_params: ProgramWeeklyParams[]
+  movement_pattern_weekly_params: MovementPatternWeeklyParams[]
   assignments: UserSlotAssignment[]
   exercises: UserExercise[]
   one_rms: UserSlotOneRm[]
@@ -78,7 +80,7 @@ function buildWarmupSets(oneRm: number): SetSuggestion[] {
 // （実装依頼書 2026-07-06、受け入れ条件(a)）。
 const COMPOUND_VOLUME_PHASE_RPE_CEILING = 9.0
 
-function buildCompoundSets(params: ProgramWeeklyParams, oneRm: number): SetSuggestion[] {
+function buildCompoundSets(params: MovementPatternWeeklyParams, oneRm: number): SetSuggestion[] {
   const sets: SetSuggestion[] = []
 
   if (params.top_set_pct_rm != null && (params.top_set_reps != null || params.top_set_is_amrap)) {
@@ -115,7 +117,7 @@ function buildCompoundSets(params: ProgramWeeklyParams, oneRm: number): SetSugge
 // 「セット数=f(セッション時間)」に従わせる。backoff_setsの数を無視し、
 // targetCountちょうどになるまでtop set→backoff setの順に詰める
 // （2026-07-08、実機確認フィードバック対応。isSixPatternのみ旧来のbuildCompoundSetsのまま）。
-function buildCompoundSetsForCount(params: ProgramWeeklyParams, oneRm: number, targetCount: number): SetSuggestion[] {
+function buildCompoundSetsForCount(params: MovementPatternWeeklyParams, oneRm: number, targetCount: number): SetSuggestion[] {
   const sets: SetSuggestion[] = []
 
   if (params.top_set_pct_rm != null && (params.top_set_reps != null || params.top_set_is_amrap) && targetCount > 0) {
@@ -145,41 +147,6 @@ function buildCompoundSetsForCount(params: ProgramWeeklyParams, oneRm: number, t
     }
   }
 
-  return sets
-}
-
-// back_row/back_pull/leg_hingeのようなカテゴリはカテゴリ既定がhasOneRm:falseのため、
-// weekly_paramsがアイソレーション用フィールド(working_sets/rep_range/rpe)だけで作られ、
-// top_set_pct_rm等の%RM系フィールドを持たない。ここに1RM管理される種目（例:
-// デッドリフト）が種目単位の判定で割り当てられると、buildCompoundSets系が空配列を
-// 返しスロットごと非表示になってしまうため、アイソレーション側のデータから
-// メイン/追い込み構成を合成するフォールバック。%RMはこのカテゴリ専用のチューニング値が
-// ないため、他の1RM管理カテゴリ(chest_press/shoulder_press/leg_squat)の週1実績値
-// （top:0.75〜0.8、backoff:0.73〜0.76）を参考にした暫定値を使う。oneRm=0（1RM未入力）
-// ならroundWeight(0*pct)=0のままなので、前ターンの「重量はブランクでいい」方針も両立する
-// （2026-07-08、実機確認フィードバック対応。当初は重量を一律0にしていたが、実際に1RMが
-// 入力されているのに反映されないバグだったため修正）。
-const ISOLATION_FALLBACK_TOP_SET_PCT_RM = 0.8
-const ISOLATION_FALLBACK_BACKOFF_PCT_RM = 0.75
-
-function buildCompoundSetsFromIsolationParams(params: ProgramWeeklyParams, oneRm: number, targetCount: number): SetSuggestion[] {
-  const totalSets = targetCount > 0 ? targetCount : (params.working_sets ?? 3)
-  if (totalSets <= 0) return []
-
-  const reps = params.rep_range_min ?? 5
-  const rawRpe = params.rpe ?? 8
-  const topRpe = params.phase === 'volume' ? Math.min(rawRpe, COMPOUND_VOLUME_PHASE_RPE_CEILING) : rawRpe
-
-  const sets: SetSuggestion[] = [{
-    set_type: 'top',
-    suggested_weight_kg: roundWeight(oneRm * ISOLATION_FALLBACK_TOP_SET_PCT_RM),
-    target_reps: reps,
-    target_rpe: topRpe,
-  }]
-  const backoffWeight = roundWeight(oneRm * ISOLATION_FALLBACK_BACKOFF_PCT_RM)
-  for (let i = 1; i < totalSets; i++) {
-    sets.push({ set_type: 'backoff', suggested_weight_kg: backoffWeight, target_reps: reps, target_rpe: 8 })
-  }
   return sets
 }
 
@@ -258,7 +225,7 @@ function effortRampTargetRpe(weekNumber: number, phase: ProgramPhase): number {
   return 7.0
 }
 
-function slotNotes(params: ProgramWeeklyParams): string | undefined {
+function slotNotes(params: Pick<ProgramWeeklyParams, 'phase' | 'top_set_is_amrap'>): string | undefined {
   if (params.phase === 'deload') return 'ディロード週 — 重量を抑えて回復に集中'
   if (params.phase === 'maxout' && params.top_set_is_amrap) return 'MaxOut週 — 全力で限界まで挑戦！'
   if (params.top_set_is_amrap) return '全力セット: できる限り多くの回数に挑戦！'
@@ -271,6 +238,7 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
     day_number,
     slots,
     weekly_params,
+    movement_pattern_weekly_params,
     assignments,
     exercises,
     one_rms,
@@ -290,6 +258,10 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
   // 現在週の行だけをスロットごとの参照用マップにする。
   const currentWeekParams = weekly_params.filter(p => p.week_number === enrollment.current_week)
   const paramsMap = new Map(currentWeekParams.map(p => [p.slot_id, p]))
+  // 1RM管理種目の%RM進行データは、種目のmovement_pattern単位で引く（カテゴリ単位ではない。
+  // 2026-07-15、is_compound/requires_one_rm不一致調査を受けた構造見直し）。
+  const currentWeekMovementParams = movement_pattern_weekly_params.filter(p => p.week_number === enrollment.current_week)
+  const movementParamsMap = new Map(currentWeekMovementParams.map(p => [p.movement_pattern, p]))
   const assignmentMap = new Map(assignments.map(a => [a.slot_id, a]))
   const exerciseMap = new Map(exercises.map(e => [e.id, e]))
   const oneRmMap = new Map(one_rms.map(r => [r.slot_id, r]))
@@ -327,10 +299,21 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
     // 週2日の格下げ対象カテゴリだけは、選ばれた種目に関わらず1RM管理を強制的にオフにする。
     const hasOneRm = exercise.requires_one_rm && !isOneRmDemotedAtDays(category, days)
 
+    // hasOneRm時のみ参照する%RM進行データの出典（notesの週次フェーズ表示にも使う）。
+    let movementParams: MovementPatternWeeklyParams | undefined
+
     if (hasOneRm) {
+      // %RM進行データは種目のmovement_pattern単位（movement_pattern_weekly_params）で引く。
+      // カテゴリ既定がhasOneRm:falseでも（leg_hingeにデッドリフト、shoulder_press_2に
+      // ダンベルショルダープレス等）、種目のmovement_patternが一致すれば同じ進行データを
+      // 共有できる（2026-07-15、is_compound/requires_one_rm不一致調査を受けた構造見直し。
+      // 旧buildCompoundSetsFromIsolationParamsの暫定%RMフォールバックは不要になり削除）。
+      movementParams = movementParamsMap.get(exercise.movement_pattern ?? '')
+      if (!movementParams) continue
+
       // 6パターン該当カテゴリ（チェストプレス・肩プレス・スクワット）だけが、既存の
-      // 週次漸進システム（weekly_paramsのtop_set/backoff_sets）でセット数まで決める
-      // 対象。それ以外の1RM管理カテゴリ（例: leg_2）は%RMで重量だけ引き継ぎ、セット数は
+      // 週次漸進システム（movement_pattern_weekly_paramsのtop_set/backoff_sets）でセット数まで
+      // 決める対象。それ以外の1RM管理カテゴリ（例: leg_2）は%RMで重量だけ引き継ぎ、セット数は
       // brainstorm #8の「セット数=f(セッション時間)」に従う（2026-07-08、実機確認対応）。
       const targetCount = category.isSixPattern ? null : setsForNonPatternCategory(minutes)
 
@@ -343,14 +326,8 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
       const oneRmRecord = oneRmMap.get(category.id)
       const oneRmKg = oneRmRecord?.one_rm_kg ?? estimateOneRmFromRecentSets(recentSets)
       sets = targetCount != null
-        ? buildCompoundSetsForCount(params, oneRmKg, targetCount)
-        : buildCompoundSets(params, oneRmKg)
-
-      // カテゴリ既定がhasOneRm:falseのweekly_params（アイソレーション用データのみ）に、
-      // 種目単位の判定で1RM管理種目が割り当てられた場合のフォールバック
-      if (sets.length === 0) {
-        sets = buildCompoundSetsFromIsolationParams(params, oneRmKg, targetCount ?? 0)
-      }
+        ? buildCompoundSetsForCount(movementParams, oneRmKg, targetCount)
+        : buildCompoundSets(movementParams, oneRmKg)
     } else {
       if (volumeRampsForCategory(category, minutes, priorities)) {
         // 優先部位 かつ75分/90分: 既存どおりDBの週次working_sets/rpeをそのまま使う
@@ -372,7 +349,10 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
     if (sets.length === 0) continue
 
     const noteFragments: string[] = []
-    const phaseNote = slotNotes(params)
+    // 1RM管理種目はmovement_pattern_weekly_params側にphase/top_set_is_amrapがある
+    // （カテゴリ側のparams.phaseは同じ週なら実質同値だが、is_excluded判定用に別途
+    // 存在するparamsとは出典が分かれたため、hasOneRm時はmovementParamsを正とする）。
+    const phaseNote = slotNotes(hasOneRm ? movementParams! : params)
     if (phaseNote) noteFragments.push(phaseNote)
 
     // 60分: アイソレーション最終セットに強度テクニックを許可
