@@ -211,7 +211,6 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
           <>
             {/* Hero Card */}
             <div className="px-5 py-5 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
-              <p className="text-[10px] text-zinc-400 uppercase tracking-widest mb-1">9週間ステップアップ計画</p>
               <h2 className="text-base font-bold text-black dark:text-white mb-4">9週間ボリューム＆強度プログラム</h2>
 
               {/* Phase badge */}
