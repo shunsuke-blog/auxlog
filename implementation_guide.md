@@ -274,6 +274,12 @@ const limit = Math.min(Math.max(1, rawLimit), 100)  // サーバー側で最大1
 - 提案から除外する条件: `days_since_last < TRAINING.MIN_DAYS_BETWEEN_SESSIONS`
 - 7日以上経過のカード強調（`days_since_last >= 7`）を表示していた`SwipeableExerciseCard`は2026-07-09削除済み。`days_since_last`自体は今も計算されるが、表示するUIは現在無い（2026-07-12確認）
 
+### lib/suggest/program_engine.ts（9週間プログラム本体、これまで本ファイルに記載が無かった）
+- RM管理種目（`exercise.requires_one_rm`）は`buildCompoundSets`/`buildCompoundSetsForCount`で%RM進行(`movement_pattern_weekly_params`)を使う。アイソレーション種目は`buildIsolationSets`で直近実績からのオートレギュレーションを使う。回数(`target_reps`)はどちらも該当種目のロジックが決めた値であり、アイソレーション側は常に現在週の`rep_range_min`固定
+- `adjustIsolationWeight`（旧`suggestIsolationWeight`、2026-07-17改修）: `TrainingSet.set_number`単位で前回実績とマッチングし、セットごとに独立して`+2.5/-2.5/据え置き`を判定する。以前は全ワーキングセットの実績をまとめて単一の重量に丸め込んでいたため、ドロップセットのようなセットごとに重量が異なる構成が提案時に破壊される不具合があった
+- 上記の前提として、`app/api/suggest/program/route.ts`の`recentSetsByExercise`は種目ごとに直近14日以内で最新の1セッションのみに絞り込む（2026-07-17〜。以前は14日分の複数セッションをプールしており、複数トレーニング日の記録が混ざって判定されていた）
+- 詳細は`detailed_design.md` §4.4.1、テストは`lib/suggest/program_engine.test.ts`の`(2026-07-17)`タグの2件を参照
+
 ### lib/normalize/exercises.ts
 - `RawUserExercise` 型（Supabase JOIN 結果）を `UserExercise` 型に変換
 - 呼び出し箇所: `app/(app)/page.tsx`, `app/(app)/history/page.tsx`, `app/api/suggest/route.ts`, `app/api/exercises/route.ts`

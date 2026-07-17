@@ -162,20 +162,16 @@ function estimateOneRmFromRecentSets(recentSets: TrainingSet[]): number {
   return Math.max(...estimates)
 }
 
-function suggestIsolationWeight(params: ProgramWeeklyParams, recentSets: TrainingSet[]): number {
-  const workingSets = recentSets.filter(s => !s.is_warmup)
-  if (workingSets.length === 0) return 0
-
-  const maxWeight = Math.max(...workingSets.map(s => s.weight_kg))
+// 1セット単体の実績(直近セッションの同じset_number)から次回の重量を判定する。
+// レンジ上限超え→+2.5、下限未達→-2.5、レンジ内→据え置き。セット同士をまとめて
+// 判定しない（ドロップセットのように意図的にセットごと重量が違う構成で、1セットの
+// 未達が他セットの重量まで引き下げてしまう不具合の修正。2026-07-17）。
+function adjustIsolationWeight(prevWeight: number, prevReps: number, params: ProgramWeeklyParams): number {
   const minReps = params.rep_range_min ?? 0
   const maxReps = params.rep_range_max ?? 9999
-
-  const allAboveMax = workingSets.every(s => s.reps > maxReps)
-  const anyBelowMin = workingSets.some(s => s.reps < minReps)
-
-  if (allAboveMax) return maxWeight + 2.5
-  if (anyBelowMin) return Math.max(0, maxWeight - 2.5)
-  return maxWeight
+  if (prevReps > maxReps) return prevWeight + 2.5
+  if (prevReps < minReps) return Math.max(0, prevWeight - 2.5)
+  return prevWeight
 }
 
 function buildIsolationSets(
@@ -183,17 +179,43 @@ function buildIsolationSets(
   recentSets: TrainingSet[],
   overrides?: { workingSets?: number | null; targetRpe?: number },
 ): SetSuggestion[] {
-  const workingSets = overrides?.workingSets ?? params.working_sets
-  if (!workingSets) return []
-  const suggestedWeight = suggestIsolationWeight(params, recentSets)
-  return Array.from({ length: workingSets }, () => ({
-    set_type: 'working' as const,
-    suggested_weight_kg: suggestedWeight,
-    target_reps: params.rep_range_min ?? 10,
-    rep_range_min: params.rep_range_min ?? undefined,
-    rep_range_max: params.rep_range_max ?? undefined,
-    target_rpe: overrides?.targetRpe ?? params.rpe ?? 8,
-  }))
+  const workingSetsCount = overrides?.workingSets ?? params.working_sets
+  if (!workingSetsCount) return []
+
+  // recentSetsはroute.ts側で種目ごとに直近14日内の最新1セッションのみに絞り込み済み
+  // （2026-07-17）。set_number単位でその1セッション内の実績を引き当てる。
+  const prevByPosition = new Map<number, TrainingSet>()
+  for (const set of recentSets) {
+    if (set.is_warmup) continue
+    const existing = prevByPosition.get(set.set_number)
+    if (!existing || set.created_at > existing.created_at) {
+      prevByPosition.set(set.set_number, set)
+    }
+  }
+
+  // 今回のセット数が前回より多い場合、対応する前回セットが無い分は前回セッションの
+  // 最終セットの重量を初期値として使う（達成状況を判定する材料が無いため調整はしない）。
+  const knownPositions = Array.from(prevByPosition.keys()).sort((a, b) => a - b)
+  const lastKnownSet = knownPositions.length > 0
+    ? prevByPosition.get(knownPositions[knownPositions.length - 1])
+    : undefined
+
+  return Array.from({ length: workingSetsCount }, (_, i) => {
+    const position = i + 1
+    const prev = prevByPosition.get(position)
+    const suggestedWeight = prev
+      ? adjustIsolationWeight(prev.weight_kg, prev.reps, params)
+      : (lastKnownSet ? lastKnownSet.weight_kg : 0)
+
+    return {
+      set_type: 'working' as const,
+      suggested_weight_kg: suggestedWeight,
+      target_reps: params.rep_range_min ?? 10,
+      rep_range_min: params.rep_range_min ?? undefined,
+      rep_range_max: params.rep_range_max ?? undefined,
+      target_rpe: overrides?.targetRpe ?? params.rpe ?? 8,
+    }
+  })
 }
 
 // ── tier別漸進レバー ──

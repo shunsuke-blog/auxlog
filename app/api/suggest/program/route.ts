@@ -76,10 +76,13 @@ export async function GET(request: Request) {
     // 1回の記録保存ごとにtraining_sessions行が1件作られる（種目単位でスロットカードから
     // 個別に保存するUXのため、1トレーニング日で種目数分の行ができうる）。件数で打ち切ると
     // 直近14日分でも30件を超えて古い方から漏れることがあるため、日付範囲だけで絞り込む
-    // （2026-07-11、トライセプスプレスダウンの重量が引き継がれないバグの修正）
+    // （2026-07-11、トライセプスプレスダウンの重量が引き継がれないバグの修正）。
+    // trained_atは種目ごとに「直近14日内で最新の1セッション」を特定するために使う
+    // （2026-07-17、複数トレーニング日の記録がプールされてセット単位の重量提案が
+    // 破綻していた問題の修正）。
     supabase
       .from('training_sessions')
-      .select('id')
+      .select('id, trained_at')
       .eq('user_id', user.id)
       .gte('trained_at', cutoffStr),
   ])
@@ -96,22 +99,39 @@ export async function GET(request: Request) {
     }
   }
 
-  // アイソレーション重量キャリブレーション用: 直近14日のセットを取得
+  // アイソレーション重量キャリブレーション用: 種目ごとに直近14日以内で最新の1セッションのみを採用する
+  // （以前は14日分の複数トレーニング日をまとめてプールしていたため、ドロップセット等
+  // セットごとに重量が異なる構成が複数日の記録と混ざり、セット単位の重量提案が破綻していた。
+  // 2026-07-17修正）
   const exerciseIds = (assignmentsRes.data ?? []).map(a => a.exercise_id)
   const recentSetsByExercise: Record<string, TrainingSet[]> = {}
 
   if (exerciseIds.length > 0) {
-    const sessionIds = (recentSessionsRes.data ?? []).map(s => s.id)
+    const sessions = recentSessionsRes.data ?? []
+    const sessionIds = sessions.map(s => s.id)
     if (sessionIds.length > 0) {
+      const trainedAtBySessionId = new Map(sessions.map(s => [s.id, s.trained_at]))
+
       const { data: recentSets } = await supabase
         .from('training_sets')
         .select('*')
         .in('exercise_id', exerciseIds)
         .in('session_id', sessionIds)
         .eq('is_warmup', false)
-        .order('created_at', { ascending: false })
+
+      // 種目ごとに trained_at が最も新しいセッションだけを特定する
+      const latestSessionIdByExercise = new Map<string, string>()
+      for (const set of (recentSets ?? [])) {
+        const trainedAt = trainedAtBySessionId.get(set.session_id) ?? ''
+        const currentLatestId = latestSessionIdByExercise.get(set.exercise_id)
+        const currentLatestTrainedAt = currentLatestId ? (trainedAtBySessionId.get(currentLatestId) ?? '') : ''
+        if (!currentLatestId || trainedAt > currentLatestTrainedAt) {
+          latestSessionIdByExercise.set(set.exercise_id, set.session_id)
+        }
+      }
 
       for (const set of (recentSets ?? [])) {
+        if (latestSessionIdByExercise.get(set.exercise_id) !== set.session_id) continue
         if (!recentSetsByExercise[set.exercise_id]) {
           recentSetsByExercise[set.exercise_id] = []
         }

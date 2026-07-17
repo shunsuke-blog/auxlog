@@ -171,8 +171,8 @@ Auxlog
 - セッション削除機能（確認ダイアログあり）
 - RPC関数（`update_session_with_sets`）によるアトミック更新
 
-#### 2.7 9週間プログラム機能（⚡ 現在の主力機能、2026-06-28〜実装。⚡ 2026-07-15更新: %RM進行データをmovement_pattern単位に切り出し）
-研究ベースの9週間ハイパートロフィープログラムをAuxlogに組み込んだもの。前回記録からの適応提案（§2.3）ではなく、プログラムがあらかじめ決めた週次パラメータに沿って重量・レップを算出する。種目選定・日数配分の一次情報源は`program-composition-redesign-brainstorm.md`（`program-based-logic-design.md`・`program-frequency-variants-design.md`が説明する旧スロット方式は2026-07-08に全面置き換え済み）。
+#### 2.7 9週間プログラム機能（⚡ 現在の主力機能、2026-06-28〜実装。⚡ 2026-07-15更新: %RM進行データをmovement_pattern単位に切り出し。⚡ 2026-07-17訂正: 下記「レップは週次パラメータ、重量はRM管理/アイソレーションで方式が異なる」参照）
+研究ベースの9週間ハイパートロフィープログラムをAuxlogに組み込んだもの。**レップ数**は前回記録からの適応提案（§2.3）ではなく、プログラムがあらかじめ決めた週次パラメータ(`rep_range_min`)をそのまま採用する。**重量**はRM管理種目とアイソレーション種目で方式が異なる: RM管理種目は%RM進行（週次パラメータ）で算出するが、アイソレーション(1RM非管理)種目は直近実績からのオートレギュレーション（セット単位で前回重量に±2.5kg）で算出しており、「前回記録からの適応提案ではない」は重量には当てはまらない（2026-07-17、オーナー指摘で判明した記述の誤り。詳細は`detailed_design.md` §4.4.1参照）。種目選定・日数配分の一次情報源は`program-composition-redesign-brainstorm.md`（`program-based-logic-design.md`・`program-frequency-variants-design.md`が説明する旧スロット方式は2026-07-08に全面置き換え済み）。
 
 - **4フェーズ構成**: W1〜W4 Volume Progression → W5〜W7 Intensity → W8 Deload → W9 Max Out（AMRAP）
 - **種目数は日数(2/3/4)で決まる**。6つの基本の動き（ホリゾンタルプレス・バーチカルプレス・ホリゾンタルロウ・バーチカルプル・スクワット・ヒップヒンジ）は日数に関わらず必ず含まれ、日数が増えるほどアクセサリー種目が追加される（canonical順位1-24のカットオフ方式、`lib/suggest/generate_program_composition.ts`）。週2日では`shoulder_press`・`leg_default`・`leg_2`カテゴリのみ1RM管理を強制的にオフにする（BIG3限定ではなく、種目ごとの`requires_one_rm`属性が正）

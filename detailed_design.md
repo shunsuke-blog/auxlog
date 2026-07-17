@@ -493,7 +493,18 @@ CREATE INDEX idx_user_exercises_user
 
 ### 4.4 9週間プログラムAPI（⚡ 2026-07-12新規追加: §4.1〜4.3に抜けていた現在の主力機能のAPI群）
 
-**GET /api/suggest/program?day=1〜4** - 指定Dayの種目・重量・セット提案を返す（`buildProgramSuggestion`、§5参照）。スロット・週次パラメータ・movement_pattern週次パラメータ（2026-07-15〜、%RM進行データの出典）・種目・1RM・直近セッションを並列取得し、直近14日のセットを日付範囲のみで絞り込む（件数上限は設けない。2026-07-11、`.limit(30)`が原因で重量が引き継がれないバグを修正）
+**GET /api/suggest/program?day=1〜4** - 指定Dayの種目・重量・セット提案を返す（`buildProgramSuggestion`、`lib/suggest/program_engine.ts`）。スロット・週次パラメータ・movement_pattern週次パラメータ（2026-07-15〜、%RM進行データの出典）・種目・1RM・直近セッションを並列取得する。直近セッションは日付範囲（14日）でDB取得した上で、**種目ごとにtrained_atが最新の1セッションのみ**を採用する（2026-07-17〜。以前は14日分の複数トレーニング日をそのままプールしていたため、後述のセット単位重量提案が複数日の記録と混ざって破綻していた）
+
+#### 4.4.1 アイソレーション(1RM非管理)種目の重量提案ロジック（`suggestIsolationWeight`→`adjustIsolationWeight`/`buildIsolationSets`、2026-07-17改修）
+
+RM管理種目（`exercise.requires_one_rm: true`）は%RM進行（movement_pattern_weekly_params、top_set/backoff_sets）で重量を算出するのに対し、RM非管理(アイソレーション)種目は直近実績からのオートレギュレーションで重量を算出する。回数(`target_reps`)は常に現在週の`program_weekly_params.rep_range_min`を採用し、実績から計算しない。
+
+**2026-07-17より前の実装**: 直近セッションの全ワーキングセットから単一の最大重量(`maxWeight`)を求め、「全セットがrep_range_maxを超えていたか」「いずれかのセットがrep_range_min未満だったか」を全セットまとめて判定し、結果(maxWeight±2.5kg)を**その種目の全ワーキングセットに同一値**として適用していた。ドロップセットのようにセットごとに重量が異なる構成では、この一律適用によりセットごとの重量差が提案時に失われる不具合があった（オーナー指摘により発覚）。
+
+**現在の実装**: `TrainingSet.set_number`単位で前回の実績とマッチングし、セットごとに独立して判定する。
+- 直近セッションの同じ`set_number`の実績がある場合: そのセットのreps単体で判定（`rep_range_max`超え→+2.5kg、`rep_range_min`未満→-2.5kg・0未満にはならない、レンジ内→据え置き）
+- 対応する前回セットが無い場合（今回のセット数が前回より多い）: 前回セッションの最終セットの重量を初期値として使う（達成判定はしない）
+- 直近実績が全く無い場合: 0（表示側で「—」扱い、既存方針を維持）
 
 **GET /api/suggest/program/week-status** - 今週の完了種目ID一覧と全完了フラグを返す（ホーム画面の完了バッジ・「Week N 完了」ボタン判定用）
 

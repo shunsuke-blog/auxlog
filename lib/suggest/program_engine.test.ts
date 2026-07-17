@@ -19,6 +19,7 @@ import type {
   UserSlotAssignment,
   UserExercise,
   UserSlotOneRm,
+  TrainingSet,
 } from '@/types'
 
 const PROGRAM_ID = 'test-program'
@@ -176,6 +177,7 @@ function buildInput(opts: {
   priorityMuscles?: PriorityMuscleOption[]
   days?: DaysPerWeek
   skipOneRmRecord?: boolean
+  recentSets?: TrainingSet[]
 }): ProgramEngineInput {
   const priorities = opts.priorityMuscles ?? []
   const days = opts.days ?? DAYS
@@ -217,7 +219,7 @@ function buildInput(opts: {
     assignments: [assignment],
     exercises: [exercise],
     one_rms: (opts.hasOneRm && !opts.skipOneRmRecord) ? [{ id: 'orm1', user_id: 'u1', slot_id: opts.category_id, one_rm_kg: 100, recorded_at: '2026-01-01', source: 'manual_input' } as UserSlotOneRm] : [],
-    recent_sets_by_exercise: {},
+    recent_sets_by_exercise: opts.recentSets ? { ex1: opts.recentSets } : {},
   }
 }
 
@@ -432,6 +434,55 @@ test('(b) 75分/90分: 非優先部位(腕)はセット数がsetsForNonPatternCa
   const suggestion = buildProgramSuggestion(input)
   const workingSets = suggestion.slots[0].sets.filter(s => s.set_type === 'working')
   assert.equal(workingSets.length, 3, '非優先部位はsetsForNonPatternCategory(90)=3に固定されるはず')
+})
+
+test('(2026-07-17) ドロップセット構成では、セットごとに前回の実績(set_number)に応じて独立に重量が調整される', () => {
+  // オーナー指摘: 30kg×7回・25kg×10回・20kg×13回(rep_range 8〜12)を組んでいる場合、
+  // 「セット1が未達だからセット3(元々軽い設定)まで一律で下げる」のは誤り。各セットは
+  // 独立して判定されるべき（1セット目: 7回<8回min→-2.5、2セット目: 10回はレンジ内→据え置き、
+  // 3セット目: 13回>12回max→+2.5）。
+  const recentSets: TrainingSet[] = [
+    { id: 's1', session_id: 'sess1', exercise_id: 'ex1', set_number: 1, weight_kg: 30, reps: 7, rir: false, is_warmup: false, created_at: '2026-07-10T10:00:00Z' },
+    { id: 's2', session_id: 'sess1', exercise_id: 'ex1', set_number: 2, weight_kg: 25, reps: 10, rir: false, is_warmup: false, created_at: '2026-07-10T10:05:00Z' },
+    { id: 's3', session_id: 'sess1', exercise_id: 'ex1', set_number: 3, weight_kg: 20, reps: 13, rir: false, is_warmup: false, created_at: '2026-07-10T10:10:00Z' },
+  ]
+  const input = buildInput({
+    category_id: 'back_2', muscle_group: 'back',
+    sessionMins: 90, currentWeek: 1, // week1のDB working_sets=3
+    weekly_params: makeIsolationWeeklyParams('back_2'),
+    priorityMuscles: ['back'],
+    recentSets,
+  })
+  const suggestion = buildProgramSuggestion(input)
+  const workingSets = suggestion.slots[0].sets.filter(s => s.set_type === 'working')
+  assert.equal(workingSets.length, 3)
+  assert.deepEqual(
+    workingSets.map(s => s.suggested_weight_kg),
+    [27.5, 25, 22.5],
+    'セットごとに独立して調整され、全セット同一重量になってはいけない',
+  )
+})
+
+test('(2026-07-17) 今回のセット数が前回より多い場合、対応する前回セットが無い分は前回の最終セットの重量を初期値にする', () => {
+  const recentSets: TrainingSet[] = [
+    { id: 's1', session_id: 'sess1', exercise_id: 'ex1', set_number: 1, weight_kg: 30, reps: 10, rir: false, is_warmup: false, created_at: '2026-07-10T10:00:00Z' },
+    { id: 's2', session_id: 'sess1', exercise_id: 'ex1', set_number: 2, weight_kg: 25, reps: 10, rir: false, is_warmup: false, created_at: '2026-07-10T10:05:00Z' },
+  ]
+  const input = buildInput({
+    category_id: 'back_2', muscle_group: 'back',
+    sessionMins: 90, currentWeek: 3, // week3のDB working_sets=4（前回は2セットのみログ）
+    weekly_params: makeIsolationWeeklyParams('back_2'),
+    priorityMuscles: ['back'],
+    recentSets,
+  })
+  const suggestion = buildProgramSuggestion(input)
+  const workingSets = suggestion.slots[0].sets.filter(s => s.set_type === 'working')
+  assert.equal(workingSets.length, 4)
+  assert.deepEqual(
+    workingSets.map(s => s.suggested_weight_kg),
+    [30, 25, 25, 25],
+    '前回セットが無い3・4セット目は前回最終セット(25kg)を初期値として使うはず',
+  )
 })
 
 test('(b) ユーザーの優先部位選択によってボリューム漸進の対象が切り替わる', () => {
