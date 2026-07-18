@@ -101,7 +101,7 @@ export default async function SubscriptionPage() {
           <div className="flex items-center justify-between">
             <span className="text-sm text-black dark:text-white">Auxlog Premium</span>
             {status !== 'trialing' && !freeActive && (
-              <span className="text-sm font-black text-black dark:text-white">¥480<span className="text-xs font-normal text-zinc-400">/月</span></span>
+              <span className="text-sm font-black text-black dark:text-white">¥2,980<span className="text-xs font-normal text-zinc-400">/月</span></span>
             )}
           </div>
           <div className="flex items-center justify-between">
