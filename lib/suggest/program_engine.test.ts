@@ -485,6 +485,48 @@ test('(2026-07-17) 今回のセット数が前回より多い場合、対応す�
   )
 })
 
+test('(2026-07-20) 前回レンジ未達でもRIR「余裕」申告なら減量しない(疲労で回数が落ちただけを未達成と誤判定しない)', () => {
+  // オーナー報告: 懸垂で5kg×10回・7.5kg×10回・7.5kg×9回(rep_range 10〜12)を
+  // 全セット「余裕」で記録したのに、3セット目(9回<10回min)だけ機械的に-2.5された。
+  // RIRが「余裕」と自己申告している以上、レンジ未達は重量が重すぎたからではない。
+  const recentSets: TrainingSet[] = [
+    { id: 's1', session_id: 'sess1', exercise_id: 'ex1', set_number: 1, weight_kg: 30, reps: 10, rir: true, is_warmup: false, created_at: '2026-07-10T10:00:00Z' },
+    { id: 's2', session_id: 'sess1', exercise_id: 'ex1', set_number: 2, weight_kg: 32.5, reps: 10, rir: true, is_warmup: false, created_at: '2026-07-10T10:05:00Z' },
+    { id: 's3', session_id: 'sess1', exercise_id: 'ex1', set_number: 3, weight_kg: 32.5, reps: 7, rir: true, is_warmup: false, created_at: '2026-07-10T10:10:00Z' },
+  ]
+  const input = buildInput({
+    category_id: 'back_2', muscle_group: 'back',
+    sessionMins: 90, currentWeek: 1, // week1のDB working_sets=3
+    weekly_params: makeIsolationWeeklyParams('back_2'),
+    priorityMuscles: ['back'],
+    recentSets,
+  })
+  const suggestion = buildProgramSuggestion(input)
+  const workingSets = suggestion.slots[0].sets.filter(s => s.set_type === 'working')
+  assert.equal(workingSets.length, 3)
+  assert.deepEqual(
+    workingSets.map(s => s.suggested_weight_kg),
+    [30, 32.5, 32.5],
+    'RIR「余裕」申告のセットはレンジ未達でも据え置きのはず(3セット目が30に下がってはいけない)',
+  )
+})
+
+test('(2026-07-20) 前回レンジ未達でRIR「限界」申告なら従来通り減量する(RIR未対応の既存挙動を維持)', () => {
+  const recentSets: TrainingSet[] = [
+    { id: 's1', session_id: 'sess1', exercise_id: 'ex1', set_number: 1, weight_kg: 30, reps: 7, rir: false, is_warmup: false, created_at: '2026-07-10T10:00:00Z' },
+  ]
+  const input = buildInput({
+    category_id: 'back_2', muscle_group: 'back',
+    sessionMins: 90, currentWeek: 8, // week8のDB working_sets=2
+    weekly_params: makeIsolationWeeklyParams('back_2'),
+    priorityMuscles: ['back'],
+    recentSets,
+  })
+  const suggestion = buildProgramSuggestion(input)
+  const workingSets = suggestion.slots[0].sets.filter(s => s.set_type === 'working')
+  assert.equal(workingSets[0].suggested_weight_kg, 27.5, 'RIR「限界」申告(rir:false)ならレンジ未達で従来通り-2.5されるはず')
+})
+
 test('(b) ユーザーの優先部位選択によってボリューム漸進の対象が切り替わる', () => {
   // priority=['back']のとき、priority枠(rank10)に入るback_2は75分/90分で漸増する
   const backSelected = buildInput({

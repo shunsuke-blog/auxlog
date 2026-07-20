@@ -166,11 +166,15 @@ function estimateOneRmFromRecentSets(recentSets: TrainingSet[]): number {
 // レンジ上限超え→+2.5、下限未達→-2.5、レンジ内→据え置き。セット同士をまとめて
 // 判定しない（ドロップセットのように意図的にセットごと重量が違う構成で、1セットの
 // 未達が他セットの重量まで引き下げてしまう不具合の修正。2026-07-17）。
-function adjustIsolationWeight(prevWeight: number, prevReps: number, params: ProgramWeeklyParams): number {
+// prevRirがtrue（「余裕」申告）の場合はレンジ未達でも減量しない。RIR自己申告が「まだ
+// 余力があった」と言っている以上、レンジ未達は重量が重すぎたからではなく疲労等の別要因
+// による一時的な落ち込みである可能性が高く、それを「未達成」として機械的に罰すると
+// 直前セットで余裕を持って止めただけのケースまで不当に重量が下がってしまう（2026-07-20）。
+function adjustIsolationWeight(prevWeight: number, prevReps: number, prevRir: boolean, params: ProgramWeeklyParams): number {
   const minReps = params.rep_range_min ?? 0
   const maxReps = params.rep_range_max ?? 9999
   if (prevReps > maxReps) return prevWeight + 2.5
-  if (prevReps < minReps) return Math.max(0, prevWeight - 2.5)
+  if (prevReps < minReps && !prevRir) return Math.max(0, prevWeight - 2.5)
   return prevWeight
 }
 
@@ -204,7 +208,7 @@ function buildIsolationSets(
     const position = i + 1
     const prev = prevByPosition.get(position)
     const suggestedWeight = prev
-      ? adjustIsolationWeight(prev.weight_kg, prev.reps, params)
+      ? adjustIsolationWeight(prev.weight_kg, prev.reps, prev.rir, params)
       : (lastKnownSet ? lastKnownSet.weight_kg : 0)
 
     return {
