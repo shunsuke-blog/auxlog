@@ -184,7 +184,9 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enrollment_id: enrollment.id, is_hidden: true }),
     }).catch(() => {})
-    fetchDay(selectedDay)
+    // スロットの割り当ては日をまたいで共有されるため、キャッシュ全体を破棄する
+    suggestionCache.current.clear()
+    fetchDay(selectedDay, { force: true })
   }
 
   const addExercise = async (ex: { id: string | null; masterId: string | null; name: string; target_muscle?: string }) => {
@@ -260,14 +262,30 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
         const data = await res.json()
         setCurrentWeek(data.current_week)
         await fetchWeekStatus()
-        await fetchDay(selectedDay)
+        // 週が進むと全日程の週次パラメータが変わるため、キャッシュ全体を破棄する
+        suggestionCache.current.clear()
+        await fetchDay(selectedDay, { force: true })
       }
     } catch { /* ignore */ } finally {
       setAdvancingWeek(false)
     }
   }
 
-  const fetchDay = useCallback(async (day: number) => {
+  // 日ごとの提案キャッシュ。/api/suggest/program はスロット・週次パラメータ・直近実績
+  // （select=*の重いtraining_setsクエリ含む）を日に関わらず毎回まるごと取得し直すため、
+  // タブを行き来するだけで同じデータを何度も引き直してしまっていた。同じ日に戻ってきた
+  // 時は再取得せずキャッシュを使う（2026-07-21、Supabase egress削減）。
+  const suggestionCache = useRef<Map<number, ProgramSuggestion>>(new Map())
+
+  const fetchDay = useCallback(async (day: number, opts?: { force?: boolean }) => {
+    if (!opts?.force) {
+      const cached = suggestionCache.current.get(day)
+      if (cached) {
+        setSuggestion(cached)
+        setError(null)
+        return
+      }
+    }
     setLoading(true)
     setError(null)
     try {
@@ -277,6 +295,7 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
         throw new Error((data as { error?: string }).error ?? 'エラーが発生しました')
       }
       const data = await res.json()
+      suggestionCache.current.set(day, data.suggestion)
       setSuggestion(data.suggestion)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'エラーが発生しました')
