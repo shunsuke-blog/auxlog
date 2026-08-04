@@ -220,6 +220,8 @@ function buildInput(opts: {
     exercises: [exercise],
     one_rms: (opts.hasOneRm && !opts.skipOneRmRecord) ? [{ id: 'orm1', user_id: 'u1', slot_id: opts.category_id, one_rm_kg: 100, recorded_at: '2026-01-01', source: 'manual_input' } as UserSlotOneRm] : [],
     recent_sets_by_exercise: opts.recentSets ? { ex1: opts.recentSets } : {},
+    custom_slots: [],
+    week_skips: [],
   }
 }
 

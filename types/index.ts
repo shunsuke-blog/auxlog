@@ -226,6 +226,27 @@ export type UserSlotAssignment = {
   created_at: string;
 };
 
+export type UserCustomSlot = {
+  id: string;
+  user_id: string;
+  enrollment_id: string;
+  exercise_id: string;
+  day_number: number;
+  muscle_group: string;
+  rep_range_min: number;
+  rep_range_max: number;
+  created_at: string;
+};
+
+export type UserSlotWeekSkip = {
+  id: string;
+  user_id: string;
+  enrollment_id: string;
+  slot_id: string;
+  week_number: number;
+  created_at: string;
+};
+
 export type UserSlotOneRm = {
   id: string;
   user_id: string;
@@ -252,6 +273,7 @@ export type SlotSuggestion = {
   exercise: UserExercise;
   sets: SetSuggestion[];
   notes?: string;
+  is_custom?: boolean;
 };
 
 export type ProgramSuggestion = {

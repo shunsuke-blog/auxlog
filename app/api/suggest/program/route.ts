@@ -9,6 +9,8 @@ import type {
   ProgramWeeklyParams,
   MovementPatternWeeklyParams,
   UserSlotAssignment,
+  UserCustomSlot,
+  UserSlotWeekSkip,
   UserSlotOneRm,
   TrainingSet,
 } from '@/types'
@@ -45,7 +47,7 @@ export async function GET(request: Request) {
   // 並列取得: スロット・週次パラメータ・movement_pattern週次パラメータ・割り当て・種目・1RM・直近セッション
   // （直近セッションはenrollment/assignmentsに依存しないため、ここで同時に取得して
   // ラウンドトリップを1回減らす。2026-07-10、ホーム画面の体感速度改善）
-  const [slotsRes, paramsRes, movementParamsRes, assignmentsRes, exercisesRes, oneRmsRes, recentSessionsRes] = await Promise.all([
+  const [slotsRes, paramsRes, movementParamsRes, assignmentsRes, exercisesRes, oneRmsRes, recentSessionsRes, customSlotsRes, weekSkipsRes] = await Promise.all([
     supabase
       .from('program_slots')
       .select('*')
@@ -85,9 +87,18 @@ export async function GET(request: Request) {
       .select('id, trained_at')
       .eq('user_id', user.id)
       .gte('trained_at', cutoffStr),
+    supabase
+      .from('user_custom_slots')
+      .select('*')
+      .eq('enrollment_id', enrollment.id),
+    supabase
+      .from('user_slot_week_skips')
+      .select('*')
+      .eq('enrollment_id', enrollment.id)
+      .eq('week_number', enrollment.current_week),
   ])
 
-  if (slotsRes.error || paramsRes.error || movementParamsRes.error || assignmentsRes.error) {
+  if (slotsRes.error || paramsRes.error || movementParamsRes.error || assignmentsRes.error || customSlotsRes.error || weekSkipsRes.error) {
     return NextResponse.json({ error: 'データ取得に失敗しました' }, { status: 500 })
   }
 
@@ -103,7 +114,11 @@ export async function GET(request: Request) {
   // （以前は14日分の複数トレーニング日をまとめてプールしていたため、ドロップセット等
   // セットごとに重量が異なる構成が複数日の記録と混ざり、セット単位の重量提案が破綻していた。
   // 2026-07-17修正）
-  const exerciseIds = (assignmentsRes.data ?? []).map(a => a.exercise_id)
+  const customSlots = (customSlotsRes.data ?? []) as UserCustomSlot[]
+  const exerciseIds = [
+    ...(assignmentsRes.data ?? []).map(a => a.exercise_id),
+    ...customSlots.map(c => c.exercise_id),
+  ]
   const recentSetsByExercise: Record<string, TrainingSet[]> = {}
 
   if (exerciseIds.length > 0) {
@@ -152,6 +167,8 @@ export async function GET(request: Request) {
     exercises: normalizedExercises,
     one_rms: Array.from(latestOneRms.values()),
     recent_sets_by_exercise: recentSetsByExercise,
+    custom_slots: customSlots,
+    week_skips: (weekSkipsRes.data ?? []) as UserSlotWeekSkip[],
   })
 
   return NextResponse.json({ suggestion })

@@ -3,6 +3,8 @@ import type {
   ProgramWeeklyParams,
   MovementPatternWeeklyParams,
   UserSlotAssignment,
+  UserCustomSlot,
+  UserSlotWeekSkip,
   UserExercise,
   UserSlotOneRm,
   SetSuggestion,
@@ -53,6 +55,8 @@ export type ProgramEngineInput = {
   exercises: UserExercise[]
   one_rms: UserSlotOneRm[]
   recent_sets_by_exercise: Record<string, TrainingSet[]>
+  custom_slots: UserCustomSlot[]
+  week_skips: UserSlotWeekSkip[]
 }
 
 const DAY_LABELS: Record<number, string> = {
@@ -170,7 +174,7 @@ function estimateOneRmFromRecentSets(recentSets: TrainingSet[]): number {
 // 余力があった」と言っている以上、レンジ未達は重量が重すぎたからではなく疲労等の別要因
 // による一時的な落ち込みである可能性が高く、それを「未達成」として機械的に罰すると
 // 直前セットで余裕を持って止めただけのケースまで不当に重量が下がってしまう（2026-07-20）。
-function adjustIsolationWeight(prevWeight: number, prevReps: number, prevRir: boolean, params: ProgramWeeklyParams): number {
+function adjustIsolationWeight(prevWeight: number, prevReps: number, prevRir: boolean, params: Pick<ProgramWeeklyParams, 'rep_range_min' | 'rep_range_max'>): number {
   const minReps = params.rep_range_min ?? 0
   const maxReps = params.rep_range_max ?? 9999
   if (prevReps > maxReps) return prevWeight + 2.5
@@ -179,7 +183,7 @@ function adjustIsolationWeight(prevWeight: number, prevReps: number, prevRir: bo
 }
 
 function buildIsolationSets(
-  params: ProgramWeeklyParams,
+  params: Pick<ProgramWeeklyParams, 'rep_range_min' | 'rep_range_max' | 'rpe' | 'working_sets'>,
   recentSets: TrainingSet[],
   overrides?: { workingSets?: number | null; targetRpe?: number },
 ): SetSuggestion[] {
@@ -269,6 +273,8 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
     exercises,
     one_rms,
     recent_sets_by_exercise,
+    custom_slots,
+    week_skips,
   } = input
 
   const minutes = (enrollment.session_duration_minutes ?? 90) as SessionDurationMinutes
@@ -292,6 +298,11 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
   const exerciseMap = new Map(exercises.map(e => [e.id, e]))
   const oneRmMap = new Map(one_rms.map(r => [r.slot_id, r]))
   const slotByCategoryId = new Map(slots.map(s => [s.slot_id, s]))
+  // ホーム画面のスワイプ削除は「その週だけスキップ」。is_hidden（プログラム期間中ずっと非表示、
+  // コーチングタブの「この種目を外す」用）とは別に週番号付きで記録する（2026-08-04）。
+  const skippedSlotIds = new Set(
+    week_skips.filter(s => s.week_number === enrollment.current_week).map(s => s.slot_id),
+  )
 
   const phase: ProgramPhase = (() => {
     const w = enrollment.current_week
@@ -304,6 +315,8 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
   const slotSuggestions: SlotSuggestion[] = []
 
   for (const category of dayCategories) {
+    if (skippedSlotIds.has(category.id)) continue
+
     const slot = slotByCategoryId.get(category.id)
     if (!slot) continue
 
@@ -404,6 +417,48 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
       exercise,
       sets,
       notes: noteFragments.length > 0 ? noteFragments.join(' ／ ') : undefined,
+    })
+  }
+
+  // ユーザーがコーチングタブから追加したカスタムスロット（24カテゴリ外）。program_weekly_params等の
+  // 週次DB行を一切必要とせず、非優先部位カテゴリと同じ「セット数=f(セッション時間)、
+  // RPE=f(週・フェーズ)」の純粋関数だけでアイソレーション計算する（2026-08-03）。
+  for (const customSlot of custom_slots) {
+    if (customSlot.day_number !== day_number) continue
+    if (skippedSlotIds.has(customSlot.id)) continue
+
+    const exercise = exerciseMap.get(customSlot.exercise_id)
+    if (!exercise) continue
+
+    const recentSets = recent_sets_by_exercise[exercise.id] ?? []
+    const sets = buildIsolationSets(
+      { rep_range_min: customSlot.rep_range_min, rep_range_max: customSlot.rep_range_max, rpe: null, working_sets: null },
+      recentSets,
+      {
+        workingSets: setsForNonPatternCategory(minutes),
+        targetRpe: effortRampTargetRpe(enrollment.current_week, phase),
+      },
+    )
+    if (sets.length === 0) continue
+
+    const syntheticSlot: ProgramSlot = {
+      id: customSlot.id,
+      program_id: enrollment.program_id,
+      slot_id: customSlot.id,
+      day_number: customSlot.day_number,
+      muscle_group: customSlot.muscle_group,
+      is_compound: false,
+      has_one_rm: false,
+      priority: 3,
+      sort_order: 999,
+    }
+
+    slotSuggestions.push({
+      slot_id: customSlot.id,
+      slot: syntheticSlot,
+      exercise,
+      sets,
+      is_custom: true,
     })
   }
 
