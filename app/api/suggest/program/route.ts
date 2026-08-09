@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { buildProgramSuggestion } from '@/lib/suggest/program_engine'
+import { buildRecentActivity } from '@/lib/suggest/recent_activity'
 import { normalizeExercises } from '@/lib/normalize/exercises'
 import { userExercisesQuery } from '@/lib/api/queries'
 import { NextResponse } from 'next/server'
@@ -137,8 +138,8 @@ export async function GET(request: Request) {
       ...patternExerciseIds,
     ]),
   ]
-  const recentSetsByExercise: Record<string, TrainingSet[]> = {}
-  const recentWarmupByPattern: Record<string, boolean> = {}
+  let recentSetsByExercise: Record<string, TrainingSet[]> = {}
+  let recentWarmupByPattern: Record<string, boolean> = {}
 
   if (exerciseIds.length > 0) {
     const sessions = recentSessionsRes.data ?? []
@@ -154,55 +155,9 @@ export async function GET(request: Request) {
         .in('exercise_id', exerciseIds)
         .in('session_id', sessionIds)
 
-      // 種目ごとに trained_at が最も新しいセッションだけを特定する（非ウォームアップのみ、
-      // アイソレーション重量キャリブレーション用の従来挙動を維持）
-      const latestSessionIdByExercise = new Map<string, string>()
-      for (const set of (recentSets ?? [])) {
-        if (set.is_warmup) continue
-        const trainedAt = trainedAtBySessionId.get(set.session_id) ?? ''
-        const currentLatestId = latestSessionIdByExercise.get(set.exercise_id)
-        const currentLatestTrainedAt = currentLatestId ? (trainedAtBySessionId.get(currentLatestId) ?? '') : ''
-        if (!currentLatestId || trainedAt > currentLatestTrainedAt) {
-          latestSessionIdByExercise.set(set.exercise_id, set.session_id)
-        }
-      }
-
-      for (const set of (recentSets ?? [])) {
-        if (set.is_warmup) continue
-        if (latestSessionIdByExercise.get(set.exercise_id) !== set.session_id) continue
-        if (!recentSetsByExercise[set.exercise_id]) {
-          recentSetsByExercise[set.exercise_id] = []
-        }
-        recentSetsByExercise[set.exercise_id].push(set as TrainingSet)
-      }
-
-      // 動きパターンごとに trained_at が最も新しいセッションを特定し、そのセッションに
-      // ウォームアップが含まれていたかを判定する（種目を変えていても引き継ぐため、
-      // 種目単位ではなくパターン単位で見る）
-      const exerciseIdToPattern = new Map<string, string>()
-      for (const [pattern, ids] of exerciseIdsByPattern) {
-        for (const id of ids) exerciseIdToPattern.set(id, pattern)
-      }
-
-      const latestSessionIdByPattern = new Map<string, string>()
-      for (const set of (recentSets ?? [])) {
-        const pattern = exerciseIdToPattern.get(set.exercise_id)
-        if (!pattern) continue
-        const trainedAt = trainedAtBySessionId.get(set.session_id) ?? ''
-        const currentLatestId = latestSessionIdByPattern.get(pattern)
-        const currentLatestTrainedAt = currentLatestId ? (trainedAtBySessionId.get(currentLatestId) ?? '') : ''
-        if (!currentLatestId || trainedAt > currentLatestTrainedAt) {
-          latestSessionIdByPattern.set(pattern, set.session_id)
-        }
-      }
-
-      for (const set of (recentSets ?? [])) {
-        if (!set.is_warmup) continue
-        const pattern = exerciseIdToPattern.get(set.exercise_id)
-        if (!pattern) continue
-        if (latestSessionIdByPattern.get(pattern) !== set.session_id) continue
-        recentWarmupByPattern[pattern] = true
-      }
+      const activity = buildRecentActivity((recentSets ?? []) as TrainingSet[], trainedAtBySessionId, exerciseIdsByPattern)
+      recentSetsByExercise = activity.recentSetsByExercise
+      recentWarmupByPattern = activity.recentWarmupByPattern
     }
   }
 

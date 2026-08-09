@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { dbError } from '@/lib/api/errors'
 
 export async function DELETE(
   request: Request,
@@ -17,6 +18,6 @@ export async function DELETE(
     .eq('id', id)
     .eq('user_id', user.id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbError('種目の削除に失敗しました', error)
   return NextResponse.json({ ok: true })
 }

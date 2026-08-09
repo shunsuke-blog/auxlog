@@ -96,7 +96,10 @@ function maybeAddWarmupSet(sets: SetSuggestion[], hasRecentWarmup: boolean): Set
   return [{ set_type: 'warmup', suggested_weight_kg: 0, target_reps: 0, target_rpe: 5 }, ...sets]
 }
 
-function buildCompoundSets(params: MovementPatternWeeklyParams, oneRm: number, hasRecentWarmup: boolean): SetSuggestion[] {
+function buildCompoundSets(
+  params: MovementPatternWeeklyParams,
+  { oneRm, hasRecentWarmup }: { oneRm: number; hasRecentWarmup: boolean }
+): SetSuggestion[] {
   const sets: SetSuggestion[] = []
 
   let topWeight: number | undefined
@@ -139,7 +142,10 @@ function buildCompoundSets(params: MovementPatternWeeklyParams, oneRm: number, h
 // 「セット数=f(セッション時間)」に従わせる。backoff_setsの数を無視し、
 // targetCountちょうどになるまでtop set→backoff setの順に詰める
 // （2026-07-08、実機確認フィードバック対応。isSixPatternのみ旧来のbuildCompoundSetsのまま）。
-function buildCompoundSetsForCount(params: MovementPatternWeeklyParams, oneRm: number, targetCount: number, hasRecentWarmup: boolean): SetSuggestion[] {
+function buildCompoundSetsForCount(
+  params: MovementPatternWeeklyParams,
+  { oneRm, targetCount, hasRecentWarmup }: { oneRm: number; targetCount: number; hasRecentWarmup: boolean }
+): SetSuggestion[] {
   const sets: SetSuggestion[] = []
 
   let topWeight: number | undefined
@@ -388,8 +394,8 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
       const oneRmKg = oneRmRecord?.one_rm_kg ?? estimateOneRmFromRecentSets(recentSets)
       const hasRecentWarmup = recent_warmup_by_pattern[exercise.movement_pattern ?? ''] ?? false
       sets = targetCount != null
-        ? buildCompoundSetsForCount(movementParams, oneRmKg, targetCount, hasRecentWarmup)
-        : buildCompoundSets(movementParams, oneRmKg, hasRecentWarmup)
+        ? buildCompoundSetsForCount(movementParams, { oneRm: oneRmKg, targetCount, hasRecentWarmup })
+        : buildCompoundSets(movementParams, { oneRm: oneRmKg, hasRecentWarmup })
     } else {
       if (volumeRampsForCategory(category, minutes, priorities)) {
         // 優先部位 かつ75分/90分: 既存どおりDBの週次working_sets/rpeをそのまま使う
