@@ -55,6 +55,10 @@ export type ProgramEngineInput = {
   exercises: UserExercise[]
   one_rms: UserSlotOneRm[]
   recent_sets_by_exercise: Record<string, TrainingSet[]>
+  // 動きパターン単位: 直近セッション(種目を変えていても同じ動きパターンなら対象)で
+  // ウォームアップが記録されていたか。コンパウンド種目のウォームアップ提案に使う
+  // （2026-08-09）。
+  recent_warmup_by_pattern: Record<string, boolean>
   custom_slots: UserCustomSlot[]
   week_skips: UserSlotWeekSkip[]
 }
@@ -84,7 +88,15 @@ function buildWarmupSets(oneRm: number): SetSuggestion[] {
 // （実装依頼書 2026-07-06、受け入れ条件(a)）。
 const COMPOUND_VOLUME_PHASE_RPE_CEILING = 9.0
 
-function buildCompoundSets(params: MovementPatternWeeklyParams, oneRm: number): SetSuggestion[] {
+// 直近セッション(同じ動きパターン、種目を変えていても対象)でウォームアップが記録されて
+// いた場合のみ、1セット目に重量・回数ブランクのウォームアップ枠を提案する。計算式は無く、
+// 前回やっていたかどうかをそのまま引き継ぐだけ（2026-08-09）。
+function maybeAddWarmupSet(sets: SetSuggestion[], hasRecentWarmup: boolean): SetSuggestion[] {
+  if (!hasRecentWarmup || sets.length === 0) return sets
+  return [{ set_type: 'warmup', suggested_weight_kg: 0, target_reps: 0, target_rpe: 5 }, ...sets]
+}
+
+function buildCompoundSets(params: MovementPatternWeeklyParams, oneRm: number, hasRecentWarmup: boolean): SetSuggestion[] {
   const sets: SetSuggestion[] = []
 
   let topWeight: number | undefined
@@ -119,7 +131,7 @@ function buildCompoundSets(params: MovementPatternWeeklyParams, oneRm: number): 
     }
   }
 
-  return sets
+  return maybeAddWarmupSet(sets, hasRecentWarmup)
 }
 
 // 6パターン以外の1RM管理カテゴリ（例: leg_2）は、%RMという重量計算方法だけ既存の
@@ -127,7 +139,7 @@ function buildCompoundSets(params: MovementPatternWeeklyParams, oneRm: number): 
 // 「セット数=f(セッション時間)」に従わせる。backoff_setsの数を無視し、
 // targetCountちょうどになるまでtop set→backoff setの順に詰める
 // （2026-07-08、実機確認フィードバック対応。isSixPatternのみ旧来のbuildCompoundSetsのまま）。
-function buildCompoundSetsForCount(params: MovementPatternWeeklyParams, oneRm: number, targetCount: number): SetSuggestion[] {
+function buildCompoundSetsForCount(params: MovementPatternWeeklyParams, oneRm: number, targetCount: number, hasRecentWarmup: boolean): SetSuggestion[] {
   const sets: SetSuggestion[] = []
 
   let topWeight: number | undefined
@@ -160,7 +172,7 @@ function buildCompoundSetsForCount(params: MovementPatternWeeklyParams, oneRm: n
     }
   }
 
-  return sets
+  return maybeAddWarmupSet(sets, hasRecentWarmup)
 }
 
 // 1RMが未登録の種目向けフォールバック。デフォルト自動補完された種目はオンボーディングで
@@ -282,6 +294,7 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
     exercises,
     one_rms,
     recent_sets_by_exercise,
+    recent_warmup_by_pattern,
     custom_slots,
     week_skips,
   } = input
@@ -373,9 +386,10 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
       // （表示側で「—」扱い、メイン/追い込みの構成自体は変えない既存方針を維持）。
       const oneRmRecord = oneRmMap.get(category.id)
       const oneRmKg = oneRmRecord?.one_rm_kg ?? estimateOneRmFromRecentSets(recentSets)
+      const hasRecentWarmup = recent_warmup_by_pattern[exercise.movement_pattern ?? ''] ?? false
       sets = targetCount != null
-        ? buildCompoundSetsForCount(movementParams, oneRmKg, targetCount)
-        : buildCompoundSets(movementParams, oneRmKg)
+        ? buildCompoundSetsForCount(movementParams, oneRmKg, targetCount, hasRecentWarmup)
+        : buildCompoundSets(movementParams, oneRmKg, hasRecentWarmup)
     } else {
       if (volumeRampsForCategory(category, minutes, priorities)) {
         // 優先部位 かつ75分/90分: 既存どおりDBの週次working_sets/rpeをそのまま使う

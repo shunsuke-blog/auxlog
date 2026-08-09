@@ -179,6 +179,7 @@ function buildInput(opts: {
   days?: DaysPerWeek
   skipOneRmRecord?: boolean
   recentSets?: TrainingSet[]
+  recentWarmupByPattern?: Record<string, boolean>
 }): ProgramEngineInput {
   const priorities = opts.priorityMuscles ?? []
   const days = opts.days ?? DAYS
@@ -221,6 +222,7 @@ function buildInput(opts: {
     exercises: [exercise],
     one_rms: (opts.hasOneRm && !opts.skipOneRmRecord) ? [{ id: 'orm1', user_id: 'u1', slot_id: opts.category_id, one_rm_kg: 100, recorded_at: '2026-01-01', source: 'manual_input' } as UserSlotOneRm] : [],
     recent_sets_by_exercise: opts.recentSets ? { ex1: opts.recentSets } : {},
+    recent_warmup_by_pattern: opts.recentWarmupByPattern ?? {},
     custom_slots: [],
     week_skips: [],
   }
@@ -412,6 +414,31 @@ test('(c) 6パターンのleg_squatは引き続き週次固定値(backoff_sets)�
   })
   const suggestion = buildProgramSuggestion(input)
   assert.equal(suggestion.slots[0].sets.length, 4, '6パターン(squat)は60分でも週次固定の4セット(top1+backoff3)のままのはず')
+})
+
+test('(2026-08-09) 直近セッションで同じ動きパターンにウォームアップ記録があれば、1セット目にブランクのウォームアップが提案される', () => {
+  const input = buildInput({
+    category_id: 'leg_squat', muscle_group: 'legs', hasOneRm: true,
+    sessionMins: 60, currentWeek: 1,
+    weekly_params: makeCompoundWeeklyParams('leg_squat', {}),
+    recentWarmupByPattern: { [categoryMovementPattern('leg_squat')]: true },
+  })
+  const suggestion = buildProgramSuggestion(input)
+  const sets = suggestion.slots[0].sets
+  assert.equal(sets[0].set_type, 'warmup')
+  assert.equal(sets[0].suggested_weight_kg, 0, '重量は計算せずブランク(0)で提案する')
+  assert.equal(sets[0].target_reps, 0, '回数も計算せずブランク(0)で提案する')
+  assert.equal(sets.filter(s => s.set_type === 'top' || s.set_type === 'backoff').length, 4, 'top/backoffのセット数自体は変わらない')
+})
+
+test('(2026-08-09) 直近セッションにウォームアップ記録が無ければ、ウォームアップは提案されない', () => {
+  const input = buildInput({
+    category_id: 'leg_squat', muscle_group: 'legs', hasOneRm: true,
+    sessionMins: 60, currentWeek: 1,
+    weekly_params: makeCompoundWeeklyParams('leg_squat', {}),
+  })
+  const suggestion = buildProgramSuggestion(input)
+  assert.ok(suggestion.slots[0].sets.every(s => s.set_type !== 'warmup'))
 })
 
 test('(b) 75分/90分: 優先部位(胸)はDBの週次working_setsどおりに漸増する', () => {

@@ -115,11 +115,30 @@ export async function GET(request: Request) {
   // セットごとに重量が異なる構成が複数日の記録と混ざり、セット単位の重量提案が破綻していた。
   // 2026-07-17修正）
   const customSlots = (customSlotsRes.data ?? []) as UserCustomSlot[]
+  const normalizedExercises = normalizeExercises(exercisesRes.data ?? [])
+
+  // ウォームアップ引き継ぎ判定用: 動きパターンが同じなら種目を変えていても対象にするため、
+  // 現在の割り当て種目だけでなく、同じmovement_patternを共有する全種目のIDも対象に含める
+  // （2026-08-09）。exercise_masterへの追加クエリは不要——normalizedExercisesに既に
+  // movement_patternが乗っているカタログから引ける。
+  const exerciseIdsByPattern = new Map<string, string[]>()
+  for (const ex of normalizedExercises) {
+    if (!ex.movement_pattern) continue
+    const list = exerciseIdsByPattern.get(ex.movement_pattern) ?? []
+    list.push(ex.id)
+    exerciseIdsByPattern.set(ex.movement_pattern, list)
+  }
+  const patternExerciseIds = Array.from(exerciseIdsByPattern.values()).flat()
+
   const exerciseIds = [
-    ...(assignmentsRes.data ?? []).map(a => a.exercise_id),
-    ...customSlots.map(c => c.exercise_id),
+    ...new Set([
+      ...(assignmentsRes.data ?? []).map(a => a.exercise_id),
+      ...customSlots.map(c => c.exercise_id),
+      ...patternExerciseIds,
+    ]),
   ]
   const recentSetsByExercise: Record<string, TrainingSet[]> = {}
+  const recentWarmupByPattern: Record<string, boolean> = {}
 
   if (exerciseIds.length > 0) {
     const sessions = recentSessionsRes.data ?? []
@@ -127,16 +146,19 @@ export async function GET(request: Request) {
     if (sessionIds.length > 0) {
       const trainedAtBySessionId = new Map(sessions.map(s => [s.id, s.trained_at]))
 
+      // is_warmupで絞り込まず全件取得する（ウォームアップの有無を判定するため、
+      // アイソレーション重量計算(recentSetsByExercise)側では従来通り非ウォームアップのみ使う）。
       const { data: recentSets } = await supabase
         .from('training_sets')
         .select('*')
         .in('exercise_id', exerciseIds)
         .in('session_id', sessionIds)
-        .eq('is_warmup', false)
 
-      // 種目ごとに trained_at が最も新しいセッションだけを特定する
+      // 種目ごとに trained_at が最も新しいセッションだけを特定する（非ウォームアップのみ、
+      // アイソレーション重量キャリブレーション用の従来挙動を維持）
       const latestSessionIdByExercise = new Map<string, string>()
       for (const set of (recentSets ?? [])) {
+        if (set.is_warmup) continue
         const trainedAt = trainedAtBySessionId.get(set.session_id) ?? ''
         const currentLatestId = latestSessionIdByExercise.get(set.exercise_id)
         const currentLatestTrainedAt = currentLatestId ? (trainedAtBySessionId.get(currentLatestId) ?? '') : ''
@@ -146,16 +168,43 @@ export async function GET(request: Request) {
       }
 
       for (const set of (recentSets ?? [])) {
+        if (set.is_warmup) continue
         if (latestSessionIdByExercise.get(set.exercise_id) !== set.session_id) continue
         if (!recentSetsByExercise[set.exercise_id]) {
           recentSetsByExercise[set.exercise_id] = []
         }
         recentSetsByExercise[set.exercise_id].push(set as TrainingSet)
       }
+
+      // 動きパターンごとに trained_at が最も新しいセッションを特定し、そのセッションに
+      // ウォームアップが含まれていたかを判定する（種目を変えていても引き継ぐため、
+      // 種目単位ではなくパターン単位で見る）
+      const exerciseIdToPattern = new Map<string, string>()
+      for (const [pattern, ids] of exerciseIdsByPattern) {
+        for (const id of ids) exerciseIdToPattern.set(id, pattern)
+      }
+
+      const latestSessionIdByPattern = new Map<string, string>()
+      for (const set of (recentSets ?? [])) {
+        const pattern = exerciseIdToPattern.get(set.exercise_id)
+        if (!pattern) continue
+        const trainedAt = trainedAtBySessionId.get(set.session_id) ?? ''
+        const currentLatestId = latestSessionIdByPattern.get(pattern)
+        const currentLatestTrainedAt = currentLatestId ? (trainedAtBySessionId.get(currentLatestId) ?? '') : ''
+        if (!currentLatestId || trainedAt > currentLatestTrainedAt) {
+          latestSessionIdByPattern.set(pattern, set.session_id)
+        }
+      }
+
+      for (const set of (recentSets ?? [])) {
+        if (!set.is_warmup) continue
+        const pattern = exerciseIdToPattern.get(set.exercise_id)
+        if (!pattern) continue
+        if (latestSessionIdByPattern.get(pattern) !== set.session_id) continue
+        recentWarmupByPattern[pattern] = true
+      }
     }
   }
-
-  const normalizedExercises = normalizeExercises(exercisesRes.data ?? [])
 
   const suggestion = buildProgramSuggestion({
     enrollment: enrollment as UserProgramEnrollment,
@@ -167,6 +216,7 @@ export async function GET(request: Request) {
     exercises: normalizedExercises,
     one_rms: Array.from(latestOneRms.values()),
     recent_sets_by_exercise: recentSetsByExercise,
+    recent_warmup_by_pattern: recentWarmupByPattern,
     custom_slots: customSlots,
     week_skips: (weekSkipsRes.data ?? []) as UserSlotWeekSkip[],
   })
