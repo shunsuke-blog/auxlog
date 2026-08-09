@@ -197,6 +197,10 @@ export type MovementPatternWeeklyParams = {
   top_set_rpe: number | null;
   backoff_sets: number | null;
   backoff_pct_rm: number | null;
+  // メインセット重量に対する倍率。backoff重量はoneRm×backoff_pct_rmではなく、
+  // 実際のメインセット提案重量×この倍率で算出する（2026-08-09、backoff_pct_rmは
+  // 元スプレッドシートの参考重量ベースの値と丸め誤差でズレるため、倍率を正とする）。
+  backoff_pct_of_top: number | null;
   backoff_reps: number | null;
   phase: ProgramPhase;
 };

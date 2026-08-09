@@ -87,22 +87,28 @@ const COMPOUND_VOLUME_PHASE_RPE_CEILING = 9.0
 function buildCompoundSets(params: MovementPatternWeeklyParams, oneRm: number): SetSuggestion[] {
   const sets: SetSuggestion[] = []
 
+  let topWeight: number | undefined
+
   if (params.top_set_pct_rm != null && (params.top_set_reps != null || params.top_set_is_amrap)) {
     const rawRpe = params.top_set_rpe ?? 9
     const targetRpe = params.phase === 'volume'
       ? Math.min(rawRpe, COMPOUND_VOLUME_PHASE_RPE_CEILING)
       : rawRpe
 
+    topWeight = roundWeight(oneRm * params.top_set_pct_rm)
     sets.push({
       set_type: 'top',
-      suggested_weight_kg: roundWeight(oneRm * params.top_set_pct_rm),
+      suggested_weight_kg: topWeight,
       target_reps: params.top_set_is_amrap ? 'amrap' : params.top_set_reps!,
       target_rpe: targetRpe,
     })
   }
 
-  if (params.backoff_sets && params.backoff_pct_rm && params.backoff_reps) {
-    const backoffWeight = roundWeight(oneRm * params.backoff_pct_rm)
+  // backoff重量はメインセットの提案重量に対する倍率で決める（元データ＝
+  // UpperLowerBodyhypertrophy9weeks_sheet.xlsxのBackoff行が参考重量ベースの倍率で
+  // 管理されているため。1RMから独立したbackoff_pct_rmは丸め誤差でズレるので使わない）。
+  if (params.backoff_sets && topWeight != null && params.backoff_pct_of_top != null && params.backoff_reps) {
+    const backoffWeight = roundWeight(topWeight * params.backoff_pct_of_top)
     for (let i = 0; i < params.backoff_sets; i++) {
       sets.push({
         set_type: 'backoff',
@@ -124,23 +130,26 @@ function buildCompoundSets(params: MovementPatternWeeklyParams, oneRm: number): 
 function buildCompoundSetsForCount(params: MovementPatternWeeklyParams, oneRm: number, targetCount: number): SetSuggestion[] {
   const sets: SetSuggestion[] = []
 
+  let topWeight: number | undefined
+
   if (params.top_set_pct_rm != null && (params.top_set_reps != null || params.top_set_is_amrap) && targetCount > 0) {
     const rawRpe = params.top_set_rpe ?? 9
     const targetRpe = params.phase === 'volume'
       ? Math.min(rawRpe, COMPOUND_VOLUME_PHASE_RPE_CEILING)
       : rawRpe
 
+    topWeight = roundWeight(oneRm * params.top_set_pct_rm)
     sets.push({
       set_type: 'top',
-      suggested_weight_kg: roundWeight(oneRm * params.top_set_pct_rm),
+      suggested_weight_kg: topWeight,
       target_reps: params.top_set_is_amrap ? 'amrap' : params.top_set_reps!,
       target_rpe: targetRpe,
     })
   }
 
   const remaining = targetCount - sets.length
-  if (remaining > 0 && params.backoff_pct_rm && params.backoff_reps) {
-    const backoffWeight = roundWeight(oneRm * params.backoff_pct_rm)
+  if (remaining > 0 && topWeight != null && params.backoff_pct_of_top != null && params.backoff_reps) {
+    const backoffWeight = roundWeight(topWeight * params.backoff_pct_of_top)
     for (let i = 0; i < remaining; i++) {
       sets.push({
         set_type: 'backoff',

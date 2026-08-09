@@ -155,6 +155,7 @@ function deriveMovementPatternWeeklyParams(pattern: string, source: ProgramWeekl
     top_set_rpe: p.top_set_rpe,
     backoff_sets: p.backoff_sets,
     backoff_pct_rm: p.backoff_pct_rm,
+    backoff_pct_of_top: p.backoff_pct_rm != null ? 0.95 : null,
     backoff_reps: p.backoff_reps,
     phase: p.phase,
   }))
