@@ -93,7 +93,7 @@ function SubscribeContent() {
 
         <div className="space-y-3">
           <div className="text-center">
-            <p className="text-2xl font-black text-black dark:text-white">¥2,980</p>
+            <p className="text-2xl font-black text-black dark:text-white">¥480</p>
             <p className="text-xs text-zinc-400 mt-0.5">/ 月（税込）</p>
           </div>
 
