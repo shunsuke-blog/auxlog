@@ -15,6 +15,9 @@ export const CreateSessionSchema = z.object({
   fatigue_level: z.number().int().min(1).max(5),
   memo: z.string().max(500).nullable().optional(),
   sets: z.array(SetSchema).min(1, 'セットが1つ以上必要です'),
+  // クライアント側で「本来のweekStartより前」と判定してオーバーワーク警告を出した上で
+  // 保存されたセッションかどうかのフラグ（UI表示用、集計ロジックには影響しない）
+  is_early: z.boolean().optional().default(false),
 })
 
 export const UpdateSessionSchema = z.object({

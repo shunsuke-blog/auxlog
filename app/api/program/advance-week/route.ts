@@ -19,9 +19,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'プログラムは既に最終週です' }, { status: 400 })
   }
 
+  // current_week_started_atは「実際に進んだ時刻」。week-status側でこれをweekStart（暦週固定グリッド）
+  // との比較に使い、遅れて完了した週の過去ログが次週の判定に流用されるのを防ぐ
+  // （[[project_auxlog_week_advance_no_day_gate]]、weekStart自体は変更しない）
   const { data: updated, error } = await supabase
     .from('user_program_enrollments')
-    .update({ current_week: enrollment.current_week + 1 })
+    .update({ current_week: enrollment.current_week + 1, current_week_started_at: new Date().toISOString() })
     .eq('id', enrollment.id)
     .select()
     .single()

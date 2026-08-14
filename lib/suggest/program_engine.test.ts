@@ -178,7 +178,7 @@ function buildInput(opts: {
   days?: DaysPerWeek
   skipOneRmRecord?: boolean
   recentSets?: TrainingSet[]
-  recentWarmupByPattern?: Record<string, boolean>
+  recentWarmupSetsByPattern?: Record<string, TrainingSet[]>
 }): ProgramEngineInput {
   const priorities = opts.priorityMuscles ?? []
   const days = opts.days ?? DAYS
@@ -206,6 +206,7 @@ function buildInput(opts: {
     // 文字列が一致するためそのまま通る（program_engine.tsのtoPriorityMuscleOptions参照）。
     priority_muscles: priorities as unknown as UserProgramEnrollment['priority_muscles'],
     started_at: '2026-01-01',
+    current_week_started_at: '2026-01-01T00:00:00Z',
     completed_at: null,
     is_active: true,
     created_at: '2026-01-01',
@@ -221,7 +222,7 @@ function buildInput(opts: {
     exercises: [exercise],
     one_rms: (opts.hasOneRm && !opts.skipOneRmRecord) ? [{ id: 'orm1', user_id: 'u1', slot_id: opts.category_id, one_rm_kg: 100, recorded_at: '2026-01-01', source: 'manual_input' } as UserSlotOneRm] : [],
     recent_sets_by_exercise: opts.recentSets ? { ex1: opts.recentSets } : {},
-    recent_warmup_by_pattern: opts.recentWarmupByPattern ?? {},
+    recent_warmup_sets_by_pattern: opts.recentWarmupSetsByPattern ?? {},
     custom_slots: [],
     week_skips: [],
   }
@@ -415,19 +416,44 @@ test('(c) 6パターンのleg_squatは引き続き週次固定値(backoff_sets)�
   assert.equal(suggestion.slots[0].sets.length, 4, '6パターン(squat)は60分でも週次固定の4セット(top1+backoff3)のままのはず')
 })
 
-test('(2026-08-09) 直近セッションで同じ動きパターンにウォームアップ記録があれば、1セット目にブランクのウォームアップが提案される', () => {
+test('(2026-08-13) 直近セッションで同じ動きパターンにウォームアップ記録があれば、その重量・回数を引き継いで提案される', () => {
   const input = buildInput({
     category_id: 'leg_squat', muscle_group: 'legs', hasOneRm: true,
     sessionMins: 60, currentWeek: 1,
     weekly_params: makeCompoundWeeklyParams('leg_squat', {}),
-    recentWarmupByPattern: { [categoryMovementPattern('leg_squat')]: true },
+    recentWarmupSetsByPattern: {
+      [categoryMovementPattern('leg_squat')]: [
+        { id: 'w1', session_id: 's1', exercise_id: 'ex-other', set_number: 1, weight_kg: 40, reps: 5, rir: false, is_warmup: true, created_at: '2026-01-01' },
+      ],
+    },
   })
   const suggestion = buildProgramSuggestion(input)
   const sets = suggestion.slots[0].sets
   assert.equal(sets[0].set_type, 'warmup')
-  assert.equal(sets[0].suggested_weight_kg, 0, '重量は計算せずブランク(0)で提案する')
-  assert.equal(sets[0].target_reps, 0, '回数も計算せずブランク(0)で提案する')
+  assert.equal(sets[0].suggested_weight_kg, 40, '前回のウォームアップ重量をそのまま引き継ぐ')
+  assert.equal(sets[0].target_reps, 5, '前回のウォームアップ回数もそのまま引き継ぐ')
   assert.equal(sets.filter(s => s.set_type === 'top' || s.set_type === 'backoff').length, 4, 'top/backoffのセット数自体は変わらない')
+})
+
+test('(2026-08-13) 前回複数セットのウォームアップがあれば、set_number順に全て提案される', () => {
+  const input = buildInput({
+    category_id: 'leg_squat', muscle_group: 'legs', hasOneRm: true,
+    sessionMins: 60, currentWeek: 1,
+    weekly_params: makeCompoundWeeklyParams('leg_squat', {}),
+    recentWarmupSetsByPattern: {
+      [categoryMovementPattern('leg_squat')]: [
+        { id: 'w2', session_id: 's1', exercise_id: 'ex-other', set_number: 2, weight_kg: 60, reps: 3, rir: false, is_warmup: true, created_at: '2026-01-01' },
+        { id: 'w1', session_id: 's1', exercise_id: 'ex-other', set_number: 1, weight_kg: 40, reps: 5, rir: false, is_warmup: true, created_at: '2026-01-01' },
+      ],
+    },
+  })
+  const suggestion = buildProgramSuggestion(input)
+  const warmups = suggestion.slots[0].sets.filter(s => s.set_type === 'warmup')
+  assert.deepEqual(
+    warmups.map(s => [s.suggested_weight_kg, s.target_reps]),
+    [[40, 5], [60, 3]],
+    'set_number順（1件目→2件目）で並ぶはず'
+  )
 })
 
 test('(2026-08-09) 直近セッションにウォームアップ記録が無ければ、ウォームアップは提案されない', () => {

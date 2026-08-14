@@ -4,9 +4,11 @@ export type RecentActivity = {
   // 種目ごと、直近14日以内で最新の1セッションの非ウォームアップセット
   // （アイソレーション重量キャリブレーション用）。
   recentSetsByExercise: Record<string, TrainingSet[]>
-  // 動きパターンごと、直近セッション（種目を変えていても対象）にウォームアップが
-  // 含まれていたか（コンパウンド種目のウォームアップ引き継ぎ提案用）。
-  recentWarmupByPattern: Record<string, boolean>
+  // 動きパターンごと、直近セッション（種目を変えていても対象）のウォームアップセット一覧。
+  // 空配列ではなくキー自体が無ければウォームアップ無し（コンパウンド種目のウォームアップ
+  // 重量・回数引き継ぎ提案用。2026-08-09に有無だけの引き継ぎとして導入、2026-08-13に
+  // 重量・回数も引き継ぐ形に変更）。
+  recentWarmupSetsByPattern: Record<string, TrainingSet[]>
 }
 
 // route.ts（/api/suggest/program）から呼ばれる。1回のtraining_setsクエリ結果から、
@@ -51,19 +53,19 @@ export function buildRecentActivity(
     recentSetsByExercise[set.exercise_id].push(set)
   }
 
-  // 動きパターンごとに最新セッションを特定し、そのセッションにウォームアップが
-  // 含まれていたかを判定する（種目を変えていても引き継ぐため、種目単位ではなく
-  // パターン単位で見る）
+  // 動きパターンごとに最新セッションを特定し、そのセッションのウォームアップセットを
+  // 集める（種目を変えていても引き継ぐため、種目単位ではなくパターン単位で見る）
   const latestSessionIdByPattern = latestSessionByKey((set) => exerciseIdToPattern.get(set.exercise_id))
 
-  const recentWarmupByPattern: Record<string, boolean> = {}
+  const recentWarmupSetsByPattern: Record<string, TrainingSet[]> = {}
   for (const set of recentSets) {
     if (!set.is_warmup) continue
     const pattern = exerciseIdToPattern.get(set.exercise_id)
     if (!pattern) continue
     if (latestSessionIdByPattern.get(pattern) !== set.session_id) continue
-    recentWarmupByPattern[pattern] = true
+    if (!recentWarmupSetsByPattern[pattern]) recentWarmupSetsByPattern[pattern] = []
+    recentWarmupSetsByPattern[pattern].push(set)
   }
 
-  return { recentSetsByExercise, recentWarmupByPattern }
+  return { recentSetsByExercise, recentWarmupSetsByPattern }
 }

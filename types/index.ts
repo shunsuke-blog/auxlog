@@ -215,6 +215,9 @@ export type UserProgramEnrollment = {
   // 空配列 = 未選択（全身くまなく）。フォールバックは廃止済み（2026-07-08）。
   priority_muscles: PriorityMuscleOption[];
   started_at: string;
+  // 実際にこのcurrent_weekへ進んだ時刻。週の達成判定の下限として使われる
+  // （[[project_auxlog_week_advance_no_day_gate]]、2026-08-13、直接の表示用途はない）
+  current_week_started_at: string;
   completed_at: string | null;
   is_active: boolean;
   created_at: string;

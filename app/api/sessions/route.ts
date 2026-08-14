@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   const body = await request.json()
   const parsed = CreateSessionSchema.safeParse(body)
   if (!parsed.success) return validationError(parsed.error)
-  const { trained_at, fatigue_level, memo, sets } = parsed.data
+  const { trained_at, fatigue_level, memo, sets, is_early } = parsed.data
 
   const allExerciseIds = [...new Set(sets.map(s => s.exercise_id))]
   const { count: ownedCount } = await supabase
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
   const { data: session, error: sessionError } = await supabase
     .from('training_sessions')
-    .insert({ user_id: user.id, trained_at, fatigue_level, memo: memo || null })
+    .insert({ user_id: user.id, trained_at, fatigue_level, memo: memo || null, is_early })
     .select()
     .single()
 

@@ -139,7 +139,7 @@ export async function GET(request: Request) {
     ]),
   ]
   let recentSetsByExercise: Record<string, TrainingSet[]> = {}
-  let recentWarmupByPattern: Record<string, boolean> = {}
+  let recentWarmupSetsByPattern: Record<string, TrainingSet[]> = {}
 
   if (exerciseIds.length > 0) {
     const sessions = recentSessionsRes.data ?? []
@@ -157,7 +157,7 @@ export async function GET(request: Request) {
 
       const activity = buildRecentActivity((recentSets ?? []) as TrainingSet[], trainedAtBySessionId, exerciseIdsByPattern)
       recentSetsByExercise = activity.recentSetsByExercise
-      recentWarmupByPattern = activity.recentWarmupByPattern
+      recentWarmupSetsByPattern = activity.recentWarmupSetsByPattern
     }
   }
 
@@ -171,7 +171,7 @@ export async function GET(request: Request) {
     exercises: normalizedExercises,
     one_rms: Array.from(latestOneRms.values()),
     recent_sets_by_exercise: recentSetsByExercise,
-    recent_warmup_by_pattern: recentWarmupByPattern,
+    recent_warmup_sets_by_pattern: recentWarmupSetsByPattern,
     custom_slots: customSlots,
     week_skips: (weekSkipsRes.data ?? []) as UserSlotWeekSkip[],
   })

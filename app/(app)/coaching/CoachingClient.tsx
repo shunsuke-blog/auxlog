@@ -178,7 +178,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
       {/* Sticky header */}
       <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 z-20">
         <div className="px-6 py-4">
-          <h1 className="text-xl font-semibold text-black dark:text-white">コーチング</h1>
+          <h1 className="text-xl font-semibold text-black dark:text-white">プログラム</h1>
         </div>
         <div className="px-6 pb-3">
           <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl">
