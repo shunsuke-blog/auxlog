@@ -803,6 +803,11 @@ export default function OnboardingClient({ exercises }: Props) {
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             選んだ部位は種目が追加され、セッション75分・90分ではセット数も段階的に増えます（60分ではセット数は増えません）。最大{MAX_PRIORITY_MUSCLES}つまで選べます。
           </p>
+          {daysPerWeek === 2 && (
+            <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
+              週2回は種目数が少なめの構成になります。とくに肩は優先部位に選ばないと基本種目1つのみになりやすいので、肩を伸ばしたい場合は優先部位に選ぶのがおすすめです。
+            </p>
+          )}
         </div>
 
         <div className="px-6 py-8 space-y-3">
