@@ -109,3 +109,18 @@ test('distributeToDays: 4日は概ね均等に配分される（差は1以内）
   const min = Math.min(...counts)
   assert.ok(max - min <= 1, `日ごとの種目数の差が大きすぎる: ${counts.join(',')}`)
 })
+
+test('distributeToDays: 3日(Push/Pull/Legs)では三頭がPush日(1)、二頭がPull日(2)に配置される（2026-08-21修正: 旧実装は逆転していた）', () => {
+  const categories = buildExerciseCategories(3, [])
+  const dayMap = distributeToDays(3, categories)
+
+  const day1Ids = dayMap.get(1)!.map(c => c.id)
+  const day2Ids = dayMap.get(2)!.map(c => c.id)
+  const day3Ids = dayMap.get(3)!.map(c => c.id)
+
+  assert.ok(day1Ids.includes('triceps_1'), 'Push日(1)に三頭(triceps_1)が含まれるはず')
+  assert.ok(!day1Ids.includes('biceps_1'), 'Push日(1)に二頭(biceps_1)が含まれてはいけない')
+  assert.ok(day2Ids.includes('biceps_1'), 'Pull日(2)に二頭(biceps_1)が含まれるはず')
+  assert.ok(!day2Ids.includes('triceps_1'), 'Pull日(2)に三頭(triceps_1)が含まれてはいけない')
+  assert.ok(!day3Ids.some(id => id === 'biceps_1' || id === 'triceps_1'), 'Legs日(3)に腕が配置されてはいけない')
+})

@@ -133,6 +133,15 @@ const LOWER_MUSCLES: readonly TargetMuscle[] = ['legs', 'core']
 
 /** そのカテゴリを配置してよい日番号の候補を返す（優先順位はつけない）。 */
 function eligibleDays(days: DaysPerWeek, category: CompositionCategory): number[] {
+  if (days === 3 && category.muscle === 'arms') {
+    // Push/Pull/Legs分割では、三頭はプレス系（押す）・二頭はプル系（引く）と協働する
+    // ため、それぞれPush日(1)・Pull日(2)に固定する。旧実装は腕を全日候補（下記の
+    // 「均等化」ルール）にしていたため、貪欲法の結果でPush日に二頭・Pull日に三頭という
+    // 解剖学的に逆の配置になっていた（2026-08-21修正、REVIEW_POLICY.md既知課題）。
+    if (category.movementPattern === 'elbow_extension') return [1] // 三頭 → Push日
+    if (category.movementPattern === 'elbow_flexion') return [2] // 二頭 → Pull日
+  }
+
   if (category.muscle === 'arms') {
     // 腕は均等化のためどの日にも配置してよい（brainstorm #11・#14で確立した戦略の一般化）
     return Array.from({ length: days }, (_, i) => i + 1)
