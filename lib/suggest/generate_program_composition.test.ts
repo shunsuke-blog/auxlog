@@ -86,10 +86,10 @@ test('どの部位も脚を除き4種目、脚は5種目を超えない（全pri
   }
 })
 
-test('setsForNonPatternCategory: 60分=2, 75分=3, 90分=3', () => {
+test('setsForNonPatternCategory: 60分=2, 75分=3, 90分=4', () => {
   assert.equal(setsForNonPatternCategory(60), 2)
   assert.equal(setsForNonPatternCategory(75), 3)
-  assert.equal(setsForNonPatternCategory(90), 3)
+  assert.equal(setsForNonPatternCategory(90), 4)
 })
 
 test('distributeToDays: 2日は6パターンが3+3に割れ、全カテゴリが漏れなく配分される', () => {

@@ -359,7 +359,7 @@ test('(c) 6パターン外の1RM管理カテゴリ(leg_2)は、週次固定値�
     weekly_params: makeCompoundWeeklyParams('leg_2', {}),
   })
   const suggestion90 = buildProgramSuggestion(input90)
-  assert.equal(suggestion90.slots[0].sets.length, 3, '90分のleg_2は3セットになるはず')
+  assert.equal(suggestion90.slots[0].sets.length, 4, '90分のleg_2は4セットになるはず')
 })
 
 test('(d) 1RM管理は種目単位で判定される: leg_hinge(カテゴリ既定はhasOneRm:false)でも、割り当てられた種目がrequires_one_rm:trueならtop/backoffセットになる', () => {
@@ -482,13 +482,13 @@ test('(b) 75分/90分: 優先部位(胸)はDBの週次working_setsどおりに�
 test('(b) 75分/90分: 非優先部位(腕)はセット数がsetsForNonPatternCategory(minutes)に固定される(週次DB値には引きずられない)', () => {
   const input = buildInput({
     category_id: 'biceps_1', muscle_group: 'arms',
-    sessionMins: 90, currentWeek: 3, // week3のDB値は4だが非優先なのでsetsForNonPatternCategory(90)=3に固定
+    sessionMins: 90, currentWeek: 3, // week3のDB値は4だが非優先なのでsetsForNonPatternCategory(90)=4に固定
     weekly_params: makeIsolationWeeklyParams('biceps_1'),
   })
 
   const suggestion = buildProgramSuggestion(input)
   const workingSets = suggestion.slots[0].sets.filter(s => s.set_type === 'working')
-  assert.equal(workingSets.length, 3, '非優先部位はsetsForNonPatternCategory(90)=3に固定されるはず')
+  assert.equal(workingSets.length, 4, '非優先部位はsetsForNonPatternCategory(90)=4に固定されるはず')
 })
 
 test('(2026-07-17) ドロップセット構成では、セットごとに前回の実績(set_number)に応じて独立に重量が調整される', () => {
@@ -603,5 +603,5 @@ test('(b) ユーザーの優先部位選択によってボリューム漸進の�
   })
   const armsSuggestion = buildProgramSuggestion(armsNotSelected)
   const armsWorkingSets = armsSuggestion.slots[0].sets.filter(s => s.set_type === 'working')
-  assert.equal(armsWorkingSets.length, 3, '選ばれていない部位は据え置きになるはず')
+  assert.equal(armsWorkingSets.length, 4, '選ばれていない部位は据え置き（setsForNonPatternCategory(90)=4固定）になるはず')
 })

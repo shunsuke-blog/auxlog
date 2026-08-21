@@ -117,9 +117,13 @@ export function buildExerciseCategories(
 /**
  * 6パターン以外のカテゴリのセット数（brainstorm #8）。
  * 6パターン該当カテゴリのセット数はこの関数の対象外（program_engine.tsの週次漸進が担当）。
+ * 2026-08-21修正: 75分と90分が同一セット数になり90分利用者への追加価値が無かったため、
+ * 60/75/90分で3段階に分離（REVIEW_POLICY.md既知課題#1）。
  */
-export function setsForNonPatternCategory(minutes: SessionDurationMinutes): 2 | 3 {
-  return minutes === 60 ? 2 : 3
+export function setsForNonPatternCategory(minutes: SessionDurationMinutes): 2 | 3 | 4 {
+  if (minutes === 60) return 2
+  if (minutes === 75) return 3
+  return 4
 }
 
 // ── Day配分（brainstorm #13・#14: Full Body A/B・Push/Pull/Legs・Upper/Lower、腕は均等化のため全日候補） ──
