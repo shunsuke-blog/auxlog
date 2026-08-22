@@ -15,7 +15,7 @@ import {
 import { BASE_CATEGORIES_BY_RANK } from '@/lib/constants/program_composition'
 
 const biceps1 = BASE_CATEGORIES_BY_RANK.get(8)!  // 二頭
-const triceps2 = BASE_CATEGORIES_BY_RANK.get(18)! // 三頭2種目目
+const triceps2 = BASE_CATEGORIES_BY_RANK.get(19)! // 三頭2種目目
 const shoulderRearDelt = BASE_CATEGORIES_BY_RANK.get(12)! // 肩後部
 const shoulderLateral = BASE_CATEGORIES_BY_RANK.get(13)!  // 肩側方
 const shoulderPress = BASE_CATEGORIES_BY_RANK.get(2)! // バーチカルプレス(6パターン)

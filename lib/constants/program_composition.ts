@@ -49,13 +49,13 @@ export type CompositionCategory = {
   supersetPairGroup?: string
 }
 
-/** 部位ごとの種目数上限。脚以外は4、脚は5（brainstorm #18）。腕は二頭+三頭の合算で4。 */
+/** 部位ごとの種目数上限。脚以外は4、脚は6（brainstorm #18、2026-08-21レッグカール追加に伴い5→6）。腕は二頭+三頭の合算で4。 */
 export const MUSCLE_CAPS: Record<TargetMuscle, number> = {
   chest: 4,
   back: 4,
   shoulders: 4,
   arms: 4,
-  legs: 5,
+  legs: 6,
   core: 4,
 }
 
@@ -79,6 +79,10 @@ const back2: CompositionCategory = { id: 'back_2', muscle: 'back', isSixPattern:
 const chestFly: CompositionCategory = { id: 'chest_fly', muscle: 'chest', isSixPattern: false, movementPattern: 'shoulder_horizontal_adduction', label: '胸2種目目（フライ系）', hasOneRm: false, supersetPairGroup: 'chest_rear_delt' }
 // スクワット or ヒップヒンジのどちらでもよい（brainstorm #10「脚2種目目（スクワット or ヒンジ）」）
 const leg2: CompositionCategory = { id: 'leg_2', muscle: 'legs', isSixPattern: false, movementPattern: ['squat', 'hip_hinge'], label: '脚2種目目', hasOneRm: true }
+// ヒップヒンジ（leg_hinge・leg_2）は股関節伸展でハムを刺激するが、膝屈曲側は別部位として
+// 別途鍛える必要がある（部位別肥大の知見、2026-08-21追加。既知課題「レッグカールが
+// 全パターンでゼロ」対応）。
+const legCurl: CompositionCategory = { id: 'leg_curl', muscle: 'legs', isSixPattern: false, movementPattern: 'knee_flexion', label: 'レッグカール', hasOneRm: false }
 const biceps2: CompositionCategory = { id: 'biceps_2', muscle: 'arms', isSixPattern: false, movementPattern: 'elbow_flexion', label: '二頭2種目目', hasOneRm: false, supersetPairGroup: 'arm_flex_ext' }
 const triceps2: CompositionCategory = { id: 'triceps_2', muscle: 'arms', isSixPattern: false, movementPattern: 'elbow_extension', label: '三頭2種目目', hasOneRm: false, supersetPairGroup: 'arm_flex_ext' }
 const core2: CompositionCategory = { id: 'core_2', muscle: 'core', isSixPattern: false, movementPattern: 'trunk_flexion', label: '腹筋2種目目', hasOneRm: false }
@@ -91,13 +95,18 @@ const leg3: CompositionCategory = { id: 'leg_3', muscle: 'legs', isSixPattern: f
 /** priorityが未選択のときにpriority枠へ入るデフォルト（脚の追加種目、brainstorm #4）。 */
 const legDefault: CompositionCategory = { id: 'leg_default', muscle: 'legs', isSixPattern: false, movementPattern: 'squat', label: '脚デフォルト', hasOneRm: true }
 
-/** rank => 固定カテゴリ。10・11（priority枠）は含まない。 */
+/**
+ * rank => 固定カテゴリ。10・11（priority枠）は含まない。
+ * 2026-08-21、leg_curl追加に伴い旧rank17以降を1つずつ繰り下げ（旧17→18〜旧24→25）。
+ * 日数境界カットオフ（dayCountCutoffRank、generate_program_composition.ts）も
+ * 週3日: 18→19、週4日: 24→25に合わせて更新済み。
+ */
 export const BASE_CATEGORIES_BY_RANK: ReadonlyMap<number, CompositionCategory> = new Map([
   [1, chestPress], [2, shoulderPress], [3, backRow], [4, backPull], [5, legSquat], [6, legHinge],
   [7, core1], [8, biceps1], [9, triceps1],
   [12, shoulderRearDelt], [13, shoulderLateral], [14, back2], [15, chestFly], [16, leg2],
-  [17, biceps2], [18, triceps2], [19, core2], [20, shoulderPress2], [21, calves],
-  [22, back3], [23, chest3], [24, leg3],
+  [17, legCurl], [18, biceps2], [19, triceps2], [20, core2], [21, shoulderPress2], [22, calves],
+  [23, back3], [24, chest3], [25, leg3],
 ])
 
 export const LEG_DEFAULT_CATEGORY = legDefault
@@ -118,8 +127,8 @@ export const PRIORITY_CATEGORY_MAP: Record<PriorityMuscleOption, { category: Com
   chest: { category: chestFly, skipRank: 15 },
   shoulders: { category: shoulderLateral, skipRank: 13 },
   back: { category: back2, skipRank: 14 },
-  biceps: { category: biceps2, skipRank: 17 },
-  triceps: { category: triceps2, skipRank: 18 },
-  core: { category: core2, skipRank: 19 },
-  legs: { category: calves, skipRank: 21 },
+  biceps: { category: biceps2, skipRank: 18 },
+  triceps: { category: triceps2, skipRank: 19 },
+  core: { category: core2, skipRank: 20 },
+  legs: { category: calves, skipRank: 22 },
 }

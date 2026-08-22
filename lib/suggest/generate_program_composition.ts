@@ -51,12 +51,12 @@ function resolvePrioritySlots(priorities: readonly PriorityMuscleOption[]): {
   return { slot10, slot11, skipRanks }
 }
 
-/** canonical順位1-24の完全なシーケンスを、priority枠の中身とスキップを反映して組み立てる。 */
+/** canonical順位1-25の完全なシーケンスを、priority枠の中身とスキップを反映して組み立てる。 */
 function buildFullSequence(priorities: readonly PriorityMuscleOption[]): RankedCategory[] {
   const { slot10, slot11, skipRanks } = resolvePrioritySlots(priorities)
 
   const sequence: RankedCategory[] = []
-  for (let rank = 1; rank <= 24; rank++) {
+  for (let rank = 1; rank <= 25; rank++) {
     if (rank === 10) {
       sequence.push({ rank, category: slot10 })
       continue
@@ -93,11 +93,13 @@ function applyMuscleCaps(sequence: readonly RankedCategory[]): RankedCategory[] 
 /**
  * 日数境界のcanonical順位カットオフ（brainstorm #12）。範囲外からは借りてこない。
  * priority2が選ばれた場合のみ、2日の基準10に+1される（10→11）。
+ * 2026-08-21、leg_curl追加でrank17以降が繰り下がったため週3日=19・週4日=25に更新
+ * （既存の含有カテゴリ数はそのまま、レッグカール1件だけが純増する）。
  */
 function dayCountCutoffRank(days: DaysPerWeek, priorityCount: number): number {
   if (days === 2) return priorityCount >= 2 ? 11 : 10
-  if (days === 3) return 18
-  return 24
+  if (days === 3) return 19
+  return 25
 }
 
 /**

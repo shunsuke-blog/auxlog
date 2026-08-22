@@ -18,9 +18,9 @@ test('priorityなし・2日 => base9 + 脚デフォルト = 10種目', () => {
   assert.equal(result[9].id, 'leg_default')
 })
 
-test('priorityなし・3日 => 17種目（11番目は省略、借りてこない）', () => {
+test('priorityなし・3日 => 18種目（11番目は省略、借りてこない。2026-08-21 leg_curl追加で17→18）', () => {
   const result = buildExerciseCategories(3, [])
-  assert.equal(result.length, 17)
+  assert.equal(result.length, 18)
 })
 
 test('priority=[chest]・2日 => 10種目のまま（priority1のみでは+1されない）', () => {
@@ -29,9 +29,9 @@ test('priority=[chest]・2日 => 10種目のまま（priority1のみでは+1さ�
   assert.equal(result[9].id, 'chest_fly')
 })
 
-test('priority=[chest]・3日 => 17種目（胸2種目目がスキップされ通常18より1つ少ない）', () => {
+test('priority=[chest]・3日 => 18種目（胸2種目目がスキップされ通常19より1つ少ない。2026-08-21 leg_curl追加で17→18）', () => {
   const result = buildExerciseCategories(3, ['chest'])
-  assert.equal(result.length, 17)
+  assert.equal(result.length, 18)
   // 胸フライがpriorityとして1回だけ登場し、chest_flyの重複がないこと
   assert.equal(ids(result).filter(id => id === 'chest_fly').length, 1)
 })
@@ -49,9 +49,9 @@ test('priority=[biceps, triceps]・2日 => 11種目（priority2選択で+1拡張
   assert.equal(result[10].id, 'triceps_2')
 })
 
-test('priority=[biceps, triceps]・3日 => 16種目（両方スキップされ通常18より2つ少ない）', () => {
+test('priority=[biceps, triceps]・3日 => 17種目（両方スキップされ通常19より2つ少ない。2026-08-21 leg_curl追加で16→17）', () => {
   const result = buildExerciseCategories(3, ['biceps', 'triceps'])
-  assert.equal(result.length, 16)
+  assert.equal(result.length, 17)
 })
 
 test('priority=[biceps, triceps]・4日 => 腕の種目数は合算で上限4を超えない', () => {
@@ -65,7 +65,12 @@ test('priority=[shoulders]・3日 => 肩側方が重複しない（当初「ス�
   assert.equal(ids(result).filter(id => id === 'shoulder_lateral').length, 1)
 })
 
-test('どの部位も脚を除き4種目、脚は5種目を超えない（全priorityパターン×全日数で網羅確認）', () => {
+test('priority=[biceps, triceps]・4日 => rank25のleg_3が失われない（2026-08-21 leg_curl追加でcanonical順位が24→25に伸びた際の回帰: buildFullSequenceのループ上限を24のまま放置するとrank25が生成されずleg_3が消える）', () => {
+  const result = buildExerciseCategories(4, ['biceps', 'triceps'])
+  assert.ok(ids(result).includes('leg_3'), 'leg_3が含まれていない')
+})
+
+test('どの部位も脚を除き4種目、脚は6種目を超えない（全priorityパターン×全日数で網羅確認。2026-08-21 leg_curl追加でcap 5→6）', () => {
   const priorityOptions: Array<'chest' | 'back' | 'shoulders' | 'biceps' | 'triceps' | 'legs' | 'core'> =
     ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'core']
   const days: Array<2 | 3 | 4> = [2, 3, 4]
@@ -78,12 +83,18 @@ test('どの部位も脚を除き4種目、脚は5種目を超えない（全pri
         const counts = new Map<string, number>()
         for (const c of result) counts.set(c.muscle, (counts.get(c.muscle) ?? 0) + 1)
         for (const [muscle, count] of counts) {
-          const cap = muscle === 'legs' ? 5 : 4
+          const cap = muscle === 'legs' ? 6 : 4
           assert.ok(count <= cap, `days=${d} priorities=${priorities} muscle=${muscle} count=${count} exceeds cap=${cap}`)
         }
       }
     }
   }
+})
+
+test('leg_curl: 週2日は含まれず、週3日・4日には含まれる（2026-08-21追加、既知課題「レッグカールが全パターンでゼロ」対応）', () => {
+  assert.equal(ids(buildExerciseCategories(2, [])).includes('leg_curl'), false)
+  assert.equal(ids(buildExerciseCategories(3, [])).includes('leg_curl'), true)
+  assert.equal(ids(buildExerciseCategories(4, [])).includes('leg_curl'), true)
 })
 
 test('setsForNonPatternCategory: 60分=2, 75分=3, 90分=4', () => {

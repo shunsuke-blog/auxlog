@@ -27,6 +27,7 @@ export const CATEGORY_DEFAULT_OVERRIDES: Partial<Record<string, string>> = {
   leg_default: 'ハイバースクワット',
   biceps_1: 'ダンベルカール',
   biceps_2: 'インクラインダンベルカール',
+  leg_curl: 'レッグカール',
 }
 
 // オンボーディングの種目選択チェックリストには表示しない種目名

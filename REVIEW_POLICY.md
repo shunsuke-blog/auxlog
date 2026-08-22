@@ -45,14 +45,14 @@
 
 2026-08-21に本番DB＋実コードから生成した9パターンの実出力を検証した結果、以下が判明。**新機能より先に、まずここを潰す。**（同日、`program-review`サブエージェントによる静的コードレビュー、および本番DB（`program_slots`・全ユーザーの`user_slot_assignments`）を実際に読んでの動的検証で再検証・更新済み）
 
-1. **【現存・設計時点で意図的に除外】ハムの膝屈曲（レッグカール）が全パターンでゼロ。** `program_composition.ts:14-16`のコメントで`knee_flexion`は新方式のカテゴリ定義では使わないと明記。脚はスクワット偏重・ハム過少。週4日ヒンジ枠の1種目をレッグカールに差し替えると、ハムの穴埋めと後鎖の軸負荷過多を同時に解消できる。
-2. **【新規・軽微・要因未特定】priority選択時、一部ユーザーで対応するアサインメントが欠落することがある。** 実ユーザー1名（days=3・priority=[chest, legs]）で、エンジンが期待する17カテゴリ中`calves`だけ`user_slot_assignments`が存在せず、`program_engine.ts`の`if (!assignment) continue`で当該カテゴリが静かにスキップされていた（他16カテゴリは正しくアサイン済み）。オンボーディング時のpriority枠自動アサインに漏れがある可能性。影響範囲・再現条件は未調査。
+1. **【新規・軽微・要因未特定】priority選択時、一部ユーザーで対応するアサインメントが欠落することがある。** 実ユーザー1名（days=3・priority=[chest, legs]）で、エンジンが期待する17カテゴリ中`calves`だけ`user_slot_assignments`が存在せず、`program_engine.ts`の`if (!assignment) continue`で当該カテゴリが静かにスキップされていた（他16カテゴリは正しくアサイン済み）。オンボーディング時のpriority枠自動アサインに漏れがある可能性。影響範囲・再現条件は未調査。
 
 **解消済み（参考）:**
 - 「エンジン ≠ 設計」という疑いは、2026-08-21の静的コードレビューに加え、本番`program_slots`（新方式23カテゴリID全てが実在）・全ユーザーの`user_slot_assignments`（旧式slot_idの参照ゼロ件）を実際に読んで確認し、解消と判断した。ただし「tier=12/18/24」という表現は実際のカテゴリ切替cutoff（10/11・18・24）と食い違っており、用語としては引き続き紛らわしい。
 - **90分 = 75分が完全に同一だったバグは2026-08-21に修正済み。** `setsForNonPatternCategory`（`generate_program_composition.ts:121-125`）を60分=2/75分=3/90分=4の3段階に変更（案A: 全カテゴリ一律+1セット、優先部位の3→4→5セット漸増とは別系統で共存）。`generate_program_composition.test.ts`・`program_engine.test.ts`のテストを更新し全53件パス、型チェックも通過。
 - **週3日PPLで二頭/三頭の配置が逆転していたバグは2026-08-21に修正済み。** `eligibleDays`（`generate_program_composition.ts:135-142`）に「days===3のとき腕はmovementPatternで固定（三頭=elbow_extension→Push日、二頭=elbow_flexion→Pull日）」を追加し、旧来の「腕は全日候補」ルールより優先させた。実際の生成結果（優先なし・chest+legs・chest+triceps優先の3パターン）で三頭が全てPush日、二頭が全てPull日になることを確認。テスト54件全パス。
 - **週2日60分の肩サブMEVは、2026-08-21にオンボーディング文言での対処を選んで実施済み（構造自体は未変更）。** `app/onboarding/OnboardingClient.tsx`のpriority_muscles画面に、週2日選択時のみ「肩は優先部位に選ばないと基本種目1つのみになりやすい」という注意文を追加。**ただしこれは新規登録者向けの緩和策であり、根本の構造（週2日は肩の基本枠が1つだけ）は変えていない。** `priority_muscles`はオンボーディング後に変更するAPIが無いため、既存ユーザーはこの文言を見られない。本番確認時点でこれに該当する既存アクティブユーザーは1人。
+- **ハムの膝屈曲（レッグカール）が全パターンでゼロだった課題は、2026-08-21に新カテゴリ`leg_curl`（canonical順位17、movementPattern: `knee_flexion`）を追加して解消。** `MUSCLE_CAPS.legs`を5→6に引き上げ、週3日カットオフを18→19、週4日カットオフを24→25に更新（既存の含有カテゴリは失われず、レッグカール1件だけ純増）。実装中に`buildFullSequence`のループ上限が24のまま残っていて`leg_3`（新rank25）が消える回帰を発見・修正し、テストで固定化した。デフォルト種目は「レッグカール」（`exercise_matching.ts`の`CATEGORY_DEFAULT_OVERRIDES`）。本番`program_slots`にも`leg_curl`行を追加済み（オーナー実行）。**新規ユーザーのみ対象。既存ユーザーには`user_slot_assignments`が無いため反映されない（オーナー承認の上、対象外とした）。** テスト56件全パス、型チェックも通過。
 
 ## 提案済み・未実装（実装依頼済みだが本番反映を要確認）
 
