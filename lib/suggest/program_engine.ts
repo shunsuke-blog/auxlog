@@ -353,7 +353,7 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
     if (!slot) continue
 
     const params = paramsMap.get(category.id)
-    if (!params || params.is_excluded) continue
+    if (!params) continue
 
     const assignment = assignmentMap.get(category.id)
     if (!assignment) continue
@@ -369,6 +369,13 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
     // ため、カテゴリ単位では判定できない（2026-07-08、実機確認フィードバック対応）。
     // 週2日の格下げ対象カテゴリだけは、選ばれた種目に関わらず1RM管理を強制的にオフにする。
     const hasOneRm = exercise.requires_one_rm && !isOneRmDemotedAtDays(category, days)
+
+    // MaxOut週（週9）は「メインリフトのAMRAPで実力を測定し、次サイクルの1RM更新に使う」週。
+    // 実際に割り当てられている種目が1RM管理対象でなければテストする意味がないため除外する
+    // （2026-08-21、program_weekly_params.is_excludedの静的カテゴリ単位フラグを廃止して置き換え。
+    // 旧フラグは種目の入れ替えに追従できず、同じ6パターン内でも懸垂だけ除外／
+    // チェストサポーテッドロウは除外なし、といった一貫しない結果になっていた）。
+    if (phase === 'maxout' && !hasOneRm) continue
 
     // hasOneRm時のみ参照する%RM進行データの出典（notesの週次フェーズ表示にも使う）。
     let movementParams: MovementPatternWeeklyParams | undefined
@@ -422,8 +429,9 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
 
     const noteFragments: string[] = []
     // 1RM管理種目はmovement_pattern_weekly_params側にphase/top_set_is_amrapがある
-    // （カテゴリ側のparams.phaseは同じ週なら実質同値だが、is_excluded判定用に別途
-    // 存在するparamsとは出典が分かれたため、hasOneRm時はmovementParamsを正とする）。
+    // （カテゴリ側のparams.phaseは同じ週なら実質同値だが、working_sets/rep_range/rpe等
+    // アイソレーション用のデータも別途保持するparamsとは出典が分かれたため、
+    // hasOneRm時はmovementParamsを正とする）。
     const phaseNote = slotNotes(hasOneRm ? movementParams! : params)
     if (phaseNote) noteFragments.push(phaseNote)
 
@@ -459,6 +467,9 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
   for (const customSlot of custom_slots) {
     if (customSlot.day_number !== day_number) continue
     if (skippedSlotIds.has(customSlot.id)) continue
+    // カスタムスロットは常にアイソレーション（hasOneRm相当）扱いのため、MaxOut週は
+    // メインリフト除外ルール（上のhasOneRm判定と同じ理屈）でこちらも一律除外する。
+    if (phase === 'maxout') continue
 
     const exercise = exerciseMap.get(customSlot.exercise_id)
     if (!exercise) continue

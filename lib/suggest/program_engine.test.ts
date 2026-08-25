@@ -292,6 +292,44 @@ test('(a) maxout週(週9)のAMRAPは1RM管理種目のRPEクランプの対象�
   assert.equal(topSet.target_rpe, 10.0, 'maxout週はクランプされずDBの値をそのまま使うはず')
 })
 
+test('(2026-08-21) maxout週(週9)は、割り当てられている種目が1RM管理対象でなければ除外される', () => {
+  // program_weekly_params.is_excludedという静的なカテゴリ単位フラグは、種目の入れ替えに
+  // 追従できず一貫しない除外結果になっていたため廃止。hasOneRm（種目ごとの属性）で
+  // 判定するよう変更した（同じカテゴリでも実際の種目次第で週9に残るかどうかが変わる）。
+  const inputIsolation = buildProgramSuggestion(buildInput({
+    category_id: 'biceps_1', muscle_group: 'arms', hasOneRm: false,
+    sessionMins: 60, currentWeek: 9,
+    weekly_params: makeIsolationWeeklyParams('biceps_1'),
+  }))
+  assert.equal(inputIsolation.slots.length, 0, 'アイソレーション種目(hasOneRm:false)はmaxout週で除外されるはず')
+
+  const inputCompound = buildProgramSuggestion(buildInput({
+    category_id: 'chest_press', muscle_group: 'chest', hasOneRm: true,
+    sessionMins: 60, currentWeek: 9,
+    weekly_params: makeCompoundWeeklyParams('chest_press', { 9: 10.0 }),
+  }))
+  assert.equal(inputCompound.slots.length, 1, '1RM管理種目(hasOneRm:true)はmaxout週でも提案されるはず')
+})
+
+test('(2026-08-21) maxout週(週9)は、同じカテゴリでも実際の種目のrequires_one_rmで除外が変わる（back_pullに懸垂=false、ウェイテッド懸垂=trueのケース）', () => {
+  // back_pullはカテゴリ既定がhasOneRm:falseだが、種目単位のrequires_one_rmが正
+  // （program_engine.tsの分岐と同じロジック）。ここではカテゴリではなく種目属性が
+  // 除外を左右することを確認する。
+  const withDefaultExercise = buildProgramSuggestion(buildInput({
+    category_id: 'back_pull', muscle_group: 'back', hasOneRm: false,
+    sessionMins: 60, currentWeek: 9,
+    weekly_params: makeIsolationWeeklyParams('back_pull'),
+  }))
+  assert.equal(withDefaultExercise.slots.length, 0, '懸垂(hasOneRm:false)は週9で除外されるはず')
+
+  const withWeightedExercise = buildProgramSuggestion(buildInput({
+    category_id: 'back_pull', muscle_group: 'back', hasOneRm: true,
+    sessionMins: 60, currentWeek: 9,
+    weekly_params: makeCompoundWeeklyParams('back_pull', { 9: 10.0 }),
+  }))
+  assert.equal(withWeightedExercise.slots.length, 1, 'ウェイテッド懸垂等(hasOneRm:true)に入れ替えていれば週9でも残るはず')
+})
+
 test('(f/2026-07-15) leg_hinge(カテゴリのweekly_paramsはアイソレーション用データのみ)にデッドリフトのような1RM管理種目が割り当たっても、種目のmovement_pattern(hip_hinge)経由でmovement_pattern_weekly_paramsから重量が計算される', () => {
   // leg_hingeのカテゴリ単位weekly_paramsはtop_set_pct_rm等の%RM系フィールドを持たない
   // （working_sets/rep_range/rpeなどis_excluded判定・アイソレーション用のデータのみ）。
