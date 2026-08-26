@@ -128,20 +128,76 @@ export function setsForNonPatternCategory(minutes: SessionDurationMinutes): 2 | 
   return 4
 }
 
+// 6パターン・1RM管理カテゴリ（chest_press等）のセット数は週次固定値（movement_pattern_weekly_
+// paramsのbackoff_sets）で決まり、setsForNonPatternCategoryの対象外のためセッション時間に
+// 連動しない。通常は同じ部位に非6パターンのアクセサリー種目（例: chest_fly）が別途あり、
+// そちらが時間でスケールするため部位全体としては時間に応じてボリュームが増える。
+// しかし週2日はカテゴリ数が少なく、部位によっては6パターン種目しか無く（例: 胸=chest_pressのみ）、
+// アクセサリーによる時間スケールが一切効かない部位が生まれる（実装依頼書 要件1、2026-08-27。
+// 60/75/90分すべてで胸が同じセット数になるバグ）。
+// 「その部位に非6パターンのカテゴリが1つも無い」場合だけ、6パターン種目のバックオフセット数に
+// 時間ボーナスを加える一般化で解消する（部位を決め打ちしない）。
+
+/**
+ * 日数×priority選択の構成の中で、6パターン（isSixPattern）のカテゴリしか無い
+ * ＝非6パターンのアクセサリーによる時間スケールが一切効かない部位の集合を返す。
+ * 週4日は全部位に必ずアクセサリーがあるため常に空集合になり、既存の週4日の出力は
+ * 変化しない（回帰テストで担保）。
+ */
+export function musclesNeedingSixPatternDurationBonus(
+  days: DaysPerWeek,
+  priorities: readonly PriorityMuscleOption[],
+): ReadonlySet<TargetMuscle> {
+  const categories = buildExerciseCategories(days, priorities)
+  const musclesWithAccessory = new Set(categories.filter(c => !c.isSixPattern).map(c => c.muscle))
+  const sixPatternMuscles = new Set(categories.filter(c => c.isSixPattern).map(c => c.muscle))
+  return new Set([...sixPatternMuscles].filter(m => !musclesWithAccessory.has(m)))
+}
+
+/**
+ * 上記のmusclesNeedingSixPatternDurationBonusに該当する部位の6パターン種目に加える、
+ * セッション時間に応じたバックオフセット数のボーナス。setsForNonPatternCategoryと同じ
+ * 60/75/90分の3段階の刻み幅（+0/+1/+2）に揃える。
+ */
+export function sixPatternDurationBonusSets(minutes: SessionDurationMinutes): 0 | 1 | 2 {
+  if (minutes === 60) return 0
+  if (minutes === 75) return 1
+  return 2
+}
+
 // ── Day配分（brainstorm #13・#14: Full Body A/B・Push/Pull/Legs・Upper/Lower、腕は均等化のため全日候補） ──
 
 const UPPER_MUSCLES: readonly TargetMuscle[] = ['chest', 'shoulders', 'back']
 const LOWER_MUSCLES: readonly TargetMuscle[] = ['legs', 'core']
 
+// 週3日フルボディ化（実装依頼書 要件2、2026-08-27）: 旧実装は実質Push/Pull/Legs
+// （各筋1回/週）で、高時間ティアで1筋のボリュームが1セッションに集中していた
+// （例: 週3日90分でDay3に脚16セット等）。動きパターン単位の抽象ルールでは
+// 「主要筋（胸・背中・脚）をなるべく週2回に近づける」配置を表現しづらいため、
+// カテゴリID単位で配置日を明示指定する方式に変更した。種目自体・総カテゴリ数は
+// 変えず、配置日だけを変更（総ボリュームは維持）。
+//
+// 配置の設計意図:
+// - 胸(chest_press/chest_fly)・背中(back_row/back_pull/back_2)・脚(leg_squat/leg_hinge/
+//   leg_default/leg_2/leg_curl)を、それぞれ2〜3日に分散させ、週2回以上の頻度にする。
+// - 脚は種目数が多い(5)ため、1日に集中しないよう3日に分けている（1セッションあたりの
+//   過度な集中を避ける）。
+// - 拮抗筋スーパーセット候補（chest_fly×shoulder_rear_delt、biceps×triceps）は
+//   ペアが同日に来るよう配慮（day2にchest_fly+shoulder_rear_delt、day1と day3に
+//   それぞれ二頭+三頭のペア）。
+// - priority選択時のみ登場するカテゴリ（core_2・calves）はday2に割り当てておく
+//   （通常は週3日のcutoff外だがpriority枠経由でrank10/11に来た場合のみ登場する）。
+const DAY3_PLACEMENT: Partial<Record<string, number>> = {
+  chest_press: 1, shoulder_press: 1, leg_squat: 1, core_1: 1, triceps_1: 1, biceps_1: 1,
+  back_row: 2, back_pull: 2, leg_hinge: 2, leg_2: 2, chest_fly: 2, shoulder_rear_delt: 2, core_2: 2, calves: 2,
+  shoulder_lateral: 3, back_2: 3, leg_default: 3, leg_curl: 3, biceps_2: 3, triceps_2: 3,
+}
+
 /** そのカテゴリを配置してよい日番号の候補を返す（優先順位はつけない）。 */
 function eligibleDays(days: DaysPerWeek, category: CompositionCategory): number[] {
-  if (days === 3 && category.muscle === 'arms') {
-    // Push/Pull/Legs分割では、三頭はプレス系（押す）・二頭はプル系（引く）と協働する
-    // ため、それぞれPush日(1)・Pull日(2)に固定する。旧実装は腕を全日候補（下記の
-    // 「均等化」ルール）にしていたため、貪欲法の結果でPush日に二頭・Pull日に三頭という
-    // 解剖学的に逆の配置になっていた（2026-08-21修正、REVIEW_POLICY.md既知課題）。
-    if (category.movementPattern === 'elbow_extension') return [1] // 三頭 → Push日
-    if (category.movementPattern === 'elbow_flexion') return [2] // 二頭 → Pull日
+  if (days === 3) {
+    const d = DAY3_PLACEMENT[category.id]
+    return d != null ? [d] : [1, 2, 3]
   }
 
   if (category.muscle === 'arms') {
@@ -162,22 +218,6 @@ function eligibleDays(days: DaysPerWeek, category: CompositionCategory): number[
       return d != null ? [d] : [1, 2]
     }
     return [1, 2]
-  }
-
-  if (days === 3) {
-    // Push(1)/Pull(2)/Legs(3)
-    if (category.isSixPattern) {
-      const dayForPattern: Partial<Record<string, number>> = {
-        horizontal_press: 1, vertical_press: 1,
-        horizontal_pull: 2, vertical_pull: 2,
-        squat: 3, hip_hinge: 3,
-      }
-      const d = dayForPattern[typeof category.movementPattern === 'string' ? category.movementPattern : '']
-      return d != null ? [d] : [1, 2, 3]
-    }
-    if (category.muscle === 'chest' || category.muscle === 'shoulders') return [1]
-    if (category.muscle === 'back') return [2]
-    return [3] // legs, core
   }
 
   // days === 4: Upper(1,3)/Lower(2,4)

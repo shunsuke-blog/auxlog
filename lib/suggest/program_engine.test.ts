@@ -338,9 +338,10 @@ test('(f/2026-07-15) leg_hinge(カテゴリのweekly_paramsはアイソレーシ
   // movement_pattern単位(movement_pattern_weekly_params)に切り出したため、カテゴリの
   // weekly_paramsが引き続きアイソレーション用データのみでも、種目のmovement_pattern
   // (hip_hinge)に対応する行が別途あれば正しい%RMで計算される（暫定値ではなく実データ）。
+  // days:4を明示（要件3-aの頻度別%1RMオフセットは週4日=0のため、この検証の対象外にする）
   const input = buildInput({
     category_id: 'leg_hinge', muscle_group: 'legs', hasOneRm: true,
-    sessionMins: 60, currentWeek: 1,
+    sessionMins: 60, currentWeek: 1, days: 4,
     weekly_params: makeIsolationWeeklyParams('leg_hinge'),
     movement_pattern_weekly_params: makeMovementPatternWeeklyParams('hip_hinge'),
   })
@@ -642,4 +643,86 @@ test('(b) ユーザーの優先部位選択によってボリューム漸進の�
   const armsSuggestion = buildProgramSuggestion(armsNotSelected)
   const armsWorkingSets = armsSuggestion.slots[0].sets.filter(s => s.set_type === 'working')
   assert.equal(armsWorkingSets.length, 4, '選ばれていない部位は据え置き（setsForNonPatternCategory(90)=4固定）になるはず')
+})
+
+// ── 実装依頼書（時間ティアのセット配分修正＋週3日フルボディ化＋頻度別強度調整、2026-08-27）──
+
+test('(2026-08-27) 要件1: 週2日の胸(chest_press)は非6パターンのアクセサリーが無いため、backoff本数がセッション時間で増える', () => {
+  const backoffCountAt = (minutes: SessionDurationMinutes) => {
+    const input = buildInput({
+      category_id: 'chest_press', muscle_group: 'chest', hasOneRm: true,
+      sessionMins: minutes, currentWeek: 1, days: 2,
+      weekly_params: makeCompoundWeeklyParams('chest_press', {}),
+    })
+    const suggestion = buildProgramSuggestion(input)
+    return suggestion.slots[0].sets.filter(s => s.set_type === 'backoff').length
+  }
+  const at60 = backoffCountAt(60)
+  const at75 = backoffCountAt(75)
+  const at90 = backoffCountAt(90)
+  assert.ok(at75 > at60, `75分のbackoff本数(${at75})は60分(${at60})より多いはず`)
+  assert.ok(at90 > at75, `90分のbackoff本数(${at90})は75分(${at75})より多いはず`)
+})
+
+test('(2026-08-27) 要件1・4: 週4日の胸は元々アクセサリー(chest_fly)があるため、backoff本数はセッション時間で変化しない（週4日の出力は不変）', () => {
+  const backoffCountAt = (minutes: SessionDurationMinutes) => {
+    const input = buildInput({
+      category_id: 'chest_press', muscle_group: 'chest', hasOneRm: true,
+      sessionMins: minutes, currentWeek: 1, days: 4,
+      weekly_params: makeCompoundWeeklyParams('chest_press', {}),
+    })
+    const suggestion = buildProgramSuggestion(input)
+    return suggestion.slots[0].sets.filter(s => s.set_type === 'backoff').length
+  }
+  assert.equal(backoffCountAt(60), backoffCountAt(90), '週4日はアクセサリー側でスケールするため、6パターン側のbackoff本数は時間で変わらないはず')
+})
+
+test('(2026-08-27) 要件3-a: コンパウンドのtop set %1RMは頻度が低いほど高くなる（週2>週3>週4）。週4日は基準で不変', () => {
+  const topWeightAt = (days: DaysPerWeek) => {
+    const input = buildInput({
+      category_id: 'chest_press', muscle_group: 'chest', hasOneRm: true,
+      sessionMins: 60, currentWeek: 1, days,
+      weekly_params: makeCompoundWeeklyParams('chest_press', {}),
+    })
+    const suggestion = buildProgramSuggestion(input)
+    return suggestion.slots[0].sets.find(s => s.set_type === 'top')!.suggested_weight_kg
+  }
+  const w4 = topWeightAt(4)
+  const w3 = topWeightAt(3)
+  const w2 = topWeightAt(2)
+  assert.ok(w2 > w3, `週2日のtop set重量(${w2}kg)は週3日(${w3}kg)より重いはず`)
+  assert.ok(w3 > w4, `週3日のtop set重量(${w3}kg)は週4日(${w4}kg)より重いはず`)
+  // makeCompoundWeeklyParamsのtop_set_pct_rm=0.8、oneRm=100kgなので週4日は80kgのまま
+  assert.equal(w4, 80, '週4日は基準（修正前と同じ80kg）のはず')
+})
+
+test('(2026-08-27) 要件3-a: コンパウンドのRIR（target_rpe）は頻度で変えない（頻度調整は%1RM側のみ）', () => {
+  const topRpeAt = (days: DaysPerWeek) => {
+    const input = buildInput({
+      category_id: 'chest_press', muscle_group: 'chest', hasOneRm: true,
+      sessionMins: 60, currentWeek: 1, days,
+      weekly_params: makeCompoundWeeklyParams('chest_press', {}),
+    })
+    const suggestion = buildProgramSuggestion(input)
+    return suggestion.slots[0].sets.find(s => s.set_type === 'top')!.target_rpe
+  }
+  assert.equal(topRpeAt(2), topRpeAt(4), 'コンパウンドのRIRは頻度に関わらず同一のはず')
+  assert.equal(topRpeAt(3), topRpeAt(4), 'コンパウンドのRIRは頻度に関わらず同一のはず')
+})
+
+test('(2026-08-27) 要件3-b: アイソレーションのworking RIRは頻度が低いほど追い込む（週2<週3<週4のRIR＝週2のRPEが最も高い）。週4日は基準で不変', () => {
+  const workingRpeAt = (days: DaysPerWeek) => {
+    const input = buildInput({
+      category_id: 'biceps_1', muscle_group: 'arms',
+      sessionMins: 60, currentWeek: 1, days,
+      weekly_params: makeIsolationWeeklyParams('biceps_1'),
+    })
+    const suggestion = buildProgramSuggestion(input)
+    return suggestion.slots[0].sets[0].target_rpe
+  }
+  const rpe4 = workingRpeAt(4)
+  const rpe3 = workingRpeAt(3)
+  const rpe2 = workingRpeAt(2)
+  assert.ok(rpe2 > rpe3, `週2日のRPE(${rpe2})は週3日(${rpe3})より高い（RIRが低い＝追い込む）はず`)
+  assert.ok(rpe3 > rpe4, `週3日のRPE(${rpe3})は週4日(${rpe4})より高いはず`)
 })

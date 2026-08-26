@@ -23,6 +23,8 @@ import {
   isOneRmDemotedAtDays,
   findSupersetPartnerCategory,
   setsForNonPatternCategory,
+  musclesNeedingSixPatternDurationBonus,
+  sixPatternDurationBonusSets,
   type DaysPerWeek,
   type SessionDurationMinutes,
 } from '@/lib/suggest/generate_program_composition'
@@ -88,6 +90,28 @@ function buildWarmupSets(oneRm: number): SetSuggestion[] {
 // （実装依頼書 2026-07-06、受け入れ条件(a)）。
 const COMPOUND_VOLUME_PHASE_RPE_CEILING = 9.0
 
+// 頻度による強度調整（実装依頼書 要件3、2026-08-27）。週4日を基準（オフセット0）とし、
+// 低頻度ほどセッション間隔が長く回復余地が大きいため、コンパウンドは高い%1RMから
+// 開始できる。二重調整を避けるため、コンパウンドは%1RM側、アイソレーションはRIR側と
+// レバーを分けている（コンパウンドのRIRは頻度で動かさない＝従来どおり）。
+// 具体的な数値は「方向性のみ指定、実装側で1RM推定の安全域を見て調整」の合意に基づき、
+// オーナー提示の叩き台（週3=+2%、週2=+4%）をそのまま採用した（過度な値ではないため）。
+function frequencyPctRmOffset(days: DaysPerWeek): number {
+  if (days === 4) return 0
+  if (days === 3) return 0.02
+  return 0.04 // days === 2
+}
+
+// アイソレーションは%1RMを持たないため、頻度調整はRIR（努力度）で行う。週4日を基準とし、
+// 低頻度ほどRIRを下げて追い込む（叩き台どおり: 週3=RIR-0.5、週2=RIR-1.0、RPE換算でプラス）。
+// deload/maxout週は頻度に関わらず一律の回復・テスト週という位置づけを崩したくないため、
+// このオフセットはvolume/intensity期のみに適用する（effortRampTargetRpe側で分岐）。
+function frequencyRpeOffset(days: DaysPerWeek): number {
+  if (days === 4) return 0
+  if (days === 3) return 0.5
+  return 1.0 // days === 2
+}
+
 // 直近セッション(同じ動きパターン、種目を変えていても対象)にウォームアップの記録が
 // あれば、その重量・回数をそのまま引き継いで1セット目以降に提案する。計算式は無く、
 // 前回の実施内容をそのまま引き継ぐだけ（2026-08-09に有無だけの引き継ぎとして導入、
@@ -102,7 +126,7 @@ function maybeAddWarmupSets(sets: SetSuggestion[], recentWarmupSets: TrainingSet
 
 function buildCompoundSets(
   params: MovementPatternWeeklyParams,
-  { oneRm, recentWarmupSets }: { oneRm: number; recentWarmupSets: TrainingSet[] }
+  { oneRm, recentWarmupSets, extraBackoffSets = 0 }: { oneRm: number; recentWarmupSets: TrainingSet[]; extraBackoffSets?: number }
 ): SetSuggestion[] {
   const sets: SetSuggestion[] = []
 
@@ -126,9 +150,13 @@ function buildCompoundSets(
   // backoff重量はメインセットの提案重量に対する倍率で決める（元データ＝
   // UpperLowerBodyhypertrophy9weeks_sheet.xlsxのBackoff行が参考重量ベースの倍率で
   // 管理されているため。1RMから独立したbackoff_pct_rmは丸め誤差でズレるので使わない）。
-  if (params.backoff_sets && topWeight != null && params.backoff_pct_of_top != null && params.backoff_reps) {
+  // extraBackoffSets: 実装依頼書 要件1（2026-08-27）。その部位に非6パターンのアクセサリーが
+  // 無く時間でスケールしない場合のみ、呼び出し元(musclesNeedingSixPatternDurationBonus)から
+  // セッション時間に応じた本数が渡される（通常は0）。
+  const backoffSetsCount = (params.backoff_sets ?? 0) + extraBackoffSets
+  if (backoffSetsCount > 0 && topWeight != null && params.backoff_pct_of_top != null && params.backoff_reps) {
     const backoffWeight = roundWeight(topWeight * params.backoff_pct_of_top)
-    for (let i = 0; i < params.backoff_sets; i++) {
+    for (let i = 0; i < backoffSetsCount; i++) {
       sets.push({
         set_type: 'backoff',
         suggested_weight_kg: backoffWeight,
@@ -277,12 +305,17 @@ function volumeRampsForCategory(
 // RIRをRPE(=10-RIR)に変換して返す。ボリューム期は週1のRIR2.5→週4のRIR0.5へ線形に漸進、
 // 強度期はボリューム期末より緩めたRIR1.5で維持（セット数が増えない分、追い込み過ぎを防ぐ）、
 // 回復週(deload/maxout)はRIR3まで緩める。
-function effortRampTargetRpe(weekNumber: number, phase: ProgramPhase): number {
+// 頻度によるRIR調整（frequencyRpeOffset、要件3-b）はvolume/intensity期のみに適用する。
+// deload/maxoutは頻度に関わらず一律の回復・テスト週という位置づけを崩したくないため対象外。
+// RPE9.5（RIR0.5）を安全上限としてクランプする（週2日×volume期末週4のように、
+// 基準値がすでに高い状態でオフセットが乗るとRPE10超になり得るため）。
+function effortRampTargetRpe(weekNumber: number, phase: ProgramPhase, days: DaysPerWeek): number {
   if (phase === 'volume') {
     const rir = 2.5 - (Math.min(weekNumber, 4) - 1) * ((2.5 - 0.5) / 3)
-    return Math.round((10 - rir) * 2) / 2
+    const rpe = Math.round((10 - rir) * 2) / 2
+    return Math.min(rpe + frequencyRpeOffset(days), 9.5)
   }
-  if (phase === 'intensity') return 8.5
+  if (phase === 'intensity') return Math.min(8.5 + frequencyRpeOffset(days), 9.5)
   return 7.0
 }
 
@@ -318,6 +351,9 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
   // day_number/priority/sort_orderは未使用（program_composition.tsが正）。
   const allCategories = buildExerciseCategories(days, priorities)
   const dayCategories = distributeToDays(days, allCategories).get(day_number) ?? []
+  // 要件1（2026-08-27）: 非6パターンのアクセサリーが一切無い部位だけ、6パターン種目に
+  // 時間ボーナスのバックオフセットを加える（週2日の胸固定バグの一般化した修正）。
+  const bonusMuscles = musclesNeedingSixPatternDurationBonus(days, priorities)
 
   // 現在週の行だけをスロットごとの参照用マップにする。
   const currentWeekParams = weekly_params.filter(p => p.week_number === enrollment.current_week)
@@ -386,8 +422,14 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
       // ダンベルショルダープレス等）、種目のmovement_patternが一致すれば同じ進行データを
       // 共有できる（2026-07-15、is_compound/requires_one_rm不一致調査を受けた構造見直し。
       // 旧buildCompoundSetsFromIsolationParamsの暫定%RMフォールバックは不要になり削除）。
-      movementParams = movementParamsMap.get(exercise.movement_pattern ?? '')
-      if (!movementParams) continue
+      const baseMovementParams = movementParamsMap.get(exercise.movement_pattern ?? '')
+      if (!baseMovementParams) continue
+
+      // 要件3-a（2026-08-27）: コンパウンドの頻度調整は%1RM側で行う（RIRは頻度で動かさない）。
+      // 週4日は常にoffset=0のためbaseMovementParamsのまま=既存の出力を維持する。
+      movementParams = baseMovementParams.top_set_pct_rm != null
+        ? { ...baseMovementParams, top_set_pct_rm: Math.min(baseMovementParams.top_set_pct_rm + frequencyPctRmOffset(days), 1) }
+        : baseMovementParams
 
       // 6パターン該当カテゴリ（チェストプレス・肩プレス・スクワット）だけが、既存の
       // 週次漸進システム（movement_pattern_weekly_paramsのtop_set/backoff_sets）でセット数まで
@@ -404,9 +446,12 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
       const oneRmRecord = oneRmMap.get(category.id)
       const oneRmKg = oneRmRecord?.one_rm_kg ?? estimateOneRmFromRecentSets(recentSets)
       const recentWarmupSets = recent_warmup_sets_by_pattern[exercise.movement_pattern ?? ''] ?? []
+      const extraBackoffSets = category.isSixPattern && bonusMuscles.has(category.muscle)
+        ? sixPatternDurationBonusSets(minutes)
+        : 0
       sets = targetCount != null
         ? buildCompoundSetsForCount(movementParams, { oneRm: oneRmKg, targetCount, recentWarmupSets })
-        : buildCompoundSets(movementParams, { oneRm: oneRmKg, recentWarmupSets })
+        : buildCompoundSets(movementParams, { oneRm: oneRmKg, recentWarmupSets, extraBackoffSets })
     } else {
       if (volumeRampsForCategory(category, minutes, priorities)) {
         // 優先部位 かつ75分/90分: 既存どおりDBの週次working_sets/rpeをそのまま使う
@@ -420,7 +465,7 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
         // これまでhasOneRm:trueの非6パターンカテゴリにしか適用されていなかった）。
         sets = buildIsolationSets(params, recentSets, {
           workingSets: setsForNonPatternCategory(minutes),
-          targetRpe: effortRampTargetRpe(enrollment.current_week, phase),
+          targetRpe: effortRampTargetRpe(enrollment.current_week, phase, days),
         })
       }
     }
@@ -480,7 +525,7 @@ export function buildProgramSuggestion(input: ProgramEngineInput): ProgramSugges
       recentSets,
       {
         workingSets: setsForNonPatternCategory(minutes),
-        targetRpe: effortRampTargetRpe(enrollment.current_week, phase),
+        targetRpe: effortRampTargetRpe(enrollment.current_week, phase, days),
       },
     )
     if (sets.length === 0) continue

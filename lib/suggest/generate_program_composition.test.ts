@@ -121,17 +121,41 @@ test('distributeToDays: 4日は概ね均等に配分される（差は1以内）
   assert.ok(max - min <= 1, `日ごとの種目数の差が大きすぎる: ${counts.join(',')}`)
 })
 
-test('distributeToDays: 3日(Push/Pull/Legs)では三頭がPush日(1)、二頭がPull日(2)に配置される（2026-08-21修正: 旧実装は逆転していた）', () => {
+test('distributeToDays: 3日は主要筋（胸・背中・脚）がそれぞれ2日以上に分散配置される（実装依頼書 要件2、2026-08-27。旧実装は実質PPLで各筋1回/週だった）', () => {
   const categories = buildExerciseCategories(3, [])
   const dayMap = distributeToDays(3, categories)
 
-  const day1Ids = dayMap.get(1)!.map(c => c.id)
-  const day2Ids = dayMap.get(2)!.map(c => c.id)
-  const day3Ids = dayMap.get(3)!.map(c => c.id)
+  const totalAssigned = [...dayMap.values()].reduce((sum, arr) => sum + arr.length, 0)
+  assert.equal(totalAssigned, categories.length, '全カテゴリが漏れなく配分されるはず（総数は変えない）')
 
-  assert.ok(day1Ids.includes('triceps_1'), 'Push日(1)に三頭(triceps_1)が含まれるはず')
-  assert.ok(!day1Ids.includes('biceps_1'), 'Push日(1)に二頭(biceps_1)が含まれてはいけない')
-  assert.ok(day2Ids.includes('biceps_1'), 'Pull日(2)に二頭(biceps_1)が含まれるはず')
-  assert.ok(!day2Ids.includes('triceps_1'), 'Pull日(2)に三頭(triceps_1)が含まれてはいけない')
-  assert.ok(!day3Ids.some(id => id === 'biceps_1' || id === 'triceps_1'), 'Legs日(3)に腕が配置されてはいけない')
+  const daysByMuscle = new Map<string, Set<number>>()
+  for (const [day, cats] of dayMap) {
+    for (const c of cats) {
+      if (!daysByMuscle.has(c.muscle)) daysByMuscle.set(c.muscle, new Set())
+      daysByMuscle.get(c.muscle)!.add(day)
+    }
+  }
+
+  for (const muscle of ['chest', 'back', 'legs']) {
+    const days = daysByMuscle.get(muscle)?.size ?? 0
+    assert.ok(days >= 2, `${muscle}は2日以上に登場するはず（実際: ${days}日）`)
+  }
+})
+
+test('distributeToDays: 3日は1日あたりの脚カテゴリ数が過度に集中しない（旧実装はLegs日に脚5種目が集中していた）', () => {
+  const categories = buildExerciseCategories(3, [])
+  const dayMap = distributeToDays(3, categories)
+  for (const [day, cats] of dayMap) {
+    const legCount = cats.filter(c => c.muscle === 'legs').length
+    assert.ok(legCount <= 3, `Day${day}の脚カテゴリ数が多すぎる: ${legCount}`)
+  }
+})
+
+test('distributeToDays: 3日の日ごとのカテゴリ数は概ね均等（差は2以内）', () => {
+  const categories = buildExerciseCategories(3, [])
+  const dayMap = distributeToDays(3, categories)
+  const counts = [...dayMap.values()].map(arr => arr.length)
+  const max = Math.max(...counts)
+  const min = Math.min(...counts)
+  assert.ok(max - min <= 2, `日ごとの種目数の差が大きすぎる: ${counts.join(',')}`)
 })
