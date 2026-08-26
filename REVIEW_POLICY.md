@@ -45,7 +45,7 @@
 
 2026-08-21に本番DB＋実コードから生成した9パターンの実出力を検証した結果、以下が判明。**新機能より先に、まずここを潰す。**（同日、`program-review`サブエージェントによる静的コードレビュー、および本番DB（`program_slots`・全ユーザーの`user_slot_assignments`）を実際に読んでの動的検証で再検証・更新済み）
 
-1. **【最優先・機能全損】`leg_curl`が`program_weekly_params`欠落により実際には一切表示されない。** チケット#4(2026-08-21)で`program_slots`には行を追加したが、週1〜9の`program_weekly_params`に`leg_curl`の行が1件も無い。`program_engine.ts`の`if (!params) continue`で毎週黙ってスキップされるため、新規ユーザーが正しく種目を選んでいてもレッグカールはプログラム画面に出ない。2026-08-23発見。詳細は`.company/pm/tickets/2026-08-23-fix-leg-curl-missing-weekly-params.md`参照。
+（該当項目なし。直近の最優先課題だった`leg_curl`欠落は下記「解消済み」参照）
 
 **調査済み・未解決（参考）:**
 - **priority選択時のcalvesアサインメント欠落は、調査したが再現条件を特定できなかった。** 実ユーザー1名（days=3・priority=[chest, legs]、`yellow.takushi.2507@gmail.com`、2026-08-06登録）で、エンジンが期待する17カテゴリ中`calves`だけ`user_slot_assignments`が存在しない状態を確認。ただし現在のコード＋本番の実`exercise_master`データで`buildSlotSelections`をシミュレートしたところcalvesは正しく「スタンディングカーフレイズ」に解決され、再現しなかった。登録日以降オンボーディング関連コードに変更コミットも無いため「古いコードの名残」でもない。全アクティブenrollment11件を横断チェックしたところ、この1件以外の異常は無かった（もう1件「アサインメント0件」の異常を見つけたが、調査の結果テストアカウントと判明し実害なし）。**影響はこの1ユーザーのカーフ種目が出ないことのみ（アプリ自体は正常に使える）。既存ユーザーのデータには手を加えない方針のため、修正は行わずここに記録するのみとした。**
@@ -57,6 +57,7 @@
 - **週2日60分の肩サブMEVは、2026-08-21にオンボーディング文言での対処を選んで実施済み（構造自体は未変更）。** `app/onboarding/OnboardingClient.tsx`のpriority_muscles画面に、週2日選択時のみ「肩は優先部位に選ばないと基本種目1つのみになりやすい」という注意文を追加。**ただしこれは新規登録者向けの緩和策であり、根本の構造（週2日は肩の基本枠が1つだけ）は変えていない。** `priority_muscles`はオンボーディング後に変更するAPIが無いため、既存ユーザーはこの文言を見られない。本番確認時点でこれに該当する既存アクティブユーザーは1人。
 - **ハムの膝屈曲（レッグカール）が全パターンでゼロだった課題は、2026-08-21に新カテゴリ`leg_curl`（canonical順位17、movementPattern: `knee_flexion`）を追加して解消。** `MUSCLE_CAPS.legs`を5→6に引き上げ、週3日カットオフを18→19、週4日カットオフを24→25に更新（既存の含有カテゴリは失われず、レッグカール1件だけ純増）。実装中に`buildFullSequence`のループ上限が24のまま残っていて`leg_3`（新rank25）が消える回帰を発見・修正し、テストで固定化した。デフォルト種目は「レッグカール」（`exercise_matching.ts`の`CATEGORY_DEFAULT_OVERRIDES`）。本番`program_slots`にも`leg_curl`行を追加済み（オーナー実行）。**新規ユーザーのみ対象。既存ユーザーには`user_slot_assignments`が無いため反映されない（オーナー承認の上、対象外とした）。** テスト56件全パス、型チェックも通過。
 - **上記実装直後、オンボーディングでレッグカールが自動選択されない副作用が判明・即修正（2026-08-21）。** `app/onboarding/page.tsx`は候補種目を`tier <= 2`で絞っているが、`exercise_master`の「レッグカール」「シーテッドレッグカール」は共にtier=3で候補から漏れていた。オーナー承認の上「レッグカール」のみtier=2に変更（本番DB、オーナー実行）。本番の実データで`buildSlotSelections`をシミュレートし、週3日・週4日どちらも「レッグカール」が自動選択されることを確認。「シーテッドレッグカール」はtier=3のまま(チェックリストには出ないが、コーチング画面の種目再選択では選べる)。
+- **`leg_curl`が`program_weekly_params`欠落で全パターン非表示だった問題は2026-08-27に解消。** チケット`.company/pm/tickets/2026-08-23-fix-leg-curl-missing-weekly-params.md`の完了条件どおり、`leg_hinge`（ハムストリング系）・`core_2`（同tier2アクセサリー）を参考にした案をオーナーに提示・承認を得た上で、本番`program_weekly_params`に9週分（`slot_id='leg_curl'`、working_sets 2→3→3→3→3→3→3→2→2、rep_range 10-15固定、RPE8.0固定、phase volume/intensity/deload/maxout）を追加（オーナー承認の上、実行）。追加後`buildProgramSuggestion`を実際にシミュレートし、週3日week1でleg_curlが正しく出力される（working setが2件、RPEも要件3-bの頻度別調整込みで期待値どおり）ことを確認。
 
 ## 提案済み・未実装（実装依頼済みだが本番反映を要確認）
 
