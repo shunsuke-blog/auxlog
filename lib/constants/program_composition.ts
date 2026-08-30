@@ -117,6 +117,11 @@ export const VALID_CATEGORY_IDS: ReadonlySet<string> = new Set([
   legDefault,
 ].map(c => c.id))
 
+/** slot_id(カテゴリID)からCompositionCategoryを引くマップ（MaxOut週の完了判定等で使用）。 */
+export const CATEGORY_BY_ID: ReadonlyMap<string, CompositionCategory> = new Map(
+  [...BASE_CATEGORIES_BY_RANK.values(), legDefault].map(c => [c.id, c])
+)
+
 /**
  * priorityに選んだ部位ごとに「priority枠で使うカテゴリ」と「重複するため
  * スキップすべきcanonical順位」の対応（brainstorm #10・#19）。

@@ -9,6 +9,7 @@
 import type { TargetMuscle } from '@/types'
 import {
   BASE_CATEGORIES_BY_RANK,
+  CATEGORY_BY_ID,
   LEG_DEFAULT_CATEGORY,
   MUSCLE_CAPS,
   PRIORITY_CATEGORY_MAP,
@@ -170,27 +171,38 @@ export function sixPatternDurationBonusSets(minutes: SessionDurationMinutes): 0 
 const UPPER_MUSCLES: readonly TargetMuscle[] = ['chest', 'shoulders', 'back']
 const LOWER_MUSCLES: readonly TargetMuscle[] = ['legs', 'core']
 
-// 週3日フルボディ化（実装依頼書 要件2、2026-08-27）: 旧実装は実質Push/Pull/Legs
-// （各筋1回/週）で、高時間ティアで1筋のボリュームが1セッションに集中していた
-// （例: 週3日90分でDay3に脚16セット等）。動きパターン単位の抽象ルールでは
-// 「主要筋（胸・背中・脚）をなるべく週2回に近づける」配置を表現しづらいため、
-// カテゴリID単位で配置日を明示指定する方式に変更した。種目自体・総カテゴリ数は
+// 週3日フルボディ化（実装依頼書 要件2、2026-08-27。2026-08-30に6パターン(コンパウンド)の
+// 日別配分を再調整）。旧実装は実質Push/Pull/Legs（各筋1回/週）で、高時間ティアで1筋の
+// ボリュームが1セッションに集中していた（例: 週3日90分でDay3に脚16セット等）。動きパターン
+// 単位の抽象ルールでは「主要筋（胸・背中・脚）をなるべく週2回に近づける」配置を表現しづらい
+// ため、カテゴリID単位で配置日を明示指定する方式に変更した。種目自体・総カテゴリ数は
 // 変えず、配置日だけを変更（総ボリュームは維持）。
 //
+// 2026-08-30の再調整: 初版は6パターン（isSixPattern、%1RMのトップセットを持つ重い
+// コンパウンド）をDay1に3つ（chest_press・shoulder_press・leg_squat）、Day2に3つ
+// （back_row・back_pull・leg_hinge）、Day3に0という配分にしていた。back系2つは
+// デフォルト種目が非1RM管理（チェストサポーテッドロウ・懸垂）で実質軽いためDay2の
+// 実負荷は小さかったが、Day1の3つ（ベンチプレス・肩プレス・スクワット）は全てデフォルトで
+// 1RM管理される重い種目のため、1セッションに重いトップセットが3つ集中していた
+// （バイキングプレスの%RM化＝2026-08-27で肩プレスも1RM管理になったことで顕在化、
+// オーナー指摘で発覚）。6パターンを2/2/2（Day1: chest_press・leg_squat、
+// Day2: shoulder_press・back_row、Day3: back_pull・leg_hinge）に分散させ、
+// どの日にも重いトップセットが2つまでしか来ないようにした。
+//
 // 配置の設計意図:
-// - 胸(chest_press/chest_fly)・背中(back_row/back_pull/back_2)・脚(leg_squat/leg_hinge/
-//   leg_default/leg_2/leg_curl)を、それぞれ2〜3日に分散させ、週2回以上の頻度にする。
-// - 脚は種目数が多い(5)ため、1日に集中しないよう3日に分けている（1セッションあたりの
-//   過度な集中を避ける）。
+// - 胸(chest_press/chest_fly)・背中(back_row/back_2/back_pull)・脚(leg_squat/leg_2/
+//   leg_default/leg_hinge/leg_curl)を、それぞれ2〜3日に分散させ、週2回以上の頻度にする。
+// - 6パターンは2/2/2、脚関連の非6パターンも1日に集中しないよう分散させている
+//   （1セッションあたりの過度な集中を避ける）。
 // - 拮抗筋スーパーセット候補（chest_fly×shoulder_rear_delt、biceps×triceps）は
-//   ペアが同日に来るよう配慮（day2にchest_fly+shoulder_rear_delt、day1と day3に
+//   ペアが同日に来るよう配慮（Day2にchest_fly+shoulder_rear_delt、Day1と Day3に
 //   それぞれ二頭+三頭のペア）。
-// - priority選択時のみ登場するカテゴリ（core_2・calves）はday2に割り当てておく
+// - priority選択時のみ登場するカテゴリ（core_2・calves）はDay1に割り当てておく
 //   （通常は週3日のcutoff外だがpriority枠経由でrank10/11に来た場合のみ登場する）。
 const DAY3_PLACEMENT: Partial<Record<string, number>> = {
-  chest_press: 1, shoulder_press: 1, leg_squat: 1, core_1: 1, triceps_1: 1, biceps_1: 1,
-  back_row: 2, back_pull: 2, leg_hinge: 2, leg_2: 2, chest_fly: 2, shoulder_rear_delt: 2, core_2: 2, calves: 2,
-  shoulder_lateral: 3, back_2: 3, leg_default: 3, leg_curl: 3, biceps_2: 3, triceps_2: 3,
+  chest_press: 1, leg_squat: 1, core_1: 1, biceps_1: 1, triceps_1: 1, leg_2: 1, core_2: 1,
+  shoulder_press: 2, back_row: 2, chest_fly: 2, shoulder_rear_delt: 2, leg_default: 2, back_2: 2, calves: 2,
+  back_pull: 3, leg_hinge: 3, shoulder_lateral: 3, leg_curl: 3, biceps_2: 3, triceps_2: 3,
 }
 
 /** そのカテゴリを配置してよい日番号の候補を返す（優先順位はつけない）。 */
@@ -266,6 +278,22 @@ const HAS_ONE_RM_DAYS2_DEMOTIONS = new Set(['shoulder_press', 'leg_default', 'le
  */
 export function isOneRmDemotedAtDays(category: CompositionCategory, days: DaysPerWeek): boolean {
   return days === 2 && HAS_ONE_RM_DAYS2_DEMOTIONS.has(category.id)
+}
+
+/**
+ * そのスロットがMaxOut週（週9）で「完了必須」の対象かどうか。program_engine.tsの
+ * `hasOneRm`判定（種目のrequires_one_rmが正、週2日格下げカテゴリのみ強制オフ）と
+ * 同じロジックをAPI側（week-status・renew-cycle）の完了判定にも使う。
+ *
+ * 背景（2026-08-27の修正で発生した回帰、2026-08-30発見）: MaxOut週は表示上
+ * hasOneRm=falseのスロットを除外するようにしたが、週の完了判定（全スロットの記録済み
+ * チェック）は従来どおり「全スロット」を要求したままだったため、表示されない種目が
+ * 「未記録」として残り続け、Week9をいつまで経っても完了できなくなっていた。
+ */
+export function isRequiredAtMaxout(slotId: string, requiresOneRm: boolean, days: DaysPerWeek): boolean {
+  const category = CATEGORY_BY_ID.get(slotId)
+  if (!category) return false
+  return requiresOneRm && !isOneRmDemotedAtDays(category, days)
 }
 
 /**

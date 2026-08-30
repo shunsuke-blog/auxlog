@@ -6,7 +6,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildExerciseCategories, distributeToDays, setsForNonPatternCategory } from './generate_program_composition'
+import { buildExerciseCategories, distributeToDays, setsForNonPatternCategory, isRequiredAtMaxout } from './generate_program_composition'
 
 function ids(categories: { id: string }[]): string[] {
   return categories.map(c => c.id)
@@ -158,4 +158,34 @@ test('distributeToDays: 3日の日ごとのカテゴリ数は概ね均等（差�
   const max = Math.max(...counts)
   const min = Math.min(...counts)
   assert.ok(max - min <= 2, `日ごとの種目数の差が大きすぎる: ${counts.join(',')}`)
+})
+
+test('(2026-08-30) distributeToDays: 3日は6パターン(重いコンパウンド)が1日に集中しない（1日最大2つ）。旧配置はDay1に3つ(chest_press・shoulder_press・leg_squat)集中していた', () => {
+  const categories = buildExerciseCategories(3, [])
+  const dayMap = distributeToDays(3, categories)
+  for (const [day, cats] of dayMap) {
+    const sixPatternCount = cats.filter(c => c.isSixPattern).length
+    assert.ok(sixPatternCount <= 2, `Day${day}の6パターン種目数が多すぎる: ${sixPatternCount}`)
+  }
+})
+
+// isRequiredAtMaxout: MaxOut週(週9)の完了判定が、program_engine.tsの表示ロジック(hasOneRm)と
+// 食い違わないことを保証する回帰テスト。2026-08-27の表示側修正で、週9に表示されない
+// スロットまで「未記録」として完了判定に残り続け、Week9をいつまでも完了できなくなる
+// 回帰が発生した（2026-08-30発見・修正）。
+test('(2026-08-30) isRequiredAtMaxout: requires_one_rm:trueの種目は週9で完了必須になる', () => {
+  assert.equal(isRequiredAtMaxout('chest_press', true, 4), true)
+})
+
+test('(2026-08-30) isRequiredAtMaxout: requires_one_rm:falseの種目は週9で完了不要になる（表示されないため）', () => {
+  assert.equal(isRequiredAtMaxout('back_row', false, 4), false)
+})
+
+test('(2026-08-30) isRequiredAtMaxout: 週2日の格下げ対象カテゴリは、種目がrequires_one_rm:trueでも完了不要になる', () => {
+  assert.equal(isRequiredAtMaxout('shoulder_press', true, 2), false, '週2日はshoulder_pressが強制的に格下げされるはず')
+  assert.equal(isRequiredAtMaxout('shoulder_press', true, 4), true, '週4日は格下げされないため完了必須のはず')
+})
+
+test('(2026-08-30) isRequiredAtMaxout: 未知のslot_idは安全側(完了不要)に倒す', () => {
+  assert.equal(isRequiredAtMaxout('not_a_real_slot', true, 4), false)
 })

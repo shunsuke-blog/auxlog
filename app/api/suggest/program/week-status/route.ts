@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { dbError } from '@/lib/api/errors'
 import { todayInJST, jstDateStr } from '@/lib/utils/date'
+import { isRequiredAtMaxout } from '@/lib/suggest/generate_program_composition'
+import type { DaysPerWeek } from '@/lib/suggest/generate_program_composition'
 
 export async function GET(request: Request) {
   const supabase = await createClient(request)
@@ -10,7 +12,7 @@ export async function GET(request: Request) {
 
   const { data: enrollment, error: enrollmentError } = await supabase
     .from('user_program_enrollments')
-    .select('id, current_week, started_at, current_week_started_at')
+    .select('id, current_week, started_at, current_week_started_at, days_per_week')
     .eq('user_id', user.id)
     .eq('is_active', true)
     .maybeSingle()
@@ -62,9 +64,14 @@ export async function GET(request: Request) {
       .lt('trained_at', weekStartStr),
     supabase
       .from('user_slot_assignments')
-      .select('exercise_id')
+      .select('slot_id, exercise_id, user_exercises(custom_name, exercise_master(requires_one_rm))')
       .eq('enrollment_id', enrollment.id)
-      .eq('is_hidden', false),
+      .eq('is_hidden', false)
+      .returns<{
+        slot_id: string
+        exercise_id: string
+        user_exercises: { custom_name: string | null; exercise_master: { requires_one_rm: boolean } | null } | null
+      }[]>(),
   ])
 
   if (sessionsError) return dbError('今週のセッション取得に失敗しました', sessionsError)
@@ -102,7 +109,17 @@ export async function GET(request: Request) {
     earlyExerciseIds = [...new Set((earlySets ?? []).map((s: { exercise_id: string }) => s.exercise_id))]
   }
 
-  const allExerciseIds = (assignments ?? []).map((a: { exercise_id: string }) => a.exercise_id)
+  // MaxOut週（週9）は表示自体がhasOneRm対象のスロットに絞られる（program_engine.ts）ため、
+  // 完了判定もそれに合わせて絞る。絞らないと、画面に出ない種目がいつまでも「未記録」として
+  // 残り続け、Week9を完了できなくなる（2026-08-27の表示側修正で生まれた回帰、2026-08-30発見）。
+  const relevantAssignments = (assignments ?? []).filter((a) => {
+    if (enrollment.current_week !== 9) return true
+    const requiresOneRm = a.user_exercises?.custom_name
+      ? false
+      : (a.user_exercises?.exercise_master?.requires_one_rm ?? false)
+    return isRequiredAtMaxout(a.slot_id, requiresOneRm, enrollment.days_per_week as DaysPerWeek)
+  })
+  const allExerciseIds = relevantAssignments.map((a) => a.exercise_id)
   const completedSet = new Set(completedExerciseIds)
   const all_complete = allExerciseIds.length > 0 && allExerciseIds.every(id => completedSet.has(id))
 
