@@ -19,9 +19,8 @@ type AssignmentRow = {
   exercise_id: string
   is_hidden: boolean
   user_exercises: {
-    name: string
     custom_name: string | null
-    exercise_master: { movement_pattern: string | null; requires_one_rm: boolean } | null
+    exercise_master: { name: string; movement_pattern: string | null; requires_one_rm: boolean } | null
   } | null
 }
 
@@ -60,7 +59,7 @@ export async function computeWeek9Completion(
 
   const { data: assignments, error: assignmentsError } = await supabase
     .from('user_slot_assignments')
-    .select('slot_id, exercise_id, is_hidden, user_exercises(name, custom_name, exercise_master(movement_pattern, requires_one_rm))')
+    .select('slot_id, exercise_id, is_hidden, user_exercises(custom_name, exercise_master(name, movement_pattern, requires_one_rm))')
     .eq('enrollment_id', enrollment.id)
     .returns<AssignmentRow[]>()
 
@@ -81,7 +80,7 @@ export async function computeWeek9Completion(
   if (sessionIds.length > 0) {
     const { data: sets, error: setsError } = await supabase
       .from('training_sets')
-      .select('exercise_id, set_number, weight_kg, reps')
+      .select('session_id, exercise_id, set_number, weight_kg, reps')
       .in('session_id', sessionIds)
       .eq('is_warmup', false)
 
@@ -89,13 +88,31 @@ export async function computeWeek9Completion(
 
     completedExerciseIds = [...new Set((sets ?? []).map((s: { exercise_id: string }) => s.exercise_id))]
 
-    // set_number=1 がトップセット（AMRAP対象種目の全力セット）という前提
-    // （program_engine.tsのbuildCompoundSetsは常にtop setを配列先頭=set_number 1として生成）。
+    // トップセット（AMRAP対象種目の全力セット）は、ウォームアップ重量引き継ぎ機能
+    // （2026-08-09）でウォームアップがセット配列の先頭に入るようになったため、
+    // 必ずしもset_number=1ではない。is_warmup=falseの中でset_numberが最も小さい
+    // セット（バックオフセットより先に記録される1本目）をセッション・種目ごとの
+    // トップセットとみなす。
+    const topSetBySessionExercise = new Map<
+      string,
+      { exercise_id: string; weight_kg: number; reps: number; set_number: number }
+    >()
     for (const s of sets ?? []) {
-      if (s.set_number !== 1) continue
-      const list = topSetsByExercise.get(s.exercise_id) ?? []
-      list.push({ weight_kg: s.weight_kg, reps: s.reps })
-      topSetsByExercise.set(s.exercise_id, list)
+      const key = `${s.session_id}:${s.exercise_id}`
+      const current = topSetBySessionExercise.get(key)
+      if (!current || s.set_number < current.set_number) {
+        topSetBySessionExercise.set(key, {
+          exercise_id: s.exercise_id,
+          weight_kg: s.weight_kg,
+          reps: s.reps,
+          set_number: s.set_number,
+        })
+      }
+    }
+    for (const top of topSetBySessionExercise.values()) {
+      const list = topSetsByExercise.get(top.exercise_id) ?? []
+      list.push({ weight_kg: top.weight_kg, reps: top.reps })
+      topSetsByExercise.set(top.exercise_id, list)
     }
   }
 
@@ -159,7 +176,9 @@ export async function computeWeek9Completion(
     if (!priorOneRmBySlot.has(row.slot_id)) priorOneRmBySlot.set(row.slot_id, row.one_rm_kg)
   }
 
-  const exerciseNameBySlot = new Map(assignments.map(a => [a.slot_id, a.user_exercises?.name ?? '']))
+  const exerciseNameBySlot = new Map(
+    assignments.map(a => [a.slot_id, a.user_exercises?.custom_name ?? a.user_exercises?.exercise_master?.name ?? ''])
+  )
   const oneRmGains: OneRmGain[] = newOneRms.map(({ slot_id, one_rm_kg }) => ({
     slot_id,
     exercise_name: exerciseNameBySlot.get(slot_id) ?? '',
