@@ -1,0 +1,13 @@
+-- 2026-07-09のdrop_unused_columns_2026-07-09.sqlで「どこからも参照されていない」として
+-- DROPしたuser_program_enrollments.completed_atを復活させる。
+--
+-- 2026-08-31に実装したrenew-cycle(成長レポート機能に伴う次サイクル開始処理、
+-- app/api/program/renew-cycle/route.ts)がcompleted_atへの書き込みを前提にしたコードを
+-- 追加した際、この列が本番に存在しないことに気づけず、実際にユーザーが「次の9週間を
+-- 始める」を押した際に「プログラムの終了処理に失敗しました」エラーで失敗した
+-- (2026-09-02発見)。[[feedback_migration_rename_via_delete]]と同種、削除した列の
+-- 再利用を検知できなかった回帰。
+--
+-- 本番DBには2026-09-02に手動で先行適用済み。このファイルはリポジトリ側のスキーマ定義を
+-- 実態に合わせるための記録。
+ALTER TABLE user_program_enrollments ADD COLUMN IF NOT EXISTS completed_at date;
