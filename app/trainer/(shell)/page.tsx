@@ -1,35 +1,116 @@
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getTrainerProfile } from '@/lib/trainer/session'
+import { loadTraineeRows } from '@/lib/trainer/trainees'
+import TraineeListItem from './TraineeListItem'
+import TraineeDetailPanel from './TraineeDetailPanel'
+import AddTraineeButton, { type TemplateOption } from './AddTraineeButton'
 
-// トレーニー一覧。中身（トレーニーの追加・状態・詳細・契約終了）はこれから詰める。
-// 一番上に自分自身がいて、ここから自分のトレーニング（トレーニー用の画面）に入る（2026-10-19 決定）。
-export default async function TrainerTraineesPage() {
+type TemplateRow = {
+  id: string
+  name: string
+  plan_days: {
+    plan_exercises: {
+      exercise_master_id: string | null
+      trainer_exercise_id: string | null
+      exercise_master: { name: string } | null
+      trainer_exercises: { name: string } | null
+      plan_sets: { target_pct_1rm: number | null }[]
+    }[]
+  }[]
+}
+
+// トレーニー一覧（2026-10-19 決定）: 一番上に自分自身、その下にトレーニー。契約終了はグレーで一番下。
+// 名前・状態・最後に記録した日・今週の進み具合（4 / 6 種目＋バー、スキップは別表示）・アラート「！」。
+// PCは左に一覧・右に詳細（?id=）、スマホは一覧 → 詳細に切り替わる。
+export default async function TrainerTraineesPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
+  const { id: selectedId } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const profile = user ? await getTrainerProfile(supabase, user.id) : null
+  if (!user) return null
+
+  const [profile, rows, { data: templates }] = await Promise.all([
+    getTrainerProfile(supabase, user.id),
+    loadTraineeRows(supabase, user.id),
+    supabase
+      .from('coaching_plans')
+      .select('id, name, plan_days(plan_exercises(exercise_master_id, trainer_exercise_id, exercise_master(name), trainer_exercises(name), plan_sets(target_pct_1rm)))')
+      .is('link_id', null)
+      .order('updated_at', { ascending: false }),
+  ])
+
+  // トレーニー追加時に1RMを聞く種目 = テンプレート内で %1RM を使っている種目
+  const templateOptions: TemplateOption[] = ((templates ?? []) as unknown as TemplateRow[]).map(t => {
+    const seen = new Map<string, TemplateOption['oneRmExercises'][number]>()
+    for (const d of t.plan_days) {
+      for (const e of d.plan_exercises) {
+        if (!e.plan_sets.some(s => s.target_pct_1rm != null)) continue
+        const key = e.exercise_master_id ?? e.trainer_exercise_id ?? ''
+        if (!seen.has(key)) {
+          seen.set(key, {
+            exerciseMasterId: e.exercise_master_id,
+            trainerExerciseId: e.trainer_exercise_id,
+            name: e.exercise_master?.name ?? e.trainer_exercises?.name ?? '',
+          })
+        }
+      }
+    }
+    return { id: t.id, name: t.name, oneRmExercises: [...seen.values()] }
+  })
+
+  const selected = rows.find(r => r.linkId === selectedId && !r.isSelf) ?? null
 
   return (
-    <div>
-      <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5">
-        <h1 className="text-xl font-semibold text-black dark:text-white">一覧</h1>
-      </div>
-      <div className="px-6 py-6 space-y-4 max-w-3xl">
-        {/* prefetch しない: /trainer/self はCookieを立てるルートなので、表示しただけで切り替わってはいけない */}
-        <Link
-          href="/trainer/self"
-          prefetch={false}
-          className="flex items-center justify-between px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
-        >
-          <div>
-            <p className="text-sm font-semibold text-black dark:text-white">{profile?.display_name ?? '自分'}（自分）</p>
-            <p className="text-xs text-zinc-400 dark:text-zinc-500">自分のトレーニングを開く</p>
+    <div className="md:flex md:h-screen">
+      <section className={`md:w-[420px] md:shrink-0 md:border-r border-zinc-100 dark:border-zinc-900 md:overflow-y-auto ${selected ? 'hidden md:block' : ''}`}>
+        <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-black dark:text-white">一覧</h1>
+          <AddTraineeButton templates={templateOptions} />
+        </div>
+        <div className="px-4 py-4 space-y-2">
+          {rows.filter(r => r.isSelf).map(r => (
+            // 自分の行はトレーニー用の画面へ切り替える（prefetch しない: Cookieを立てるルートのため）
+            <Link
+              key={r.linkId}
+              href="/trainer/self"
+              prefetch={false}
+              className="flex items-center justify-between px-4 py-3.5 rounded-2xl border border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-950"
+            >
+              <div>
+                <p className="text-sm font-semibold text-black dark:text-white">{profile?.display_name ?? r.name}（自分）</p>
+                <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                  自分のトレーニングを開く{r.lastTrainedOn ? ` · 最終記録 ${r.lastTrainedOn.slice(5).replace('-', '/')}` : ''}
+                </p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
+            </Link>
+          ))}
+          {rows.filter(r => !r.isSelf).length === 0 ? (
+            <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-10">
+              「追加」からトレーニーを招待できます。
+            </p>
+          ) : (
+            rows.filter(r => !r.isSelf).map(r => <TraineeListItem key={r.linkId} row={r} selected={r.linkId === selected?.linkId} />)
+          )}
+        </div>
+      </section>
+
+      <section className={`flex-1 md:overflow-y-auto ${selected ? '' : 'hidden md:block'}`}>
+        {selected ? (
+          <>
+            <Link href="/trainer" className="md:hidden flex items-center gap-1 px-4 pt-4 text-sm text-zinc-500">
+              <ChevronLeft className="w-4 h-4" />
+              一覧
+            </Link>
+            <TraineeDetailPanel row={selected} />
+          </>
+        ) : (
+          <div className="flex items-center justify-center h-full py-24 text-sm text-zinc-400 dark:text-zinc-500">
+            トレーニーを選ぶと、ここに詳細が表示されます
           </div>
-          <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
-        </Link>
-        <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-8">トレーニーの管理は準備中です。</p>
-      </div>
+        )}
+      </section>
     </div>
   )
 }
