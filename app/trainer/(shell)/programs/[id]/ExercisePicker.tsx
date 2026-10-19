@@ -10,12 +10,14 @@ type Props = {
   onPick: (ex: CatalogExercise) => void
   onCreated: (ex: CatalogExercise) => void
   onClose: () => void
+  /** 種目一覧から「独自の種目として作成」を押して開いた時の検索語（作成画面を開いた状態で始める） */
+  initialQuery?: string
 }
 
 // テンプレートに追加する種目を選ぶ。マスタに無い種目は「独自の種目」として作成できる。
-export default function ExercisePicker({ catalog, onPick, onCreated, onClose }: Props) {
-  const [query, setQuery] = useState('')
-  const [creating, setCreating] = useState(false)
+export default function ExercisePicker({ catalog, onPick, onCreated, onClose, initialQuery }: Props) {
+  const [query, setQuery] = useState(initialQuery ?? '')
+  const [creating, setCreating] = useState(!!initialQuery)
   const [muscle, setMuscle] = useState<TargetMuscle>('chest')
   const [isCompound, setIsCompound] = useState(false)
   const [isBodyweight, setIsBodyweight] = useState(false)

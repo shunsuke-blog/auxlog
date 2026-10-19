@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getTrainerProfile } from '@/lib/trainer/session'
-import TrainerNav from '@/components/trainer/TrainerNav'
+import { cookies } from 'next/headers'
+import TrainerShell, { NAV_COLLAPSED_COOKIE } from '@/components/trainer/TrainerShell'
 
 export default async function TrainerLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -9,12 +10,6 @@ export default async function TrainerLayout({ children }: { children: React.Reac
   if (!user) redirect('/login?next=/trainer')
   if (!(await getTrainerProfile(supabase, user.id))) redirect('/trainer/start')
 
-  return (
-    <div className="min-h-screen bg-white dark:bg-black">
-      <TrainerNav />
-      <main className="md:pl-56" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
-        {children}
-      </main>
-    </div>
-  )
+  const collapsed = (await cookies()).get(NAV_COLLAPSED_COOKIE)?.value === '1'
+  return <TrainerShell initialCollapsed={collapsed}>{children}</TrainerShell>
 }

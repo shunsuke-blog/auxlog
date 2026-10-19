@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowDown, ArrowUp, ChevronLeft, Copy, Plus, Trash2, X } from 'lucide-react'
-import { TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
+import { ArrowDown, ArrowUp, ChevronLeft, Copy, GripVertical, Plus, Trash2, X } from 'lucide-react'
+import { MUSCLE_ORDER, TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
 import ExercisePicker from './ExercisePicker'
+import ExerciseLibrary, { LIBRARY_DRAG_TYPE, catalogKey } from './ExerciseLibrary'
 import {
   newKey, toSavePayload,
   type CatalogExercise, type EditorExercise, type EditorSet, type WeightMode,
@@ -20,6 +21,8 @@ type PendingLeave = { saveIds: string[]; proceed: () => void }
 
 const MODE_LABELS: Record<WeightMode, string> = { pct: '%1RM', kg: 'kg', auto: '自動' }
 const blankSet = (): EditorSet => ({ mode: 'auto', value: '', reps: '10', rir: '2', isWarmup: false })
+/** Day の中の種目カードを並べ替えるときの dataTransfer の型名 */
+const CARD_DRAG_TYPE = 'application/x-auxlog-card'
 const exerciseId = (ex: Pick<EditorExercise, 'exerciseMasterId' | 'trainerExerciseId'>) =>
   ex.exerciseMasterId ? `m:${ex.exerciseMasterId}` : `t:${ex.trainerExerciseId}`
 const muscleLabel = (m: string | null) => (m ? TARGET_MUSCLE_LABELS[m as TargetMuscle] ?? m : '')
@@ -103,6 +106,10 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null)
   const [catalog, setCatalog] = useState(initialCatalog)
   const [picking, setPicking] = useState(false)
+  // 種目一覧から「独自の種目として作成」を押した時の名前（作成画面を開いた状態で ExercisePicker を出す）
+  const [creatingName, setCreatingName] = useState<string | undefined>(undefined)
+  // ドラッグ中に挿入位置として示す Day の種目の位置（list.length なら最後）
+  const [dropIndex, setDropIndex] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [pending, setPending] = useState<PendingLeave | null>(null)
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
@@ -117,13 +124,20 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   }
 
   // テンプレートに出てくる種目（種目ごと表示の選択肢）。最初に出てくる順。
-  const exerciseOptions: { id: string; name: string; targetMuscle: string | null }[] = []
+  const exerciseOptions: { id: string; name: string; targetMuscle: string | null; count: number }[] = []
   for (const d of sortedDays) {
     for (const ex of byDay[d.id] ?? []) {
       const id = exerciseId(ex)
-      if (!exerciseOptions.some(o => o.id === id)) exerciseOptions.push({ id, name: ex.name, targetMuscle: ex.targetMuscle })
+      const found = exerciseOptions.find(o => o.id === id)
+      if (found) found.count++
+      else exerciseOptions.push({ id, name: ex.name, targetMuscle: ex.targetMuscle, count: 1 })
     }
   }
+  // 種目ごと表示のカードは部位ごとに分ける（部位の並びは種目一覧と同じ）
+  const exerciseGroups = [
+    ...MUSCLE_ORDER.map(m => ({ key: m as string, label: TARGET_MUSCLE_LABELS[m], items: exerciseOptions.filter(o => o.targetMuscle === m) })),
+    { key: 'other', label: 'その他', items: exerciseOptions.filter(o => !MUSCLE_ORDER.includes(o.targetMuscle as TargetMuscle)) },
+  ].filter(g => g.items.length > 0)
   const activeExercise = exerciseOptions.find(o => o.id === selectedExercise) ?? exerciseOptions[0] ?? null
 
   const updateDay = (id: string, fn: (list: EditorExercise[]) => EditorExercise[]) => {
@@ -228,9 +242,48 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       return next
     })
 
-  const addExercise = (ex: CatalogExercise) => {
-    updateDay(dayId, list => [...list, { key: newKey(), ...ex, note: '', sets: [blankSet(), blankSet(), blankSet()] }])
+  const addExercise = (ex: CatalogExercise, at?: number) => {
+    const item: EditorExercise = { key: newKey(), ...ex, note: '', sets: [blankSet(), blankSet(), blankSet()] }
+    updateDay(dayId, list => {
+      const i = at == null ? list.length : Math.max(0, Math.min(at, list.length))
+      return [...list.slice(0, i), item, ...list.slice(i)]
+    })
     setPicking(false)
+    setCreatingName(undefined)
+  }
+
+  // ドラッグ＆ドロップ: 右の種目一覧から追加、または Day の中の種目カードを並べ替え
+  const isOurDrag = (e: React.DragEvent) =>
+    e.dataTransfer.types.includes(LIBRARY_DRAG_TYPE) || e.dataTransfer.types.includes(CARD_DRAG_TYPE)
+  const onDragOverAt = (e: React.DragEvent, index: number) => {
+    if (!isOurDrag(e)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = e.dataTransfer.types.includes(CARD_DRAG_TYPE) ? 'move' : 'copy'
+    if (dropIndex !== index) setDropIndex(index)
+  }
+  const onDropAt = (e: React.DragEvent, index: number) => {
+    if (!isOurDrag(e)) return
+    e.preventDefault()
+    setDropIndex(null)
+    const cardKey = e.dataTransfer.getData(CARD_DRAG_TYPE)
+    if (cardKey) {
+      updateDay(dayId, list => {
+        const from = list.findIndex(x => x.key === cardKey)
+        if (from < 0) return list
+        const next = [...list]
+        const [moved] = next.splice(from, 1)
+        next.splice(from < index ? index - 1 : index, 0, moved)
+        return next
+      })
+      return
+    }
+    const ex = catalog.find(c => catalogKey(c) === e.dataTransfer.getData(LIBRARY_DRAG_TYPE))
+    if (ex && exercises.length < 30) addExercise(ex, index)
+  }
+  // カードの上半分に重ねたらその前、下半分ならその後ろに入れる
+  const onDragOverCard = (e: React.DragEvent, index: number) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    onDragOverAt(e, e.clientY < rect.top + rect.height / 2 ? index : index + 1)
   }
 
   // Week 2 以降で、Week 1 の同じ Day の種目・セットを今の Day にコピーする（未保存の状態になる）。
@@ -267,7 +320,8 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     : []
 
   return (
-    <div>
+    // PC（lg以上）は画面の高さに固定し、編集欄と右の種目一覧をそれぞれスクロールさせる
+    <div className="lg:h-screen lg:flex lg:flex-col">
       <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-4 space-y-3">
         {/* 1行目は表示を切り替えても高さ・位置が変わらない（切り替えボタンの位置を固定する） */}
         <div className="flex items-center gap-2">
@@ -313,18 +367,46 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
               ))}
             </div>
           </>
-        ) : (
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
-            {exerciseOptions.length === 0 && <p className="text-xs text-zinc-400 py-1.5">まだ種目がありません。Dayごとの表示で種目を追加してください。</p>}
-            {exerciseOptions.map(o => (
-              <button key={o.id} onClick={() => setSelectedExercise(o.id)} className={chip(o.id === activeExercise?.id)}>{o.name}</button>
-            ))}
-          </div>
-        )}
+        ) : null}
       </div>
 
+      <div className="lg:flex-1 lg:min-h-0 lg:flex">
+      {view === 'exercise' && (
+        // 種目ごと表示: テンプレートに出てくる種目を部位ごとのカードで並べ、選んだ種目の全週を右に出す
+        <aside className="px-6 pt-6 lg:p-4 lg:w-72 lg:shrink-0 lg:overflow-y-auto lg:border-r border-zinc-100 dark:border-zinc-900 space-y-4">
+          {exerciseOptions.length === 0 && <p className="text-xs text-zinc-400">まだ種目がありません。Dayごとの表示で種目を追加してください。</p>}
+          {exerciseGroups.map(g => (
+            <div key={g.key} className="space-y-1.5">
+              <p className="text-[11px] font-semibold text-zinc-400">{g.label}</p>
+              <div className="grid grid-cols-2 lg:grid-cols-1 gap-1.5">
+                {g.items.map(o => {
+                  const active = o.id === activeExercise?.id
+                  return (
+                    <button
+                      key={o.id}
+                      onClick={() => setSelectedExercise(o.id)}
+                      className={`text-left px-3 py-2.5 rounded-xl border transition-colors ${
+                        active
+                          ? 'border-black dark:border-white bg-black dark:bg-white'
+                          : 'border-zinc-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-zinc-300 dark:hover:border-zinc-700'
+                      }`}
+                    >
+                      <p className={`text-[13px] font-semibold leading-snug ${active ? 'text-white dark:text-black' : 'text-black dark:text-white'}`}>{o.name}</p>
+                      <p className={`text-[11px] ${active ? 'text-white/60 dark:text-black/60' : 'text-zinc-400'}`}>{o.count}回</p>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </aside>
+      )}
+      <div className="lg:flex-1 lg:min-w-0 lg:overflow-y-auto">
       {view === 'day' ? (
-        <div className="px-6 py-6 space-y-4 max-w-4xl">
+        <div
+          className="px-6 py-6 space-y-4 max-w-4xl"
+          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropIndex(null) }}
+        >
           {week > 1 && week1SameDay && (
             <button onClick={copyFromWeek1} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900">
               <Copy className="w-4 h-4" />
@@ -335,8 +417,19 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           {exercises.length === 0 && <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-8">この日の種目はまだありません。</p>}
 
           {exercises.map((ex, exIdx) => (
-            <div key={ex.key} className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
+            <div key={ex.key} className="relative" onDragOver={e => onDragOverCard(e, exIdx)} onDrop={e => onDropAt(e, dropIndex ?? exIdx)}>
+            {dropIndex === exIdx && <div className="absolute -top-2.5 left-0 right-0 h-1 rounded-full bg-black dark:bg-white" />}
+            <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
               <div className="flex items-start gap-2">
+                <div
+                  draggable
+                  onDragStart={e => { e.dataTransfer.setData(CARD_DRAG_TYPE, ex.key); e.dataTransfer.effectAllowed = 'move' }}
+                  onDragEnd={() => setDropIndex(null)}
+                  title="ドラッグで並べ替え"
+                  className="hidden lg:block pt-1 -ml-2 text-zinc-300 dark:text-zinc-600 cursor-grab active:cursor-grabbing"
+                >
+                  <GripVertical className="w-4 h-4" />
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] text-zinc-400">{muscleLabel(ex.targetMuscle)}</p>
                   <p className="text-sm font-semibold text-black dark:text-white">{ex.name}</p>
@@ -359,15 +452,24 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
                 onAdd={() => patchExercise(dayId, ex.key, x => ({ ...x, sets: [...x.sets, { ...(x.sets[x.sets.length - 1] ?? blankSet()) }] }))}
               />
             </div>
+            </div>
           ))}
 
           <button
             onClick={() => setPicking(true)}
             disabled={exercises.length >= 30}
-            className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700 text-sm text-zinc-400 hover:text-zinc-600 disabled:opacity-30"
+            onDragOver={e => onDragOverAt(e, exercises.length)}
+            onDragLeave={() => setDropIndex(null)}
+            onDrop={e => onDropAt(e, exercises.length)}
+            className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl border border-dashed text-sm disabled:opacity-30 transition-colors ${
+              dropIndex === exercises.length
+                ? 'border-black dark:border-white text-black dark:text-white bg-zinc-50 dark:bg-zinc-900'
+                : 'border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:text-zinc-600'
+            }`}
           >
             <Plus className="w-4 h-4" />
-            種目を追加
+            <span className="lg:hidden">種目を追加</span>
+            <span className="hidden lg:inline">右の一覧から種目をドラッグ、またはクリックして追加</span>
           </button>
 
           <p className="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">
@@ -403,6 +505,18 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           ))}
         </div>
       )}
+      </div>
+      {view === 'day' && (
+        <aside className="hidden lg:block lg:w-72 lg:shrink-0 border-l border-zinc-100 dark:border-zinc-900 overflow-hidden">
+          <ExerciseLibrary
+            catalog={catalog}
+            onAdd={ex => addExercise(ex)}
+            onCreate={nameText => setCreatingName(nameText)}
+            disabled={exercises.length >= 30}
+          />
+        </aside>
+      )}
+      </div>
 
       <div className="sticky bottom-16 md:bottom-0 z-10 px-6 py-3 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900 flex items-center gap-3">
         <p className={`flex-1 text-sm ${message?.kind === 'error' ? 'text-red-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
@@ -442,12 +556,13 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
         </div>
       )}
 
-      {picking && (
+      {(picking || creatingName) && (
         <ExercisePicker
           catalog={catalog}
-          onPick={addExercise}
+          initialQuery={creatingName}
+          onPick={ex => addExercise(ex)}
           onCreated={ex => { setCatalog(prev => [ex, ...prev]); addExercise(ex) }}
-          onClose={() => setPicking(false)}
+          onClose={() => { setPicking(false); setCreatingName(undefined) }}
         />
       )}
     </div>
