@@ -21,7 +21,7 @@ function LoginContent() {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
 
-  // メールアドレスでのログイン。メールに届く6桁のコードを入力する方式（リンク方式だと、PCで待っている
+  // メールアドレスでのログイン。メールに届く数字のコードを入力する方式（リンク方式だと、PCで待っている
   // のにスマホでメールを開くとスマホ側でログインしてしまうため。2026-10-19 決定）
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
@@ -141,22 +141,22 @@ function LoginContent() {
             ) : (
               <form onSubmit={handleVerifyCode} className="space-y-3">
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center leading-relaxed">
-                  {email} に6桁のコードを送りました。<br />メールに記載のコードを入力してください。
+                  {email} にログインコードを送りました。<br />メールに記載の数字を入力してください。
                 </p>
                 <input
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   required
-                  maxLength={6}
+                  maxLength={10}
                   value={code}
                   onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="123456"
+                  placeholder="コード"
                   className="w-full px-4 py-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-center text-lg tracking-[0.4em] tabular-nums text-black dark:text-white placeholder:text-zinc-300 focus:outline-none focus:border-zinc-400"
                 />
                 <button
                   type="submit"
-                  disabled={emailBusy || code.length !== 6}
+                  disabled={emailBusy || code.length < 6}
                   className="w-full px-6 py-3.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium disabled:opacity-50"
                 >
                   {emailBusy ? '確認中...' : 'ログイン'}
