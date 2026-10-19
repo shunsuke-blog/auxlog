@@ -7,13 +7,15 @@ import DeleteAccountButton from './DeleteAccountButton'
 import AddToHomeScreenSection from '@/components/ui/AddToHomeScreenSection'
 import ProgramSection from './ProgramSection'
 import { getTrainerProfile } from '@/lib/trainer/session'
+import { getTraineeLink } from '@/lib/coaching/trainee'
+import TrainerContractSection from './TrainerContractSection'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: userData }, { data: enrollment }, trainerProfile] = await Promise.all([
+  const [{ data: userData }, { data: enrollment }, trainerProfile, traineeLink] = await Promise.all([
     supabase
       .from('users')
       .select('email')
@@ -26,6 +28,7 @@ export default async function SettingsPage() {
       .eq('is_active', true)
       .maybeSingle(),
     getTrainerProfile(supabase, user.id),
+    getTraineeLink(supabase, user.id),
   ])
 
   return (
@@ -51,6 +54,13 @@ export default async function SettingsPage() {
           <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">アカウント</h2>
           <p className="text-sm text-black dark:text-white">{userData?.email ?? user.email}</p>
         </div>
+
+        {/* トレーナー自身（自分のトレーニング）はトレーナー側の画面で管理するので出さない */}
+        {!trainerProfile && (
+          <TrainerContractSection
+            link={traineeLink ? { linkId: traineeLink.linkId, trainerName: traineeLink.trainerName, status: traineeLink.status } : null}
+          />
+        )}
 
         <ProgramSection enrollmentId={enrollment?.id ?? null} />
 

@@ -8,6 +8,8 @@ const RULE_MESSAGES: Record<string, string> = {
   invalid_code: '招待コードが正しくないか、有効期限が切れています',
   own_invite: '自分が発行した招待コードは入力できません',
   already_linked: 'すでに担当のトレーナーがいます。今の契約を終了してから入力してください',
+  already_recorded: '記録済みの種目はスキップできません',
+  final_week: 'プランは最終週です',
 }
 
 // トレーナー用RPCのエラーをHTTPレスポンスに変換する。RPC側は権限エラーを 42501、

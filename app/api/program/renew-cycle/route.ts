@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { dbError, notFound } from '@/lib/api/errors'
 import { computeWeek9Completion, todayJST } from '@/lib/program/week9-report'
+import { getTraineeLink } from '@/lib/coaching/trainee'
 
 // Week9(MaxOut)完了後、実績（トップセット=AMRAP対象種目の重量×回数）から1RMを自動推定し、
 // 種目の選び直しをさせずに次の9週間プログラムを開始する。
@@ -16,6 +17,10 @@ export async function POST(request: Request) {
   const supabase = await createClient(request)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // 同時に進められるプログラムは1つ。トレーナーと契約中はトレーナーのプランを使う
+  if (await getTraineeLink(supabase, user.id)) {
+    return NextResponse.json({ error: 'トレーナーのプランを利用中のため、プログラムは作成できません' }, { status: 409 })
+  }
 
   const { data: enrollment, error: enrollmentError } = await supabase
     .from('user_program_enrollments')

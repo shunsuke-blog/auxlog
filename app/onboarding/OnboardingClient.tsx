@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronLeft, Smartphone, Zap, Sliders, Sparkles } from 'lucide-react'
+import Link from 'next/link'
+import { Check, ChevronLeft, ChevronRight, Smartphone, Zap, Sliders, Sparkles } from 'lucide-react'
 import {
   BASE_CATEGORIES_BY_RANK,
   LEG_DEFAULT_CATEGORY,
@@ -949,6 +950,18 @@ export default function OnboardingClient({ exercises }: Props) {
       </div>
 
       <div className="px-6 py-8 space-y-8">
+        {/* トレーナーの指導を受ける人は、自分でプログラムを作らずに招待コードから始める */}
+        <Link
+          href="/invite"
+          className="flex items-center justify-between px-5 py-4 rounded-2xl border border-zinc-200 dark:border-zinc-800"
+        >
+          <div>
+            <p className="text-sm font-semibold text-black dark:text-white">招待コードを持っている</p>
+            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">トレーナーのプランで始める方はこちら</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
+        </Link>
+
         <div className="space-y-3">
           <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">週何回？</h2>
           {(

@@ -8,6 +8,8 @@ const SetSchema = z.object({
   reps: z.number().int().min(0).max(999),
   rir: z.boolean(),
   is_warmup: z.boolean().optional().default(false),
+  // コーチングモードの記録だけ。プランの種目と紐付ける（契約中のトレーニー本人かはDBのトリガーで検証）
+  plan_exercise_id: z.string().uuid().nullable().optional(),
 })
 
 export const CreateSessionSchema = z.object({

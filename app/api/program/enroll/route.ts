@@ -4,6 +4,7 @@ import { dbError } from '@/lib/api/errors'
 import { DEFAULT_PROGRAM_ID } from '@/lib/constants/api'
 import { VALID_CATEGORY_IDS } from '@/lib/constants/program_composition'
 import { z } from 'zod'
+import { getTraineeLink } from '@/lib/coaching/trainee'
 
 // priority_muscles: program_composition.tsのPriorityMuscleOption（二頭・三頭を別選択肢化、2026-07-08）
 const PRIORITY_MUSCLE_ENUM = z.enum(['chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'core'])
@@ -32,6 +33,10 @@ export async function POST(request: Request) {
   const supabase = await createClient(request)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // 同時に進められるプログラムは1つ。トレーナーと契約中はトレーナーのプランを使う
+  if (await getTraineeLink(supabase, user.id)) {
+    return NextResponse.json({ error: 'トレーナーのプランを利用中のため、プログラムは作成できません' }, { status: 409 })
+  }
 
   const parsed = EnrollSchema.safeParse(await request.json())
   if (!parsed.success) {

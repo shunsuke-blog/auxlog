@@ -1,8 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { getTraineeLink } from '@/lib/coaching/trainee'
 import OnboardingClient, { type ExerciseMasterRow } from './OnboardingClient'
 
 export default async function OnboardingPage() {
   const supabase = await createClient()
+  // トレーナーと契約中ならプログラムはトレーナーのプラン（コーチングモード）。セルフモードは作らせない
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user && (await getTraineeLink(supabase, user.id))) redirect('/')
   // movement_patternが種目のカテゴリ判定に使われる（program_composition.ts）ため、
   // slot_typeではなくmovement_patternの有無でカタログ対象を絞る（2026-07-08新方式移行）。
   // tier<=2（デフォルト推奨〜準推奨）のみをオンボーディングのチェックリストに出す

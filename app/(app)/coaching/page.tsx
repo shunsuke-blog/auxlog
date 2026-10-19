@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import CoachingClient from './CoachingClient'
+import { getLivePlan, getTraineeLink } from '@/lib/coaching/trainee'
 import type { DayData, WeightHistory } from './CoachingClient'
 import { BASE_CATEGORIES_BY_RANK, LEG_DEFAULT_CATEGORY, type CompositionCategory, type MovementPattern } from '@/lib/constants/program_composition'
 import { buildExerciseCategories, distributeToDays, isOneRmDemotedAtDays, type DaysPerWeek } from '@/lib/suggest/generate_program_composition'
@@ -30,6 +31,29 @@ export default async function CoachingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  // トレーナーと契約中はトレーナーのプランを使う（種目・セットはトレーナーが決める）
+  const link = await getTraineeLink(supabase, user.id)
+  if (link) {
+    const plan = link.status === 'active' ? await getLivePlan(supabase, link.linkId) : null
+    return (
+      <div className="min-h-screen bg-white dark:bg-black">
+        <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
+          <h1 className="text-xl font-semibold text-black dark:text-white">プログラム</h1>
+        </div>
+        <div className="px-6 py-6 space-y-3">
+          <div className="px-5 py-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-900 space-y-1">
+            <p className="text-xs text-zinc-400">{link.trainerName} さんのプラン</p>
+            <p className="text-base font-semibold text-black dark:text-white">{plan?.name ?? '次のプランを準備中'}</p>
+            {plan && <p className="text-sm text-zinc-500 dark:text-zinc-400">Week {plan.currentWeek} / {plan.totalWeeks}</p>}
+          </div>
+          <p className="px-1 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+            種目やセットはトレーナーが決めます。変更したい時はトレーナーに相談してください。今日のメニューはホームから確認できます。
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   const { data: enrollment } = await supabase
     .from('user_program_enrollments')

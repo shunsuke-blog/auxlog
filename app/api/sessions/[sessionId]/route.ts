@@ -66,18 +66,30 @@ export async function PATCH(
 
     if (sessionError) return dbError('セッションの更新に失敗しました', sessionError)
 
+    // 削除→再作成でコーチングプランとの紐付け（plan_exercise_id）が消えないよう、種目ごとに引き継ぐ
+    const { data: oldSets } = await supabase
+      .from('training_sets')
+      .select('exercise_id, plan_exercise_id')
+      .eq('session_id', sessionId)
+      .not('plan_exercise_id', 'is', null)
+    const planExerciseByExercise = new Map((oldSets ?? []).map(r => [r.exercise_id as string, r.plan_exercise_id as string]))
+
     await supabase.from('training_sets').delete().eq('session_id', sessionId)
-    await supabase.from('training_sets').insert(
-      sets.map(s => ({
-        session_id: sessionId,
-        exercise_id: s.exercise_id,
-        set_number: s.set_number,
-        weight_kg: s.weight_kg,
-        reps: s.reps,
-        rir: s.rir,
-        is_warmup: s.is_warmup ?? false,
-      }))
-    )
+    const rows = sets.map(s => ({
+      session_id: sessionId,
+      exercise_id: s.exercise_id,
+      set_number: s.set_number,
+      weight_kg: s.weight_kg,
+      reps: s.reps,
+      rir: s.rir,
+      is_warmup: s.is_warmup ?? false,
+      plan_exercise_id: planExerciseByExercise.get(s.exercise_id) ?? null,
+    }))
+    const { error: insertError } = await supabase.from('training_sets').insert(rows)
+    // 契約・プランが終了済みだと紐付けはトリガーで拒否されるため、紐付けなしで記録だけ残す
+    if (insertError && planExerciseByExercise.size > 0) {
+      await supabase.from('training_sets').insert(rows.map(r => ({ ...r, plan_exercise_id: null })))
+    }
   }
 
   return NextResponse.json({ success: true })

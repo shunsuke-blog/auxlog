@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     reps: s.reps,
     rir: s.rir,
     is_warmup: s.is_warmup ?? false,
+    plan_exercise_id: s.plan_exercise_id ?? null,
   }))
 
   const { error: setsError } = await supabase
