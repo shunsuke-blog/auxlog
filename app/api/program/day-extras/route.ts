@@ -12,18 +12,21 @@ export async function GET(request: Request) {
 
   const { data: enrollment } = await supabase
     .from('user_program_enrollments')
-    .select('id')
+    .select('id, current_week')
     .eq('user_id', user.id)
     .eq('is_active', true)
     .maybeSingle()
 
   if (!enrollment) return NextResponse.json({ extras: [] })
 
+  // Day画面からの追加は「その週だけ」（2026-10-19）。今週分だけ返し、翌週になると表示されなくなる。
+  // 毎週続ける種目はプログラム画面からカスタムスロット（user_custom_slots）として追加する。
   const { data, error } = await supabase
     .from('user_program_day_extras')
     .select('id, exercise_id, user_exercises(custom_name, exercise_master(name, target_muscle))')
     .eq('enrollment_id', enrollment.id)
     .eq('day_number', day)
+    .eq('week_number', enrollment.current_week)
     .order('created_at')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -99,7 +102,7 @@ export async function POST(request: Request) {
 
   const { data: enrollment } = await supabase
     .from('user_program_enrollments')
-    .select('id')
+    .select('id, current_week')
     .eq('user_id', user.id)
     .eq('is_active', true)
     .maybeSingle()
@@ -119,7 +122,7 @@ export async function POST(request: Request) {
 
   const { error } = await supabase
     .from('user_program_day_extras')
-    .insert({ user_id: user.id, enrollment_id: enrollment.id, exercise_id, day_number })
+    .insert({ user_id: user.id, enrollment_id: enrollment.id, exercise_id, day_number, week_number: enrollment.current_week })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
