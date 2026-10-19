@@ -6,13 +6,14 @@ import LogoutButton from './LogoutButton'
 import DeleteAccountButton from './DeleteAccountButton'
 import AddToHomeScreenSection from '@/components/ui/AddToHomeScreenSection'
 import ProgramSection from './ProgramSection'
+import { getTrainerProfile } from '@/lib/trainer/session'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: userData }, { data: enrollment }] = await Promise.all([
+  const [{ data: userData }, { data: enrollment }, trainerProfile] = await Promise.all([
     supabase
       .from('users')
       .select('email')
@@ -24,6 +25,7 @@ export default async function SettingsPage() {
       .eq('user_id', user.id)
       .eq('is_active', true)
       .maybeSingle(),
+    getTrainerProfile(supabase, user.id),
   ])
 
   return (
@@ -33,6 +35,18 @@ export default async function SettingsPage() {
       </div>
 
       <div className="px-6 py-6 space-y-4">
+        {trainerProfile && (
+          // トレーナーが「自分のトレーニング」に入っている時だけ表示される（それ以外はトレーナー画面へ戻される）
+          <Link
+            href="/trainer/exit-self"
+            prefetch={false}
+            className="flex items-center justify-between px-5 py-4 rounded-2xl bg-black dark:bg-white"
+          >
+            <span className="text-sm font-semibold text-white dark:text-black">トレーナー画面に戻る</span>
+            <ChevronRight className="w-4 h-4 text-white/60 dark:text-black/60" />
+          </Link>
+        )}
+
         <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
           <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">アカウント</h2>
           <p className="text-sm text-black dark:text-white">{userData?.email ?? user.email}</p>

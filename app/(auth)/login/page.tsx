@@ -1,29 +1,76 @@
 'use client'
 
-import { Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Dumbbell, AlertCircle } from 'lucide-react'
+import { safeNextPath } from '@/lib/trainer/session'
+import { Dumbbell, AlertCircle, Mail } from 'lucide-react'
 
 const ERROR_MESSAGES: Record<string, string> = {
   auth: '認証に失敗しました。もう一度お試しください。',
 }
 
 function LoginContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const errorKey = searchParams.get('error')
   const errorMessage = errorKey ? (ERROR_MESSAGES[errorKey] ?? '予期しないエラーが発生しました。') : null
+  // トレーナーの入口（/trainer/start）などから来た場合は、ログイン後にそこへ戻す
+  const next = safeNextPath(searchParams.get('next'))
+  const isTrainerEntry = next.startsWith('/trainer')
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
+
+  // メールアドレスでのログイン。メールに届く6桁のコードを入力する方式（リンク方式だと、PCで待っている
+  // のにスマホでメールを開くとスマホ側でログインしてしまうため。2026-10-19 決定）
+  const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
+  const [codeSent, setCodeSent] = useState(false)
+  const [emailBusy, setEmailBusy] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   const handleGoogleLogin = async () => {
     const supabase = createClient()
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${appUrl}/auth/callback`,
+        redirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     })
+  }
+
+  const handleSendCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setEmailBusy(true)
+    setEmailError(null)
+    const { error } = await createClient().auth.signInWithOtp({
+      email: email.trim(),
+      options: { shouldCreateUser: true },
+    })
+    setEmailBusy(false)
+    if (error) {
+      setEmailError('コードを送信できませんでした。メールアドレスを確認して、しばらくしてからもう一度お試しください。')
+      return
+    }
+    setCodeSent(true)
+  }
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setEmailBusy(true)
+    setEmailError(null)
+    const { error } = await createClient().auth.verifyOtp({
+      email: email.trim(),
+      token: code.trim(),
+      type: 'email',
+    })
+    if (error) {
+      setEmailBusy(false)
+      setEmailError('コードが正しくないか、有効期限が切れています。')
+      return
+    }
+    router.replace(next)
+    router.refresh()
   }
 
   return (
@@ -39,7 +86,7 @@ function LoginContent() {
                 Auxlog
               </h1>
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                今日のメニューを、30秒で。
+                {isTrainerEntry ? 'トレーナーとして始める' : '今日のメニューを、30秒で。'}
               </p>
             </div>
           </div>
@@ -64,6 +111,67 @@ function LoginContent() {
               </svg>
               Googleでログイン
             </button>
+
+            <div className="flex items-center gap-3 my-5">
+              <div className="flex-1 h-px bg-zinc-100 dark:bg-zinc-900" />
+              <span className="text-xs text-zinc-400">または</span>
+              <div className="flex-1 h-px bg-zinc-100 dark:bg-zinc-900" />
+            </div>
+
+            {!codeSent ? (
+              <form onSubmit={handleSendCode} className="space-y-3">
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="メールアドレス"
+                  className="w-full px-4 py-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm text-black dark:text-white placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400"
+                />
+                <button
+                  type="submit"
+                  disabled={emailBusy || !email.trim()}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium disabled:opacity-50"
+                >
+                  <Mail className="w-4 h-4" />
+                  {emailBusy ? '送信中...' : 'メールでログインコードを受け取る'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyCode} className="space-y-3">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center leading-relaxed">
+                  {email} に6桁のコードを送りました。<br />メールに記載のコードを入力してください。
+                </p>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                  maxLength={6}
+                  value={code}
+                  onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="123456"
+                  className="w-full px-4 py-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-center text-lg tracking-[0.4em] tabular-nums text-black dark:text-white placeholder:text-zinc-300 focus:outline-none focus:border-zinc-400"
+                />
+                <button
+                  type="submit"
+                  disabled={emailBusy || code.length !== 6}
+                  className="w-full px-6 py-3.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium disabled:opacity-50"
+                >
+                  {emailBusy ? '確認中...' : 'ログイン'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setCodeSent(false); setCode(''); setEmailError(null) }}
+                  className="w-full text-xs text-zinc-400 hover:underline"
+                >
+                  メールアドレスを入力し直す
+                </button>
+              </form>
+            )}
+
+            {emailError && <p className="mt-3 text-sm text-red-500 text-center">{emailError}</p>}
           </div>
         </div>
       </div>
