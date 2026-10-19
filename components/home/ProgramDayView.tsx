@@ -107,10 +107,9 @@ type MasterExercise = { id: string; name: string; target_muscle: string }
 
 type Props = {
   enrollment: UserProgramEnrollment
-  trialDaysLeft: number | null
 }
 
-export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
+export default function ProgramDayView({ enrollment }: Props) {
   const today = new Date().toLocaleDateString('ja-JP', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
   })
@@ -339,23 +338,6 @@ export default function ProgramDayView({ enrollment, trialDaysLeft }: Props) {
           </div>
         </div>
       </div>
-
-      {/* トライアル終了バナー */}
-      {trialDaysLeft !== null && trialDaysLeft <= 7 && trialDaysLeft > 0 && (
-        <Link
-          href="/settings/subscription"
-          className={`mx-5 mt-4 flex items-center justify-between px-4 py-3 rounded-2xl ${
-            trialDaysLeft <= 3
-              ? 'bg-red-500/10 border border-red-500/30'
-              : 'bg-accent/10 border border-accent/30'
-          }`}
-        >
-          <p className={`text-sm font-semibold ${trialDaysLeft <= 3 ? 'text-red-500' : 'text-accent'}`}>
-            トライアルがあと{trialDaysLeft}日で終了します
-          </p>
-          <ChevronRight className={`w-4 h-4 shrink-0 ${trialDaysLeft <= 3 ? 'text-red-400' : 'text-accent'}`} />
-        </Link>
-      )}
 
       {/* Day セレクター */}
       <div className="flex gap-2 px-5 pt-5 pb-2 overflow-x-auto scrollbar-none">

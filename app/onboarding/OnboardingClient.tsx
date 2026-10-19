@@ -190,7 +190,6 @@ export default function OnboardingClient({ exercises }: Props) {
           const data = await enrollRes.json().catch(() => ({}))
           throw new Error((data as { error?: string }).error ?? '登録に失敗しました')
         }
-        await fetch('/api/stripe/create-subscription', { method: 'POST' })
         setStep('program_intro')
       } catch (e) {
         setError(e instanceof Error ? e.message : '登録に失敗しました')
@@ -277,7 +276,6 @@ export default function OnboardingClient({ exercises }: Props) {
         const data = await enrollRes.json().catch(() => ({}))
         throw new Error((data as { error?: string }).error ?? '登録に失敗しました')
       }
-      await fetch('/api/stripe/create-subscription', { method: 'POST' })
       setStep('program_intro')
       return true
     } catch (e) {

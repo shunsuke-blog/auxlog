@@ -7,23 +7,6 @@ import DeleteAccountButton from './DeleteAccountButton'
 import AddToHomeScreenSection from '@/components/ui/AddToHomeScreenSection'
 import ProgramSection from './ProgramSection'
 
-function getStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    trialing: 'トライアル中',
-    active: '有効',
-    canceling: '解約予定',
-    canceled: 'キャンセル済み',
-    past_due: '支払い遅延',
-  }
-  return labels[status] ?? status
-}
-
-function getTrialDaysLeft(trialEndsAt: string): number {
-  const now = new Date()
-  const end = new Date(trialEndsAt)
-  return Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-}
-
 export default async function SettingsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -32,7 +15,7 @@ export default async function SettingsPage() {
   const [{ data: userData }, { data: enrollment }] = await Promise.all([
     supabase
       .from('users')
-      .select('email, subscription_status, trial_ends_at, is_admin, is_free, free_until')
+      .select('email')
       .eq('id', user.id)
       .single(),
     supabase
@@ -42,16 +25,6 @@ export default async function SettingsPage() {
       .eq('is_active', true)
       .maybeSingle(),
   ])
-
-  const isAdmin = userData?.is_admin ?? false
-  const isFree = userData?.is_free ?? false
-  const freeUntil = userData?.free_until ?? null
-  const freeActive = isFree && (!freeUntil || new Date(freeUntil) > new Date())
-  const status = isAdmin ? 'active' : (userData?.subscription_status ?? null)
-  const trialEndsAt = userData?.trial_ends_at ?? ''
-  const daysLeft = (status === 'trialing' || status === 'canceling') && trialEndsAt
-    ? getTrialDaysLeft(trialEndsAt)
-    : null
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
@@ -64,48 +37,6 @@ export default async function SettingsPage() {
           <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">アカウント</h2>
           <p className="text-sm text-black dark:text-white">{userData?.email ?? user.email}</p>
         </div>
-
-        <Link
-          href="/settings/subscription"
-          className="block px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3"
-        >
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">サブスクリプション</h2>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-black dark:text-white">ステータス</span>
-            <span className={`text-sm font-medium ${
-              isAdmin || freeActive ? 'text-emerald-500' :
-              status === 'active' ? 'text-emerald-500' :
-              status === 'trialing' ? 'text-accent' :
-              status === 'canceling' ? 'text-accent' :
-              status === null ? 'text-zinc-400' :
-              'text-red-500'
-            }`}>
-              {isAdmin ? '有効（管理者）' : freeActive ? `無料${freeUntil ? '（期限付き）' : ''}` : status === null ? '未開始' : getStatusLabel(status)}
-            </span>
-          </div>
-          {freeActive && freeUntil && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-zinc-500 dark:text-zinc-400">無料期限</span>
-              <span className="text-sm text-black dark:text-white">
-                {new Date(freeUntil).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' })}
-              </span>
-            </div>
-          )}
-          {!isAdmin && !freeActive && daysLeft !== null && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                {status === 'canceling' ? 'サービス終了まで' : 'トライアル残り'}
-              </span>
-              <span className="text-sm text-black dark:text-white">{daysLeft}日</span>
-            </div>
-          )}
-          {!isAdmin && !freeActive && status !== 'trialing' && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-zinc-500 dark:text-zinc-400">料金</span>
-              <span className="text-sm text-black dark:text-white">¥980/月</span>
-            </div>
-          )}
-        </Link>
 
         <ProgramSection enrollmentId={enrollment?.id ?? null} />
 
