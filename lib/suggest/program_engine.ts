@@ -36,7 +36,7 @@ import {
  * chest/back/shoulders/legs/coreはTargetMuscleとPriorityMuscleOptionの文字列が一致するため
  * そのまま通す。
  */
-function toPriorityMuscleOptions(targetMuscles: readonly string[] | null | undefined): PriorityMuscleOption[] {
+export function toPriorityMuscleOptions(targetMuscles: readonly string[] | null | undefined): PriorityMuscleOption[] {
   const valid = new Set(['chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'core'])
   return (targetMuscles ?? []).filter((m): m is PriorityMuscleOption => valid.has(m))
 }
@@ -88,7 +88,7 @@ function buildWarmupSets(oneRm: number): SetSuggestion[] {
 // 重いフリーウェイトを限界まで潰すのは怪我・過剰疲労のリスクが高く、筋力の伸びは
 // 限界接近度に依存しにくいため、エフォート最大化はアイソレーションに限定する
 // （実装依頼書 2026-07-06、受け入れ条件(a)）。
-const COMPOUND_VOLUME_PHASE_RPE_CEILING = 9.0
+export const COMPOUND_VOLUME_PHASE_RPE_CEILING = 9.0
 
 // 頻度による強度調整（実装依頼書 要件3、2026-08-27）。週4日を基準（オフセット0）とし、
 // 低頻度ほどセッション間隔が長く回復余地が大きいため、コンパウンドは高い%1RMから
@@ -96,7 +96,7 @@ const COMPOUND_VOLUME_PHASE_RPE_CEILING = 9.0
 // レバーを分けている（コンパウンドのRIRは頻度で動かさない＝従来どおり）。
 // 具体的な数値は「方向性のみ指定、実装側で1RM推定の安全域を見て調整」の合意に基づき、
 // オーナー提示の叩き台（週3=+2%、週2=+4%）をそのまま採用した（過度な値ではないため）。
-function frequencyPctRmOffset(days: DaysPerWeek): number {
+export function frequencyPctRmOffset(days: DaysPerWeek): number {
   if (days === 4) return 0
   if (days === 3) return 0.02
   return 0.04 // days === 2
@@ -294,7 +294,7 @@ function buildIsolationSets(
 // 優先部位はユーザーがオンボーディング/設定で選択する（enrollment.priority_muscles）。
 // 2026-07-08、brainstorm #9の指摘により`maxTier >= 2`から`session_duration_minutes >= 75`に
 // 命名変更（ロジックは同一、新方式の「カテゴリ内tier」概念との用語衝突を解消するため）。
-function volumeRampsForCategory(
+export function volumeRampsForCategory(
   category: CompositionCategory,
   sessionDurationMinutes: SessionDurationMinutes,
   priorities: readonly PriorityMuscleOption[],
@@ -309,7 +309,7 @@ function volumeRampsForCategory(
 // deload/maxoutは頻度に関わらず一律の回復・テスト週という位置づけを崩したくないため対象外。
 // RPE9.5（RIR0.5）を安全上限としてクランプする（週2日×volume期末週4のように、
 // 基準値がすでに高い状態でオフセットが乗るとRPE10超になり得るため）。
-function effortRampTargetRpe(weekNumber: number, phase: ProgramPhase, days: DaysPerWeek): number {
+export function effortRampTargetRpe(weekNumber: number, phase: ProgramPhase, days: DaysPerWeek): number {
   if (phase === 'volume') {
     const rir = 2.5 - (Math.min(weekNumber, 4) - 1) * ((2.5 - 0.5) / 3)
     const rpe = Math.round((10 - rir) * 2) / 2
@@ -319,7 +319,7 @@ function effortRampTargetRpe(weekNumber: number, phase: ProgramPhase, days: Days
   return 7.0
 }
 
-function slotNotes(params: Pick<ProgramWeeklyParams, 'phase' | 'top_set_is_amrap'>): string | undefined {
+export function slotNotes(params: Pick<ProgramWeeklyParams, 'phase' | 'top_set_is_amrap'>): string | undefined {
   if (params.phase === 'deload') return 'ディロード週 — 重量を抑えて回復に集中'
   if (params.phase === 'maxout' && params.top_set_is_amrap) return 'MaxOut週 — 全力で限界まで挑戦！'
   if (params.top_set_is_amrap) return '全力セット: できる限り多くの回数に挑戦！'

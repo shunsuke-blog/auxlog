@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowDown, ArrowUp, ChevronLeft, Plus, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, Copy, Plus, Trash2, X } from 'lucide-react'
 import { TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
 import ExercisePicker from './ExercisePicker'
 import {
@@ -90,6 +90,20 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     setPicking(false)
   }
 
+  // Week 2 以降で、Week 1 の同じ Day の種目・セットを今の Day にコピーする（未保存の状態になる）。
+  // 1週目を作ってからコピーして直す使い方を想定（2026-10-19 オーナー依頼）。
+  const week1SameDay = days.find(d => d.weekNumber === 1 && d.dayNumber === current?.dayNumber)
+  const copyFromWeek1 = () => {
+    if (!week1SameDay) return
+    const source = byDay[week1SameDay.id] ?? []
+    if (source.length === 0) {
+      setMessage({ kind: 'error', text: `Week 1 の Day ${current?.dayNumber} にはまだ種目がありません` })
+      return
+    }
+    if (exercises.length > 0 && !window.confirm(`今の内容を Week 1 の Day ${current?.dayNumber} で置き換えますか？`)) return
+    update(() => source.map(ex => ({ ...ex, key: newKey(), sets: ex.sets.map(st => ({ ...st })) })))
+  }
+
   const saveDay = async () => {
     const payload = toSavePayload(exercises)
     if (!payload.ok) {
@@ -170,6 +184,16 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       </div>
 
       <div className="px-6 py-6 space-y-4 max-w-4xl">
+        {week > 1 && week1SameDay && (
+          <button
+            onClick={copyFromWeek1}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900"
+          >
+            <Copy className="w-4 h-4" />
+            Week 1 の Day {current?.dayNumber} をコピー
+          </button>
+        )}
+
         {exercises.length === 0 && (
           <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-8">この日の種目はまだありません。</p>
         )}

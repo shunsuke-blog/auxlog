@@ -4,6 +4,14 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, Copy, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { MAX_PRIORITY_MUSCLES, PRIORITY_MUSCLE_OPTION_LABELS, PRIORITY_MUSCLE_OPTION_ORDER, type PriorityMuscleOption } from '@/types'
+
+// セッション時間はオンボーディングと同じ帯の選択肢（60/75/90 は帯の内部代表値）
+const SESSION_OPTIONS = [
+  { value: 60, label: '〜60分' },
+  { value: 75, label: '60〜90分' },
+  { value: 90, label: '90分〜' },
+] as const
 
 export type TemplateSummary = {
   id: string
@@ -24,9 +32,12 @@ async function postJson(url: string, body: unknown, method = 'POST') {
 export default function TemplateList({ templates }: { templates: TemplateSummary[] }) {
   const router = useRouter()
   const [creating, setCreating] = useState(false)
+  const [mode, setMode] = useState<'auxlog' | 'blank'>('auxlog')
   const [name, setName] = useState('')
   const [weeks, setWeeks] = useState(9)
   const [days, setDays] = useState(3)
+  const [sessionMinutes, setSessionMinutes] = useState<60 | 75 | 90>(75)
+  const [priorities, setPriorities] = useState<PriorityMuscleOption[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -45,7 +56,11 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault()
     run(async () => {
-      const { id } = await postJson('/api/trainer/templates', { name, total_weeks: weeks, days_per_week: days })
+      const { id } = mode === 'auxlog'
+        ? await postJson('/api/trainer/templates/generate', {
+            name, total_weeks: weeks, days_per_week: days, session_minutes: sessionMinutes, priority_muscles: priorities,
+          })
+        : await postJson('/api/trainer/templates', { name, total_weeks: weeks, days_per_week: days })
       router.push(`/trainer/programs/${id}`)
     })
   }
@@ -113,16 +128,31 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
           <form onSubmit={handleCreate} className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
             <p className="text-base font-semibold text-black dark:text-white">新しいテンプレート</p>
 
-            <button
-              type="button"
-              disabled
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-left opacity-50"
-            >
-              <Sparkles className="w-4 h-4 text-zinc-400" />
-              <span className="text-sm text-black dark:text-white">Auxlog で作成（準備中）</span>
-            </button>
+            <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl">
+              {([['auxlog', 'Auxlog で作成'], ['blank', '白紙から作成']] as const).map(([m, label]) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    setMode(m)
+                    // Auxlog で作成は週2〜7日（週1日は白紙からのみ）
+                    if (m === 'auxlog' && days < 2) setDays(2)
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-lg ${
+                    mode === m ? 'bg-white dark:bg-zinc-800 text-black dark:text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-400'
+                  }`}
+                >
+                  {m === 'auxlog' && <Sparkles className="w-3.5 h-3.5" />}
+                  {label}
+                </button>
+              ))}
+            </div>
+            {mode === 'auxlog' && (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Auxlog の9週間プログラムと同じ考え方で、週数・日数に合わせて種目・%1RM・回数を自動で組みます。作成後に自由に編集できます。
+              </p>
+            )}
 
-            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider pt-1">白紙から作成</p>
             <input
               type="text"
               required
@@ -142,10 +172,51 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
               <label className="flex-1 text-xs text-zinc-500 dark:text-zinc-400 space-y-1">
                 <span>週の日数</span>
                 <select value={days} onChange={e => setDays(Number(e.target.value))} className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm text-black dark:text-white">
-                  {Array.from({ length: 7 }, (_, i) => i + 1).map(d => <option key={d} value={d}>週{d}日</option>)}
+                  {Array.from({ length: 7 }, (_, i) => i + 1)
+                    .filter(d => mode === 'blank' || d >= 2)
+                    .map(d => <option key={d} value={d}>週{d}日</option>)}
                 </select>
               </label>
             </div>
+            {mode === 'auxlog' && (
+              <>
+                <div className="space-y-1">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">1回のトレーニング時間</p>
+                  <div className="flex gap-2">
+                    {SESSION_OPTIONS.map(o => (
+                      <button
+                        key={o.value}
+                        type="button"
+                        onClick={() => setSessionMinutes(o.value)}
+                        className={`flex-1 py-2 rounded-lg border text-sm ${sessionMinutes === o.value ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">重点部位（最大{MAX_PRIORITY_MUSCLES}つ・任意）</p>
+                  <div className="flex flex-wrap gap-2">
+                    {PRIORITY_MUSCLE_OPTION_ORDER.map(m => {
+                      const selected = priorities.includes(m)
+                      const disabled = !selected && priorities.length >= MAX_PRIORITY_MUSCLES
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => setPriorities(prev => (selected ? prev.filter(p => p !== m) : [...prev, m]))}
+                          className={`px-3 py-1.5 rounded-full border text-sm disabled:opacity-40 ${selected ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
+                        >
+                          {PRIORITY_MUSCLE_OPTION_LABELS[m]}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={() => setCreating(false)} disabled={busy} className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white">
