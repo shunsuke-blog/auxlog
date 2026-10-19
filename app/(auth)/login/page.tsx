@@ -23,9 +23,12 @@ function LoginContent() {
 
   // メールアドレスでのログイン。メールに届く数字のコードを入力する方式（リンク方式だと、PCで待っている
   // のにスマホでメールを開くとスマホ側でログインしてしまうため。2026-10-19 決定）
-  const [email, setEmail] = useState('')
+  // コードを送った先は URL（?sent=）に持たせる。スマホでメールアプリに切り替えると Safari がページを
+  // 読み込み直すことがあり、画面の状態だけだとメールアドレスの入力に戻ってしまうため
+  const sentTo = searchParams.get('sent')
+  const [email, setEmail] = useState(sentTo ?? '')
   const [code, setCode] = useState('')
-  const [codeSent, setCodeSent] = useState(false)
+  const [codeSent, setCodeSent] = useState(!!sentTo)
   const [emailBusy, setEmailBusy] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
 
@@ -53,6 +56,16 @@ function LoginContent() {
       return
     }
     setCodeSent(true)
+    setLoginParam('sent', email.trim())
+  }
+
+  const setLoginParam = (key: string, value: string | null) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value) params.set(key, value)
+    else params.delete(key)
+    params.delete('error')
+    const qs = params.toString()
+    router.replace(qs ? `/login?${qs}` : '/login', { scroll: false })
   }
 
   const handleVerifyCode = async (e: React.FormEvent) => {
@@ -163,7 +176,7 @@ function LoginContent() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setCodeSent(false); setCode(''); setEmailError(null) }}
+                  onClick={() => { setCodeSent(false); setCode(''); setEmailError(null); setLoginParam('sent', null) }}
                   className="w-full text-xs text-zinc-400 hover:underline"
                 >
                   メールアドレスを入力し直す
