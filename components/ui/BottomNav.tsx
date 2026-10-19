@@ -22,7 +22,11 @@ export default function BottomNav() {
     >
       <div className="flex items-center max-w-lg mx-auto">
         {tabs.map(({ href, label, icon: Icon }) => {
-          const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href)
+          // 前方一致だけだと /coaching-plan（コーチングモードの記録画面）が /coaching（プログラム）に
+          // 一致してしまうため、区切りの / まで見る。コーチングモードの記録はホームから入るのでホーム扱い
+          const isActive = href === '/'
+            ? pathname === '/' || pathname.startsWith('/coaching-plan/')
+            : pathname === href || pathname.startsWith(`${href}/`)
           return (
             <button
               key={href}
