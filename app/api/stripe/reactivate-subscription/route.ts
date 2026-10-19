@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 
@@ -46,7 +46,7 @@ export async function POST() {
   // Stripe側は既に成立しているため、この書き込みが失敗しても5xxにはせずログのみ残す
   // （customer.subscription.createdのWebhookが後追いで状態を修正する、
   // 2026-07-09コードレビュー対応）。
-  const { error: saveError } = await supabase
+  const { error: saveError } = await createServiceClient()
     .from('users')
     .update({
       stripe_subscription_id: subscription.id,

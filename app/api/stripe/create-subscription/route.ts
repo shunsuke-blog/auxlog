@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
@@ -33,7 +33,7 @@ export async function POST() {
     })
     customerId = customer.id
     // Customer作成直後にDBへ保存（以降の処理が失敗してもIDが失われない）
-    const { error: customerSaveError } = await supabase
+    const { error: customerSaveError } = await createServiceClient()
       .from('users')
       .update({ stripe_customer_id: customerId })
       .eq('id', user.id)
@@ -65,7 +65,7 @@ export async function POST() {
   // この書き込みが失敗してもStripe側は既に成立しているため、ここでは5xxにせずログのみ
   // 残す（customer.subscription.createdのWebhookが後追いで状態を修正する、
   // 2026-07-09コードレビュー対応）。
-  const { error: subscriptionSaveError } = await supabase
+  const { error: subscriptionSaveError } = await createServiceClient()
     .from('users')
     .update({
       stripe_subscription_id: subscription.id,

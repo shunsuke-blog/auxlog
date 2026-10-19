@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       metadata: { supabase_user_id: user.id },
     })
     customerId = customer.id
-    await supabase
+    await createServiceClient()
       .from('users')
       .update({ stripe_customer_id: customerId })
       .eq('id', user.id)

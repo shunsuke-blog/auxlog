@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 
@@ -31,7 +31,7 @@ export async function POST() {
     // 失敗しか捕捉できていなかった。Stripe側は既に成立しているため、DB書き込み失敗時も
     // 5xxにはせずログのみ残す（customer.subscription.updatedのWebhookが後追いで修正する、
     // 2026-07-09コードレビュー対応）。
-    const { error: saveError } = await supabase
+    const { error: saveError } = await createServiceClient()
       .from('users')
       .update({ subscription_status: subscription.status })
       .eq('id', user.id)
