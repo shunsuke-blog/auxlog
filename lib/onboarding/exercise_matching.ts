@@ -30,6 +30,28 @@ export const CATEGORY_DEFAULT_OVERRIDES: Partial<Record<string, string>> = {
   leg_curl: 'レッグカール',
 }
 
+// 既定の種目が既に使われていて繰り上げで選ぶときの優先順位（並び順 sort_order より優先する）。
+// ヒップヒンジ系は sort_order 順だとデッドリフトの次にスモウが来て、週3日の脚が
+// 「デッドリフト2種類」になっていたため、動きの重ならない順に並べる（2026-10-19 オーナー決定）
+export const FALLBACK_PRIORITY: readonly string[] = [
+  'デッドリフト',
+  'ヒップスラスト',
+  'ルーマニアンデッドリフト',
+  'デッドリフト（スモウ）',
+]
+
+/** FALLBACK_PRIORITY に載っている種目をその順で前に出す（載っていない種目は元の並びのまま後ろ） */
+function byFallbackPriority<T extends { name: string }>(candidates: T[]): T[] {
+  const rank = (name: string) => {
+    const i = FALLBACK_PRIORITY.indexOf(name)
+    return i === -1 ? FALLBACK_PRIORITY.length : i
+  }
+  return candidates
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => rank(a.e.name) - rank(b.e.name) || a.i - b.i)
+    .map(x => x.e)
+}
+
 // オンボーディングの種目選択チェックリストには表示しない種目名
 // （角度違いのバリエーションはコーチング画面の種目再選択でのみ選べる）
 export const HIDDEN_ONBOARDING_NAMES = new Set([
@@ -106,7 +128,7 @@ export function buildSlotSelections(params: BuildSlotSelectionsParams): BuildSlo
       const overrideName = CATEGORY_DEFAULT_OVERRIDES[category.id]
       picked = overrideName ? candidates.find(e => e.name === overrideName && !usedNames.has(e.name)) : undefined
     }
-    if (!picked) picked = candidates.find(e => !usedNames.has(e.name))
+    if (!picked) picked = byFallbackPriority(candidates).find(e => !usedNames.has(e.name))
     if (!picked) picked = candidates[0]
 
     names[category.id] = picked?.name ?? ''

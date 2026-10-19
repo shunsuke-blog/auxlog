@@ -168,3 +168,27 @@ test('buildSlotSelections: 同じ動きパターンを共有する2カテゴリ(
   assert.equal(result.names['biceps_1'], 'ダンベルカール')
   assert.equal(result.names['biceps_2'], 'インクラインダンベルカール')
 })
+
+test('buildSlotSelections: 週3日の脚2種目目はスモウではなくヒップスラストに繰り上がる(ヒンジ系の優先順位)', () => {
+  // sort_order 順（本番と同じ並び）。ハイバー・デッドリフトはメイン枠で既に使われる
+  const exercises = [
+    ex('バーベルベンチプレス', 'chest', 'horizontal_press', true),
+    ex('オーバーヘッドプレス', 'shoulders', 'vertical_press', true),
+    ex('チェストサポーテッドロウ', 'back', 'horizontal_pull'),
+    ex('懸垂', 'back', 'vertical_pull'),
+    ex('デッドリフト', 'legs', 'hip_hinge', true),
+    ex('デッドリフト（スモウ）', 'legs', 'hip_hinge'),
+    ex('ルーマニアンデッドリフト', 'legs', 'hip_hinge'),
+    ex('ヒップスラスト', 'legs', 'hip_hinge'),
+    ex('ハイバースクワット', 'legs', 'squat', true),
+    ex('ローバースクワット', 'legs', 'squat', true),
+    ex('ブルガリアンスクワット', 'legs', 'squat'),
+    ex('レッグカール', 'legs', 'knee_flexion'),
+    ex('レッグレイズ', 'core', 'trunk_flexion'),
+    dumbbellCurl,
+  ]
+  const result = buildSlotSelections({ daysPerWeek: 3, priorityMuscles: [], exercises, selectedExercises: new Set() })
+  const legs = Object.values(result.names).filter(n => n.includes('デッドリフト') || n.includes('ヒップ'))
+  assert.ok(!legs.includes('デッドリフト（スモウ）'), `スモウは選ばれない: ${JSON.stringify(result.names)}`)
+  assert.equal(result.names['leg_2'], 'ヒップスラスト')
+})
