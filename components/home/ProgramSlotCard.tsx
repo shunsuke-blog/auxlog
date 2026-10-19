@@ -2,10 +2,13 @@ import Link from 'next/link'
 import { ChevronRight, CheckCircle2 } from 'lucide-react'
 import type { SlotSuggestion, SetSuggestion, TargetMuscle } from '@/types'
 import { TARGET_MUSCLE_LABELS } from '@/types'
+import NotCountedBadge from './NotCountedBadge'
 
 type Props = {
   slot: SlotSuggestion
   is_done?: boolean
+  // 週を早送りした直後など、記録済みだが今週の達成としてカウントされていない
+  not_counted_this_week?: boolean
 }
 
 const SET_TYPE_LABEL: Record<SetSuggestion['set_type'], string> = {
@@ -108,7 +111,7 @@ function condenseSets(sets: SetSuggestion[]): Array<{
   return result
 }
 
-export default function ProgramSlotCard({ slot, is_done = false }: Props) {
+export default function ProgramSlotCard({ slot, is_done = false, not_counted_this_week = false }: Props) {
   const rows = condenseSets(slot.sets)
 
   const saveSlotToSession = () => {
@@ -156,6 +159,8 @@ export default function ProgramSlotCard({ slot, is_done = false }: Props) {
           : <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 mt-1 shrink-0" />
         }
       </div>
+
+      {!is_done && not_counted_this_week && <NotCountedBadge />}
 
       {/* 区切り */}
       <div className="h-px bg-zinc-100 dark:bg-zinc-800 mb-3" />

@@ -9,10 +9,12 @@ type Props = {
   saving: boolean
   error: string | null
   onSelect: (name: string) => void
+  // プログラム期間中ずっとホームに表示しなくする（is_hidden）。今週だけ外すのはホームのスワイプ
+  onSkip: () => void
   onClose: () => void
 }
 
-export default function SlotExerciseModal({ label, currentName, options, saving, error, onSelect, onClose }: Props) {
+export default function SlotExerciseModal({ label, currentName, options, saving, error, onSelect, onSkip, onClose }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
@@ -59,6 +61,13 @@ export default function SlotExerciseModal({ label, currentName, options, saving,
               })}
             </div>
           )}
+          <button
+            disabled={saving}
+            onClick={onSkip}
+            className="w-full mt-4 py-3 text-sm font-semibold text-red-500 disabled:opacity-60"
+          >
+            この種目を外す
+          </button>
         </div>
       </div>
     </div>

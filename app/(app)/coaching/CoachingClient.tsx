@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Plus, Trash2, Undo2 } from 'lucide-react'
 import SlotExerciseModal from './SlotExerciseModal'
+import AddCustomSlotModal from './AddCustomSlotModal'
 import { PRIORITY_MUSCLE_OPTION_LABELS, type PriorityMuscleOption } from '@/types'
 
 const WeightProgressChart = dynamic(() => import('./WeightProgressChart'), { ssr: false })
@@ -99,9 +100,20 @@ const WEEK_LABELS = ['Vol', 'Vol', 'Vol', 'Vol', 'Int', 'Int', 'Int', 'Dld', 'Ma
 
 export type DayData = {
   day: number
-  slots: { slotId: string; label: string; exerciseName: string; oneRm?: number; options: string[] }[]
-  extras: { id: string; name: string; muscleLabel: string | null }[]
+  slots: {
+    slotId: string
+    label: string
+    exerciseName: string
+    oneRm?: number
+    options: string[]
+    // 「この種目を外す」でプログラム期間中ずっと非表示にした種目。タップで再有効化する
+    isHidden?: boolean
+    // 種目情報から追加したカスタムスロット（slotId は user_custom_slots.id）。タップで削除する
+    isCustom?: boolean
+  }[]
 }
+
+type ConfirmDialog = { title: string; body: string; actionLabel: string; onConfirm: () => Promise<void> }
 
 export type WeightHistory = {
   slotId: string
@@ -130,6 +142,9 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
   const [editingSlot, setEditingSlot] = useState<{ slotId: string; label: string; exerciseName: string; options: string[] } | null>(null)
   const [savingSlot, setSavingSlot] = useState(false)
   const [slotError, setSlotError] = useState<string | null>(null)
+  const [addingSlotDay, setAddingSlotDay] = useState<number | null>(null)
+  const [confirm, setConfirm] = useState<ConfirmDialog | null>(null)
+  const [confirming, setConfirming] = useState(false)
 
   const { id: enrollmentId, currentWeek, daysPerWeek, sessionDurationMinutes, startedAt, priorityMuscles } = enrollment
 
@@ -156,6 +171,61 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
       setSavingSlot(false)
     }
   }
+
+  const setSlotHidden = async (slotId: string, isHidden: boolean) => {
+    const res = await fetch(`/api/program/slot-assignments/${slotId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enrollment_id: enrollmentId, is_hidden: isHidden }),
+    })
+    if (!res.ok) throw new Error('更新に失敗しました')
+  }
+
+  const handleSkipSlot = () => {
+    if (!editingSlot) return
+    const slot = editingSlot
+    setConfirm({
+      title: `「${slot.exerciseName}」を外しますか？`,
+      body: '今後このプログラム期間中、ホーム画面に表示しなくなります。トレーニング記録は削除されません。',
+      actionLabel: '外す',
+      onConfirm: async () => {
+        await setSlotHidden(slot.slotId, true)
+        setEditingSlot(null)
+      },
+    })
+  }
+
+  const handleUnhideSlot = async (slotId: string) => {
+    // 通信断等で失敗した場合は表示をそのままにする
+    await setSlotHidden(slotId, false).then(() => router.refresh()).catch(() => {})
+  }
+
+  const handleDeleteCustomSlot = (slot: { slotId: string; exerciseName: string }) => {
+    setConfirm({
+      title: `「${slot.exerciseName}」を削除しますか？`,
+      body: 'この種目をプログラムから外します。トレーニング記録は削除されません。',
+      actionLabel: '削除する',
+      onConfirm: async () => {
+        const res = await fetch(`/api/program/custom-slots/${slot.slotId}`, { method: 'DELETE' })
+        if (!res.ok) throw new Error('削除に失敗しました')
+      },
+    })
+  }
+
+  const runConfirm = async () => {
+    if (!confirm) return
+    setConfirming(true)
+    try {
+      await confirm.onConfirm()
+      router.refresh()
+    } catch {
+      // 通信断等で失敗した場合は表示をそのままにする
+    } finally {
+      setConfirming(false)
+      setConfirm(null)
+    }
+  }
+
   const phase = getPhase(currentWeek)
   const config = PHASE_CONFIG[phase]
   const progressPct = Math.round((currentWeek / 9) * 100)
@@ -366,7 +436,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
           </>
         ) : (
           <>
-            {dayData.map(({ day, slots, extras }) => (
+            {dayData.map(({ day, slots }) => (
               <div key={day} className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
                 <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Day {day}</h2>
                 <div className="space-y-2.5">
@@ -374,19 +444,33 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
                     <button
                       key={slot.slotId}
                       onClick={() => {
+                        if (slot.isHidden) {
+                          handleUnhideSlot(slot.slotId)
+                          return
+                        }
+                        if (slot.isCustom) {
+                          handleDeleteCustomSlot(slot)
+                          return
+                        }
                         setSlotError(null)
                         setEditingSlot({
                           slotId: slot.slotId, label: slot.label, exerciseName: slot.exerciseName, options: slot.options,
                         })
                       }}
-                      className="w-full flex items-center justify-between text-left -mx-1 px-1 py-0.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
+                      className={`w-full flex items-center justify-between text-left -mx-1 px-1 py-0.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors ${slot.isHidden ? 'opacity-50' : ''}`}
                     >
                       <div>
                         <div className="flex items-center gap-1">
                           <p className="text-sm text-black dark:text-white">{slot.exerciseName}</p>
-                          <ChevronRight className="w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600" />
+                          {slot.isHidden
+                            ? <Undo2 className="w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600" />
+                            : slot.isCustom
+                              ? <Trash2 className="w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600" />
+                              : <ChevronRight className="w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600" />}
                         </div>
-                        <p className="text-xs text-zinc-400 dark:text-zinc-500">{slot.label}</p>
+                        <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                          {slot.isHidden ? `${slot.label}（無効・タップで戻す）` : slot.isCustom ? `${slot.label}（追加）` : slot.label}
+                        </p>
                       </div>
                       {slot.oneRm != null && (
                         <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 tabular-nums">
@@ -395,16 +479,13 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
                       )}
                     </button>
                   ))}
-                  {extras.map(ex => (
-                    <div key={ex.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-black dark:text-white">{ex.name}</p>
-                        <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                          {ex.muscleLabel ? `${ex.muscleLabel}（追加）` : '追加種目'}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                  <button
+                    onClick={() => setAddingSlotDay(day)}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 text-sm text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    種目を追加
+                  </button>
                 </div>
               </div>
             ))}
@@ -420,8 +501,43 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
           saving={savingSlot}
           error={slotError}
           onSelect={handleSelectExercise}
+          onSkip={handleSkipSlot}
           onClose={() => { setEditingSlot(null); setSlotError(null) }}
         />
+      )}
+
+      {addingSlotDay !== null && (
+        <AddCustomSlotModal
+          day={addingSlotDay}
+          onAdded={() => router.refresh()}
+          onClose={() => setAddingSlotDay(null)}
+        />
+      )}
+
+      {confirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-6">
+          <div className="absolute inset-0 bg-black/60" onClick={confirming ? undefined : () => setConfirm(null)} />
+          <div className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
+            <p className="text-base font-semibold text-black dark:text-white">{confirm.title}</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{confirm.body}</p>
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setConfirm(null)}
+                disabled={confirming}
+                className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white disabled:opacity-50"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={runConfirm}
+                disabled={confirming}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {confirm.actionLabel}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

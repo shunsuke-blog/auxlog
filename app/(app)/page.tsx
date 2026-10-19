@@ -21,7 +21,8 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
-      <ProgramDayView enrollment={enrollment as UserProgramEnrollment} />
+      {/* サイクル更新（renew-cycle）で新しいenrollmentになったらkeyで再マウントし、週・キャッシュを初期化する */}
+      <ProgramDayView key={(enrollment as UserProgramEnrollment).id} enrollment={enrollment as UserProgramEnrollment} />
     </div>
   )
 }

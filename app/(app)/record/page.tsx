@@ -79,6 +79,17 @@ function RecordContent() {
   const [trainedAt, setTrainedAt] = useState(() => todayLocalDate())
   const [allAvailableExercises, setAllAvailableExercises] = useState<UserExercise[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
+  // 本来のweekStartより前かどうか（trueならこのタイミングの記録は今週未カウント）。週の早送り自体は
+  // 塞がず、数値入力の前にバナーで告知し、保存は素通しして is_early を付ける（モバイル版と同じ）。
+  const [isBeforeWeekStart, setIsBeforeWeekStart] = useState(false)
+
+  useEffect(() => {
+    if (!fromHome) return
+    fetch('/api/suggest/program/week-status')
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => setIsBeforeWeekStart(data?.is_before_week_start ?? false))
+      .catch(() => {})
+  }, [fromHome])
 
   useEffect(() => {
     const load = async () => {
@@ -161,7 +172,9 @@ function RecordContent() {
               sets: programSlot.sets.map(t => makeSet({
                 set_number: t.set_number,
                 weight_kg: t.weight_kg > 0 ? String(t.weight_kg) : '',
-                reps: String(t.reps),
+                // ウォームアップ提案は前回の重量・回数を引き継いで出す。前回記録が無い種目などで
+                // 0の場合のみブランクにする（モバイル版と同じ、2026-08-13）。
+                reps: t.reps > 0 ? String(t.reps) : '',
                 rir: true,
                 is_warmup: t.is_warmup,
               })),
@@ -301,7 +314,8 @@ function RecordContent() {
             exercise_id: ex.exercise.id,
             set_number: s.set_number,
             weight_kg: s.weight_kg === '' ? 0 : parseFloat(s.weight_kg),
-            reps: parseInt(s.reps),
+            // ブランクのウォームアップを未入力のまま完了チェックした場合にNaNが送られるのを防ぐ
+            reps: parseInt(s.reps, 10) || 0,
             rir: s.rir,
             is_warmup: s.is_warmup,
           }))
@@ -370,7 +384,13 @@ function RecordContent() {
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trained_at: trainedAt, fatigue_level: fatigueLevel, memo, sets }),
+        body: JSON.stringify({
+          trained_at: trainedAt,
+          fatigue_level: fatigueLevel,
+          memo,
+          sets,
+          is_early: isBeforeWeekStart && sets.some(s => !s.is_warmup),
+        }),
         signal: controller.signal,
       }).finally(() => clearTimeout(timeoutId))
 
@@ -447,6 +467,15 @@ function RecordContent() {
       </div>
 
       <div className="px-6 py-6 space-y-6 pb-32">
+        {isBeforeWeekStart && (
+          <div className="px-4 py-3 rounded-2xl bg-zinc-50 dark:bg-zinc-900 space-y-1">
+            <p className="text-sm font-semibold text-black dark:text-white">オーバーワークの可能性があります</p>
+            <p className="text-[12px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              前の週を予定より早く終えたため、この記録は今週の達成としてはカウントされません。回復期間が足りていない可能性があります。
+            </p>
+          </div>
+        )}
+
         {groups.map(({ muscle, items }) => (
           <div key={muscle ?? 'all'}>
             {muscle && (

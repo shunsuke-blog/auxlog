@@ -15,14 +15,15 @@ const MUSCLE_LABELS: Record<string, string> = {
 type AssignmentRow = {
   slot_id: string
   exercise_id: string
+  is_hidden: boolean
   user_exercises: { custom_name: string | null; exercise_master: { name: string } | null } | null
 }
 
-type ExtraRow = {
+type CustomSlotRow = {
   id: string
-  exercise_id: string
   day_number: number
-  user_exercises: { custom_name: string | null; exercise_master: { name: string; target_muscle: string | null } | null } | null
+  muscle_group: string
+  user_exercises: { custom_name: string | null; exercise_master: { name: string } | null } | null
 }
 
 export default async function CoachingPage() {
@@ -54,27 +55,28 @@ export default async function CoachingPage() {
   const days = (enrollment.days_per_week ?? 4) as DaysPerWeek
   const priorities = (enrollment.priority_muscles ?? []) as PriorityMuscleOption[]
 
-  const [{ data: rawAssignments }, { data: rawOneRms }, { data: rawExtras }, { data: rawSlotExercises }] = await Promise.all([
+  const [{ data: rawAssignments }, { data: rawOneRms }, { data: rawSlotExercises }, { data: rawCustomSlots }] = await Promise.all([
+    // is_hiddenで絞り込まない: 無効化した種目も「無効」表示で残し、いつでも再有効化できるようにする
+    // （モバイル版と同じ、2026-08-04）。
     supabase
       .from('user_slot_assignments')
-      .select('slot_id, exercise_id, user_exercises(custom_name, exercise_master(name))')
-      .eq('enrollment_id', enrollment.id)
-      .eq('is_hidden', false),
+      .select('slot_id, exercise_id, is_hidden, user_exercises(custom_name, exercise_master(name))')
+      .eq('enrollment_id', enrollment.id),
     supabase
       .from('user_slot_one_rms')
       .select('slot_id, one_rm_kg')
       .eq('user_id', user.id)
       .order('recorded_at', { ascending: false }),
     supabase
-      .from('user_program_day_extras')
-      .select('id, exercise_id, day_number, user_exercises(custom_name, exercise_master(name, target_muscle))')
-      .eq('enrollment_id', enrollment.id)
-      .order('created_at'),
-    supabase
       .from('exercise_master')
       .select('name, target_muscle, movement_pattern, requires_one_rm')
       .not('movement_pattern', 'is', null)
       .order('sort_order'),
+    supabase
+      .from('user_custom_slots')
+      .select('id, day_number, muscle_group, user_exercises(custom_name, exercise_master(name))')
+      .eq('enrollment_id', enrollment.id)
+      .order('created_at'),
   ])
 
   const requiresOneRmByName = new Map(
@@ -99,6 +101,7 @@ export default async function CoachingPage() {
   }
 
   const assignmentMap = new Map<string, string>()
+  const hiddenSlotIds = new Set<string>()
   const exerciseIdBySlot = new Map<string, string>()
 
   for (const a of (rawAssignments ?? []) as unknown as AssignmentRow[]) {
@@ -107,6 +110,7 @@ export default async function CoachingPage() {
       ? (ue.exercise_master?.name ?? ue.custom_name ?? '')
       : ''
     assignmentMap.set(a.slot_id, name)
+    if (a.is_hidden) hiddenSlotIds.add(a.slot_id)
     exerciseIdBySlot.set(a.slot_id, a.exercise_id)
   }
 
@@ -117,18 +121,24 @@ export default async function CoachingPage() {
     }
   }
 
-  const extrasByDay = new Map<number, { id: string; name: string; muscleLabel: string | null }[]>()
-  for (const r of (rawExtras ?? []) as unknown as ExtraRow[]) {
+  // Day画面から追加した種目（user_program_day_extras）は「その週だけ」の追加なので、恒久的な設定を
+  // 並べるこの画面には出さない。翌週以降も残す種目はここからカスタムスロットとして追加する（2026-10-19）。
+  // カスタムスロットは24カテゴリ外でprogram_engine.tsのアイソレーション計算経路に乗るため、
+  // 種目の差し替え候補(options)は無く、1RMも持たない（2026-08-03）。
+  const customSlotsByDay = new Map<number, DayData['slots']>()
+  for (const r of (rawCustomSlots ?? []) as unknown as CustomSlotRow[]) {
     const ue = r.user_exercises
     const name = (ue && !Array.isArray(ue))
       ? (ue.exercise_master?.name ?? ue.custom_name ?? '')
       : ''
-    const targetMuscle = (ue && !Array.isArray(ue))
-      ? (ue.exercise_master?.target_muscle ?? null)
-      : null
-    const muscleLabel = targetMuscle ? (MUSCLE_LABELS[targetMuscle] ?? targetMuscle) : null
-    if (!extrasByDay.has(r.day_number)) extrasByDay.set(r.day_number, [])
-    extrasByDay.get(r.day_number)!.push({ id: r.id, name, muscleLabel })
+    if (!customSlotsByDay.has(r.day_number)) customSlotsByDay.set(r.day_number, [])
+    customSlotsByDay.get(r.day_number)!.push({
+      slotId: r.id,
+      label: MUSCLE_LABELS[r.muscle_group] ?? r.muscle_group,
+      exerciseName: name,
+      options: [],
+      isCustom: true,
+    })
   }
 
   const dayNumbers = [1, 2, 3, 4].filter(d => d <= days)
@@ -139,16 +149,19 @@ export default async function CoachingPage() {
   const dayData: DayData[] = dayNumbers
     .map(day => ({
       day,
-      slots: (dayCategories.get(day) ?? [])
-        .filter(c => assignmentMap.has(c.id))
-        .map(c => ({
-          slotId: c.id,
-          label: c.label,
-          exerciseName: assignmentMap.get(c.id) ?? '',
-          oneRm: oneRmMap.get(c.id),
-          options: slotOptions.get(c.id) ?? [],
-        })),
-      extras: extrasByDay.get(day) ?? [],
+      slots: [
+        ...(dayCategories.get(day) ?? [])
+          .filter(c => assignmentMap.has(c.id))
+          .map(c => ({
+            slotId: c.id,
+            label: c.label,
+            exerciseName: assignmentMap.get(c.id) ?? '',
+            oneRm: oneRmMap.get(c.id),
+            options: slotOptions.get(c.id) ?? [],
+            isHidden: hiddenSlotIds.has(c.id),
+          })),
+        ...(customSlotsByDay.get(day) ?? []),
+      ],
     }))
     .filter(d => d.slots.length > 0)
 
@@ -163,7 +176,7 @@ export default async function CoachingPage() {
       .map(c => c.id)
   )
   const compoundSlots = Array.from(exerciseIdBySlot.entries())
-    .filter(([slotId]) => compoundSlotIds.has(slotId))
+    .filter(([slotId]) => compoundSlotIds.has(slotId) && !hiddenSlotIds.has(slotId))
     .map(([slotId, exerciseId]) => ({
       slotId,
       exerciseId,

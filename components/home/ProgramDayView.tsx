@@ -2,10 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { ChevronRight, CheckCircle2, Plus, X, Search } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ChevronRight, ChevronLeft, CheckCircle2, Plus, X, Search } from 'lucide-react'
 import type { UserProgramEnrollment, ProgramSuggestion, ProgramPhase, TargetMuscle } from '@/types'
-import { TARGET_MUSCLE_LABELS } from '@/types'
+import { TARGET_MUSCLE_LABELS, MUSCLE_ORDER } from '@/types'
 import ProgramSlotCard from './ProgramSlotCard'
+import NotCountedBadge from './NotCountedBadge'
+import GrowthReportModal from './GrowthReportModal'
+import type { GrowthReport } from '@/lib/program/week9-report'
 
 function SwipeableCard({ children, onRemove }: { children: React.ReactNode; onRemove: () => void }) {
   const [offset, setOffset] = useState(0)
@@ -104,12 +108,20 @@ const PHASE_DESCRIPTIONS: Record<ProgramPhase, string> = {
 // dbId は user_program_day_extras.id（削除に使用）、id は user_exercises.id（記録ページで使用）
 type ExtraExercise = { dbId: string; id: string | null; name: string; target_muscle?: string; last_weight_kg?: number | null; last_reps?: number | null }
 type MasterExercise = { id: string; name: string; target_muscle: string }
+type WeekStatus = {
+  completed_exercise_ids: string[]
+  all_complete: boolean
+  // 早送り後、本来のweekStartに到達する前に記録された（=今週未カウントの）exercise_id一覧
+  early_exercise_ids: string[]
+}
+type ConfirmDialog = { title: string; body: string; actionLabel: string; onConfirm: () => void }
 
 type Props = {
   enrollment: UserProgramEnrollment
 }
 
 export default function ProgramDayView({ enrollment }: Props) {
+  const router = useRouter()
   const today = new Date().toLocaleDateString('ja-JP', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
   })
@@ -127,15 +139,23 @@ export default function ProgramDayView({ enrollment }: Props) {
 
   const [currentWeek, setCurrentWeek] = useState(enrollment.current_week)
   const [extraExercises, setExtraExercises] = useState<ExtraExercise[]>([])
-  const [weekStatus, setWeekStatus] = useState<{ completed_exercise_ids: string[]; all_complete: boolean } | null>(null)
+  const [weekStatus, setWeekStatus] = useState<WeekStatus | null>(null)
   const [advancingWeek, setAdvancingWeek] = useState(false)
-  const [deleteConfirm, setDeleteConfirm] = useState<{ name: string; onConfirm: () => void } | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<ConfirmDialog | null>(null)
+  const [loadingGrowthReport, setLoadingGrowthReport] = useState(false)
+  const [growthReport, setGrowthReport] = useState<GrowthReport | null>(null)
+  const [growthReportError, setGrowthReportError] = useState<string | null>(null)
+  const [renewingCycle, setRenewingCycle] = useState(false)
+  const [renewError, setRenewError] = useState<string | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [masterExercises, setMasterExercises] = useState<MasterExercise[]>([])
   // exercise_master.id → user_exercises.id のマップ
   const [masterToUserExId, setMasterToUserExId] = useState<Map<string, string>>(new Map())
   const [masterLoading, setMasterLoading] = useState(false)
+  // マスタに無い名前で追加する場合だけ、部位を選ぶサブステップを挟む（モバイル版と同じ、2026-08-05。
+  // 部位が無いと種目が部位未設定のまま登録されてしまうため）
+  const [pendingCustomName, setPendingCustomName] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Day 切替時に追加種目をAPIからロード
@@ -143,6 +163,7 @@ export default function ProgramDayView({ enrollment }: Props) {
     setExtraExercises([])
     setShowAddForm(false)
     setSearchQuery('')
+    setPendingCustomName(null)
     fetch(`/api/program/day-extras?day=${selectedDay}`)
       .then(r => r.ok ? r.json() : { extras: [] })
       .then(data => setExtraExercises(data.extras ?? []))
@@ -177,14 +198,17 @@ export default function ProgramDayView({ enrollment }: Props) {
       .catch(() => {})
   }
 
-  const hideSlot = async (slotId: string) => {
-    await fetch(`/api/program/slot-assignments/${slotId}`, {
-      method: 'PATCH',
+  // スワイプ削除は今週だけスキップする（来週は再び表示される）。プログラム期間中ずっと外す場合は
+  // コーチング画面の「この種目を外す」（is_hidden）を使う（モバイル版と同じ、2026-08-04）。
+  const skipSlotThisWeek = async (slotId: string) => {
+    const res = await fetch('/api/program/slot-week-skips', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enrollment_id: enrollment.id, is_hidden: true }),
-    }).catch(() => {})
-    // スロットの割り当ては日をまたいで共有されるため、キャッシュ全体を破棄する
-    suggestionCache.current.clear()
+      body: JSON.stringify({ slot_id: slotId }),
+    }).catch(() => null)
+    // 通信断等で失敗した場合はメニューの状態をそのままにする
+    if (!res?.ok) return
+    suggestionCache.current.delete(selectedDay)
     fetchDay(selectedDay, { force: true })
   }
 
@@ -196,7 +220,7 @@ export default function ProgramDayView({ enrollment }: Props) {
       try {
         const body = ex.masterId
           ? { exercise_master_id: ex.masterId }
-          : { custom_name: ex.name }
+          : { custom_name: ex.name, custom_target_muscle: ex.target_muscle, is_compound: false }
         const res = await fetch('/api/exercises', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -223,6 +247,13 @@ export default function ProgramDayView({ enrollment }: Props) {
     }
     setShowAddForm(false)
     setSearchQuery('')
+    setPendingCustomName(null)
+  }
+
+  const closeAddForm = () => {
+    setShowAddForm(false)
+    setSearchQuery('')
+    setPendingCustomName(null)
   }
 
   const removeExercise = async (dbId: string) => {
@@ -242,6 +273,45 @@ export default function ProgramDayView({ enrollment }: Props) {
   const slotNames = new Set(suggestion?.slots.map(s => s.exercise.name) ?? [])
 
   const availableDays = Array.from({ length: enrollment.days_per_week }, (_, i) => i + 1)
+
+  // Week9の全種目記録完了時の「成果を見る」。次のサイクルを始める前にまず成長レポート
+  // （読み取り専用）を見せ、褒めてから次へ進むか決めてもらう（モバイル版と同じ順序）。
+  const showGrowthReport = async () => {
+    setLoadingGrowthReport(true)
+    setGrowthReportError(null)
+    setRenewError(null)
+    try {
+      const res = await fetch('/api/program/growth-report')
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? '成長レポートの取得に失敗しました')
+      setGrowthReport((data as { growth_report: GrowthReport }).growth_report)
+    } catch (e) {
+      setGrowthReportError(e instanceof Error ? e.message : '成長レポートの取得に失敗しました')
+    } finally {
+      setLoadingGrowthReport(false)
+    }
+  }
+
+  // 実績から1RMを自動推定し、種目の選び直しなしで次の9週間プログラムを始める。
+  // 新しいenrollmentはサーバーコンポーネント側で取り直す（page.tsxがenrollment.idをkeyにして再マウントする）。
+  const renewCycle = async () => {
+    setRenewingCycle(true)
+    setRenewError(null)
+    try {
+      const res = await fetch('/api/program/renew-cycle', { method: 'POST' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error((data as { error?: string }).error ?? '次のプログラムの作成に失敗しました')
+      }
+      try { sessionStorage.setItem('auxlog_program_day', '1') } catch { /* ignore */ }
+      setGrowthReport(null)
+      router.refresh()
+    } catch (e) {
+      setRenewError(e instanceof Error ? e.message : '次のプログラムの作成に失敗しました')
+    } finally {
+      setRenewingCycle(false)
+    }
+  }
 
   const fetchWeekStatus = useCallback(async () => {
     try {
@@ -388,6 +458,19 @@ export default function ProgramDayView({ enrollment }: Props) {
         </div>
       )}
 
+      {weekStatus?.all_complete && currentWeek === 9 && (
+        <div className="px-5 pt-1">
+          <button
+            onClick={showGrowthReport}
+            disabled={loadingGrowthReport}
+            className="w-full py-4 rounded-3xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-50 transition-opacity"
+          >
+            {loadingGrowthReport ? '集計中...' : `Week ${currentWeek} 完了 → 成果を見る`}
+          </button>
+          {growthReportError && <p className="mt-2 text-[12px] text-red-500 text-center">{growthReportError}</p>}
+        </div>
+      )}
+
       {/* コンテンツ */}
       <div className="px-5 py-4 space-y-4">
         {loading ? (
@@ -424,11 +507,17 @@ export default function ProgramDayView({ enrollment }: Props) {
               .map(slot => (
                 <SwipeableCard
                   key={slot.slot_id}
-                  onRemove={() => setDeleteConfirm({ name: slot.exercise.name, onConfirm: () => hideSlot(slot.slot_id) })}
+                  onRemove={() => setDeleteConfirm({
+                    title: `「${slot.exercise.name}」を今週だけスキップしますか？`,
+                    body: '来週は再びメニューに表示されます。トレーニング記録は削除されません。',
+                    actionLabel: 'スキップ',
+                    onConfirm: () => skipSlotThisWeek(slot.slot_id),
+                  })}
                 >
                   <ProgramSlotCard
                     slot={slot}
                     is_done={weekStatus?.completed_exercise_ids.includes(slot.exercise.id) ?? false}
+                    not_counted_this_week={weekStatus?.early_exercise_ids?.includes(slot.exercise.id) ?? false}
                   />
                 </SwipeableCard>
               ))}
@@ -436,8 +525,17 @@ export default function ProgramDayView({ enrollment }: Props) {
             {/* 追加種目カード */}
             {extraExercises.map(ex => {
               const isDone = ex.id != null && (weekStatus?.completed_exercise_ids.includes(ex.id) ?? false)
+              const notCounted = ex.id != null && (weekStatus?.early_exercise_ids?.includes(ex.id) ?? false)
               return (
-                <SwipeableCard key={ex.dbId} onRemove={() => setDeleteConfirm({ name: ex.name, onConfirm: () => removeExercise(ex.dbId) })}>
+                <SwipeableCard
+                  key={ex.dbId}
+                  onRemove={() => setDeleteConfirm({
+                    title: `「${ex.name}」を外しますか？`,
+                    body: '今日のメニューから外します。トレーニング記録は削除されません。',
+                    actionLabel: '外す',
+                    onConfirm: () => removeExercise(ex.dbId),
+                  })}
+                >
                   <Link
                     href={ex.id ? `/record?exerciseId=${ex.id}` : '/record'}
                     className={`block rounded-3xl px-5 pt-4 pb-5 active:scale-[0.99] transition-transform ${
@@ -460,6 +558,7 @@ export default function ProgramDayView({ enrollment }: Props) {
                         : <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 mt-1 shrink-0" />
                       }
                     </div>
+                    {!isDone && notCounted && <NotCountedBadge />}
                     {ex.last_weight_kg != null && (
                       <p className="text-[12px] text-zinc-400 dark:text-zinc-500">
                         前回 {ex.last_weight_kg}kg × {ex.last_reps}回
@@ -487,10 +586,8 @@ export default function ProgramDayView({ enrollment }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
           <div className="absolute inset-0 bg-black/60" onClick={() => setDeleteConfirm(null)} />
           <div className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
-            <p className="text-base font-semibold text-black dark:text-white">「{deleteConfirm.name}」を外しますか？</p>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              今日のメニューから外します。トレーニング記録は削除されません。
-            </p>
+            <p className="text-base font-semibold text-black dark:text-white">{deleteConfirm.title}</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{deleteConfirm.body}</p>
             <div className="flex gap-3 pt-1">
               <button
                 onClick={() => setDeleteConfirm(null)}
@@ -502,11 +599,21 @@ export default function ProgramDayView({ enrollment }: Props) {
                 onClick={() => { deleteConfirm.onConfirm(); setDeleteConfirm(null) }}
                 className="flex-1 py-3 rounded-xl bg-red-500 text-sm font-medium text-white"
               >
-                外す
+                {deleteConfirm.actionLabel}
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {growthReport && (
+        <GrowthReportModal
+          report={growthReport}
+          isRenewing={renewingCycle}
+          renewError={renewError}
+          onRenew={renewCycle}
+          onDismiss={() => setGrowthReport(null)}
+        />
       )}
 
       {/* 種目選択オーバーレイ */}
@@ -514,6 +621,15 @@ export default function ProgramDayView({ enrollment }: Props) {
         <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-black">
           {/* ヘッダー */}
           <div className="flex items-center gap-3 px-5 pt-14 pb-4 border-b border-zinc-100 dark:border-zinc-900">
+            {pendingCustomName ? (
+              <button
+                onClick={() => setPendingCustomName(null)}
+                className="flex-1 min-w-0 flex items-center gap-1 text-left text-[15px] text-zinc-500 dark:text-zinc-400"
+              >
+                <ChevronLeft className="w-4 h-4 shrink-0" />
+                <span className="truncate">「{pendingCustomName}」の部位</span>
+              </button>
+            ) : (
             <div className="flex-1 flex items-center gap-2 px-4 py-3 rounded-2xl bg-zinc-100 dark:bg-zinc-900">
               <Search className="w-4 h-4 text-zinc-400 shrink-0" />
               <input
@@ -531,17 +647,34 @@ export default function ProgramDayView({ enrollment }: Props) {
                 </button>
               )}
             </div>
+            )}
             <button
-              onClick={() => { setShowAddForm(false); setSearchQuery('') }}
+              onClick={closeAddForm}
               className="text-sm font-medium text-zinc-500 dark:text-zinc-400 shrink-0"
             >
               キャンセル
             </button>
           </div>
 
+          <p className="px-5 pt-3 text-[12px] text-zinc-500 dark:text-zinc-400">
+            今週のメニューにだけ追加されます。毎週続ける種目は「プログラム」画面から追加してください。
+          </p>
+
           {/* リスト */}
           <div className="flex-1 overflow-y-auto">
-            {masterLoading ? (
+            {pendingCustomName ? (
+              <div className="grid grid-cols-2 gap-2 p-5">
+                {MUSCLE_ORDER.map(m => (
+                  <button
+                    key={m}
+                    onClick={() => addExercise({ id: null, masterId: null, name: pendingCustomName, target_muscle: m })}
+                    className="py-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                  >
+                    {TARGET_MUSCLE_LABELS[m]}
+                  </button>
+                ))}
+              </div>
+            ) : masterLoading ? (
               <p className="text-sm text-zinc-400 text-center py-12">読み込み中...</p>
             ) : (
               <>
@@ -566,7 +699,7 @@ export default function ProgramDayView({ enrollment }: Props) {
                 {/* DBにない場合は自由入力で追加 */}
                 {trimmedQuery && !filteredMaster.some(e => e.name === trimmedQuery) && (
                   <button
-                    onClick={() => addExercise({ id: null, masterId: null, name: trimmedQuery })}
+                    onClick={() => setPendingCustomName(trimmedQuery)}
                     className="w-full flex items-center gap-3 px-5 py-4 text-left border-b border-zinc-50 dark:border-zinc-900 active:bg-zinc-50 dark:active:bg-zinc-900 transition-colors"
                   >
                     <Plus className="w-4 h-4 text-zinc-400 shrink-0" />
