@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { Check, ChevronLeft, ChevronRight, Smartphone, Zap, Sliders, Sparkles } from 'lucide-react'
 import {
   BASE_CATEGORIES_BY_RANK,
@@ -63,7 +62,7 @@ const waitForGeneratingMin = () => new Promise<void>(resolve => setTimeout(resol
 // Component
 // ──────────────────────────────────────────────────────────
 
-type Step = 'frequency' | 'priority_muscles' | 'exercises' | 'one_rms' | 'program_intro' | 'install'
+type Step = 'start' | 'frequency' | 'priority_muscles' | 'exercises' | 'one_rms' | 'program_intro' | 'install'
 
 type OneRmEntry = {
   final_kg: string
@@ -84,7 +83,7 @@ type Props = { exercises: ExerciseMasterRow[] }
 export default function OnboardingClient({ exercises }: Props) {
   const router = useRouter()
   const exerciseByName = new Map(exercises.map(e => [e.name, e]))
-  const [step, setStep] = useState<Step>('frequency')
+  const [step, setStep] = useState<Step>('start')
   const [daysPerWeek, setDaysPerWeek] = useState<DaysPerWeek>(4)
   const [sessionMinutes, setSessionMinutes] = useState<SessionDurationMinutes>(90)
   // 空 = 未選択（全身くまなく）。旧システムにあった「未選択なら胸」フォールバックは
@@ -334,6 +333,38 @@ export default function OnboardingClient({ exercises }: Props) {
           <p key={genMsgIndex} className="auxlog-msg text-white/50 text-sm">
             {GEN_MESSAGES[genMsgIndex]}
           </p>
+        </div>
+      </div>
+    )
+  }
+
+  // ── start: 招待コードの有無 ─────────────────────────────────
+  // トレーナーの指導を受ける人は自分でプログラムを作らず、招待コードからトレーナーのプランで始める
+  if (step === 'start') {
+    const choices = [
+      { key: 'invite', title: '招待コードを持っている', sub: 'トレーナーが作ったプランで記録します', onClick: () => router.push('/invite') },
+      { key: 'self', title: '自分でプログラムを作る', sub: 'いくつかの質問に答えると、9週間のプログラムを作ります', onClick: () => setStep('frequency') },
+    ]
+    return (
+      <div className="min-h-screen bg-white dark:bg-black">
+        <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
+          <h1 className="text-xl font-semibold text-black dark:text-white">はじめに</h1>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">トレーナーから招待コードを受け取っていますか？</p>
+        </div>
+        <div className="px-6 py-8 space-y-3">
+          {choices.map(c => (
+            <button
+              key={c.key}
+              onClick={c.onClick}
+              className="w-full text-left px-5 py-4 rounded-2xl border-2 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors flex items-center justify-between gap-3"
+            >
+              <div>
+                <p className="text-base font-semibold text-black dark:text-white">{c.title}</p>
+                <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{c.sub}</p>
+              </div>
+              <ChevronRight className="w-5 h-5 shrink-0 text-zinc-300 dark:text-zinc-700" />
+            </button>
+          ))}
         </div>
       </div>
     )
@@ -942,7 +973,16 @@ export default function OnboardingClient({ exercises }: Props) {
   return (
     <div className="min-h-screen bg-white dark:bg-black pb-40">
       <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
-        <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 1 / 6</p>
+        <div className="flex items-center gap-2 mb-1">
+          <button
+            onClick={() => setStep('start')}
+            className="text-zinc-400 hover:text-black dark:hover:text-white transition-colors -ml-1"
+            aria-label="前のステップへ"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">ステップ 1 / 6</p>
+        </div>
         <h1 className="text-xl font-semibold text-black dark:text-white">トレーニング設定</h1>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           週の頻度と1回のセッション時間を教えてください
@@ -950,18 +990,6 @@ export default function OnboardingClient({ exercises }: Props) {
       </div>
 
       <div className="px-6 py-8 space-y-8">
-        {/* トレーナーの指導を受ける人は、自分でプログラムを作らずに招待コードから始める */}
-        <Link
-          href="/invite"
-          className="flex items-center justify-between px-5 py-4 rounded-2xl border border-zinc-200 dark:border-zinc-800"
-        >
-          <div>
-            <p className="text-sm font-semibold text-black dark:text-white">招待コードを持っている</p>
-            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">トレーナーのプランで始める方はこちら</p>
-          </div>
-          <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
-        </Link>
-
         <div className="space-y-3">
           <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">週何回？</h2>
           {(
