@@ -4,6 +4,7 @@ import CoachingHome from '@/components/coaching/CoachingHome'
 import { redirect } from 'next/navigation'
 import type { UserProgramEnrollment } from '@/types'
 import { getLivePlan, getTraineeLink, loadCoachingWeek } from '@/lib/coaching/trainee'
+import { autoCreateSelfProgramAfterContract } from '@/lib/program/auto_self_program'
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ day?: string }> }) {
   const supabase = await createClient()
@@ -42,12 +43,18 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     )
   }
 
-  const { data: enrollment } = await supabase
+  const loadEnrollment = async () => (await supabase
     .from('user_program_enrollments')
     .select('*')
     .eq('user_id', user.id)
     .eq('is_active', true)
-    .maybeSingle()
+    .maybeSingle()).data
+
+  let enrollment = await loadEnrollment()
+  // トレーナーとの契約が終わった直後は、記録から1RMを推定してセルフモードのプログラムを自動で作る
+  if (!enrollment && (await autoCreateSelfProgramAfterContract(supabase, user.id)) === 'created') {
+    enrollment = await loadEnrollment()
+  }
 
   if (!enrollment) {
     redirect('/onboarding')

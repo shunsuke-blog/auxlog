@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { dbError } from '@/lib/api/errors'
-import { DEFAULT_PROGRAM_ID } from '@/lib/constants/api'
+import { createSelfEnrollment } from '@/lib/program/create_self_enrollment'
 import { VALID_CATEGORY_IDS } from '@/lib/constants/program_composition'
 import { z } from 'zod'
 import { getTraineeLink } from '@/lib/coaching/trainee'
@@ -26,9 +26,6 @@ const EnrollSchema = z.object({
   })),
 })
 
-const todayJST = () =>
-  new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' })
-
 export async function POST(request: Request) {
   const supabase = await createClient(request)
   const { data: { user } } = await supabase.auth.getUser()
@@ -44,128 +41,10 @@ export async function POST(request: Request) {
   }
   const { days_per_week, session_duration_minutes, priority_muscles, slot_assignments, one_rms } = parsed.data
 
-  // アクティブなエンロールメントが既に存在する場合はエラー
-  const { data: existing } = await supabase
-    .from('user_program_enrollments')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('is_active', true)
-    .maybeSingle()
-
-  if (existing) {
-    return NextResponse.json({ error: 'すでにアクティブなプログラムがあります' }, { status: 400 })
+  const result = await createSelfEnrollment(supabase, user.id, { days_per_week, session_duration_minutes, priority_muscles, slot_assignments, one_rms })
+  if ('error' in result) {
+    if (result.status === 500) return dbError(result.error, result.cause)
+    return NextResponse.json({ error: result.error }, { status: result.status })
   }
-
-  // エンロールメント作成
-  const { data: enrollment, error: enrollError } = await supabase
-    .from('user_program_enrollments')
-    .insert({
-      user_id: user.id,
-      program_id: DEFAULT_PROGRAM_ID,
-      days_per_week,
-      session_duration_minutes,
-      priority_muscles,
-      started_at: todayJST(),
-    })
-    .select()
-    .single()
-
-  if (enrollError || !enrollment) return dbError('プログラム登録に失敗しました', enrollError)
-
-  // スロット割り当て処理（N+1回避: 事前一括取得 → ローカル解決 → バルク insert）
-  const uniqueNames = [...new Set(slot_assignments.map(a => a.exercise_name))]
-
-  const [{ data: masters }, { data: existingUes }, { data: maxSortRow }] = await Promise.all([
-    supabase.from('exercise_master').select('id, name, is_compound').in('name', uniqueNames),
-    supabase.from('user_exercises').select('id, exercise_master_id, is_active').eq('user_id', user.id),
-    supabase.from('user_exercises').select('sort_order').eq('user_id', user.id)
-      .order('sort_order', { ascending: false }).limit(1),
-  ])
-
-  const masterByName = new Map((masters ?? []).map(m => [m.name, m]))
-  const ueByMasterId = new Map((existingUes ?? []).map(e => [e.exercise_master_id as string, e.id]))
-  const ueIsActiveById = new Map((existingUes ?? []).map(e => [e.id as string, e.is_active as boolean]))
-  let nextSort = (maxSortRow?.[0]?.sort_order ?? 0) + 1
-
-  // 名前 → user_exercise.id のマップを構築（未登録分はまとめて作成）
-  const exerciseIdByName = new Map<string, string>()
-
-  // 既存マスタ種目でユーザーに登録済みのものを先に埋める
-  for (const name of uniqueNames) {
-    const master = masterByName.get(name)
-    if (master) {
-      const existingId = ueByMasterId.get(master.id)
-      if (existingId) exerciseIdByName.set(name, existingId)
-    }
-  }
-
-  // 再エンロール時に soft-delete された種目を reactivate する
-  const reactivateIds = [...exerciseIdByName.values()].filter(id => ueIsActiveById.get(id) === false)
-  if (reactivateIds.length > 0) {
-    const { error: reactivateError } = await supabase
-      .from('user_exercises')
-      .update({ is_active: true })
-      .in('id', reactivateIds)
-      .eq('user_id', user.id)
-    if (reactivateError) return dbError('種目の再有効化に失敗しました', reactivateError)
-  }
-
-  // 未登録分を収集してバルク insert
-  const toInsert: { name: string; row: Record<string, unknown> }[] = []
-  for (const name of uniqueNames) {
-    if (exerciseIdByName.has(name)) continue
-    const master = masterByName.get(name)
-    if (master) {
-      toInsert.push({
-        name,
-        row: { user_id: user.id, exercise_master_id: master.id, sort_order: nextSort++, is_compound: master.is_compound },
-      })
-    } else {
-      toInsert.push({
-        name,
-        row: { user_id: user.id, custom_name: name, sort_order: nextSort++, is_compound: false },
-      })
-    }
-  }
-
-  if (toInsert.length > 0) {
-    const { data: newUes, error: ueError } = await supabase
-      .from('user_exercises')
-      .insert(toInsert.map(t => t.row))
-      .select('id')
-    if (ueError || !newUes) return dbError('種目の追加に失敗しました', ueError)
-    toInsert.forEach((t, i) => exerciseIdByName.set(t.name, newUes[i].id))
-  }
-
-  // user_slot_assignments をバルク insert
-  const slotRows = slot_assignments.map(a => ({
-    user_id: user.id,
-    enrollment_id: enrollment.id,
-    slot_id: a.slot_id,
-    exercise_id: exerciseIdByName.get(a.exercise_name)!,
-  }))
-
-  const { error: saError } = await supabase.from('user_slot_assignments').insert(slotRows)
-  if (saError) return dbError('スロット割り当てに失敗しました', saError)
-
-  // 1RM 登録
-  // 新方式(program_composition.ts)ではchest_press一本化のため、旧chest_triceps_compound
-  // フォールバック（chest_compoundの1RMを流用する処理）は不要になった（2026-07-08削除）。
-  if (one_rms.length > 0) {
-    const { error: ormError } = await supabase
-      .from('user_slot_one_rms')
-      .insert(
-        one_rms.map(orm => ({
-          user_id: user.id,
-          slot_id: orm.slot_id,
-          one_rm_kg: orm.one_rm_kg,
-          recorded_at: todayJST(),
-          source: orm.source,
-        }))
-      )
-
-    if (ormError) return dbError('1RM の登録に失敗しました', ormError)
-  }
-
-  return NextResponse.json({ enrollment_id: enrollment.id })
+  return NextResponse.json({ enrollment_id: result.enrollmentId })
 }

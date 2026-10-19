@@ -62,7 +62,7 @@ export default function TrainerContractSection({ link }: Props) {
         <div className="space-y-3 rounded-xl bg-red-50 dark:bg-red-950/40 px-4 py-3">
           <div className="text-xs text-zinc-600 dark:text-zinc-300 space-y-1 leading-relaxed">
             <p>契約を終了すると、トレーナーのプランは使えなくなります（途中から再開はできません）。</p>
-            <p>これまでの記録はそのまま残り、自分のプログラムを作って無料で続けられます。</p>
+            <p>これまでの記録はそのまま残ります。記録から重量の基準を推定して、自分用のプログラムを自動で作るので、無料でそのまま続けられます。</p>
           </div>
           <div className="flex gap-2">
             <button

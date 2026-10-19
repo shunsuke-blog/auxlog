@@ -10,6 +10,7 @@ const RULE_MESSAGES: Record<string, string> = {
   already_linked: 'すでに担当のトレーナーがいます。今の契約を終了してから入力してください',
   already_recorded: '記録済みの種目はスキップできません',
   final_week: 'プランは最終週です',
+  not_final_week: 'プランの最終週が終わってから完了できます',
 }
 
 // トレーナー用RPCのエラーをHTTPレスポンスに変換する。RPC側は権限エラーを 42501、

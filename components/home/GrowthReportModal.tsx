@@ -8,6 +8,23 @@ type Props = {
   renewError: string | null
   onRenew: () => void
   onDismiss: () => void
+  /** 文言の差し替え（コーチングモードのプラン完了時に使う）。省略時はセルフモードの9週間の文言 */
+  copy?: GrowthReportCopy
+}
+
+export type GrowthReportCopy = {
+  /** 「9週間」「6週間」など */
+  period: string
+  message: string
+  action: string
+  actionBusy: string
+}
+
+const SELF_MODE_COPY: GrowthReportCopy = {
+  period: '9週間',
+  message: '9週間、記録を続けたこと自体がいちばんの積み重ねです。今週の実績をもとに重量の基準を自動で更新して、次の9週間プログラムを作成します。種目の選び直しは不要で、これまでの記録もそのまま残ります。',
+  action: '次の9週間を始める',
+  actionBusy: '作成中...',
 }
 
 // LP(auxlog-lp01)のCTAボタンと同じアクセントカラー。ライム背景+黒文字の固定コントラストでのみ使う
@@ -55,14 +72,14 @@ function bestGrown(report: GrowthReport): { gain: OneRmGain; oldKg: number; diff
   return best
 }
 
-function fallbackHeadline(report: GrowthReport): string {
-  if (report.total_sessions > 0) return `9週間、${report.total_sessions}回のトレーニングをやり切りました。`
-  return '9週間、お疲れ様でした。'
+function fallbackHeadline(report: GrowthReport, period: string): string {
+  if (report.total_sessions > 0) return `${period}、${report.total_sessions}回のトレーニングをやり切りました。`
+  return `${period}、お疲れ様でした。`
 }
 
 // Week9(MaxOut)の全種目記録が完了した直後に表示する成長レポート。成果を先に見せてから
 // 「次のサイクルを始めるか」を選んでもらう（モバイル版 growth-report-modal.tsx の移植）。
-export default function GrowthReportModal({ report, isRenewing, renewError, onRenew, onDismiss }: Props) {
+export default function GrowthReportModal({ report, isRenewing, renewError, onRenew, onDismiss, copy = SELF_MODE_COPY }: Props) {
   const best = bestGrown(report)
 
   return (
@@ -85,7 +102,7 @@ export default function GrowthReportModal({ report, isRenewing, renewError, onRe
             </p>
           </div>
         ) : (
-          <p className="text-lg font-bold text-center text-black dark:text-white leading-relaxed">{fallbackHeadline(report)}</p>
+          <p className="text-lg font-bold text-center text-black dark:text-white leading-relaxed">{fallbackHeadline(report, copy.period)}</p>
         )}
 
         <div className="overflow-y-auto">
@@ -96,7 +113,7 @@ export default function GrowthReportModal({ report, isRenewing, renewError, onRe
             </div>
             <div className="flex-1 flex flex-col items-center gap-1">
               <p className="text-[28px] leading-8 font-semibold text-black dark:text-white">{formatKg(report.total_volume_kg)}</p>
-              <p className="text-[12px] text-zinc-500 dark:text-zinc-400">総重量（9週間の合計）</p>
+              <p className="text-[12px] text-zinc-500 dark:text-zinc-400">総重量（{copy.period}の合計）</p>
             </div>
           </div>
 
@@ -126,7 +143,7 @@ export default function GrowthReportModal({ report, isRenewing, renewError, onRe
           )}
 
           <p className="text-[12px] text-zinc-500 dark:text-zinc-400 text-center leading-5">
-            9週間、記録を続けたこと自体がいちばんの積み重ねです。今週の実績をもとに重量の基準を自動で更新して、次の9週間プログラムを作成します。種目の選び直しは不要で、これまでの記録もそのまま残ります。
+            {copy.message}
           </p>
         </div>
 
@@ -145,7 +162,7 @@ export default function GrowthReportModal({ report, isRenewing, renewError, onRe
             disabled={isRenewing}
             className="flex-1 py-3 rounded-xl bg-black dark:bg-white text-sm font-bold text-white dark:text-black disabled:opacity-40"
           >
-            {isRenewing ? '作成中...' : '次の9週間を始める'}
+            {isRenewing ? copy.actionBusy : copy.action}
           </button>
         </div>
       </div>

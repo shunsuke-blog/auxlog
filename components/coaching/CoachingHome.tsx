@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, CheckCircle2 } from 'lucide-react'
+import GrowthReportModal from '@/components/home/GrowthReportModal'
+import type { GrowthReport } from '@/lib/program/week9-report'
 import { formatTargetSet, isWeekComplete, type CoachingDay, type CoachingExercise, type LivePlan } from '@/lib/coaching/trainee'
 
 type Props = {
@@ -26,6 +28,10 @@ export default function CoachingHome({ plan, trainerName, days, initialDay }: Pr
   const [advancing, setAdvancing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [report, setReport] = useState<GrowthReport | null>(null)
+  const [loadingReport, setLoadingReport] = useState(false)
+  const [finishing, setFinishing] = useState(false)
+  const [finishError, setFinishError] = useState<string | null>(null)
 
   const day = days.find(d => d.dayNumber === selectedDay) ?? days[0]
   const weekComplete = isWeekComplete(days)
@@ -49,6 +55,39 @@ export default function CoachingHome({ plan, trainerName, days, initialDay }: Pr
       setError(e instanceof Error ? e.message : '週の更新に失敗しました')
     } finally {
       setAdvancing(false)
+    }
+  }
+
+  // 最終週の全種目が済んだら、成長レポートを見せてからプランを完了する（セルフモードの Week9 と同じ順序）
+  const showReport = async () => {
+    setLoadingReport(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/coaching-plan/growth-report')
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? '成長レポートの取得に失敗しました')
+      setFinishError(null)
+      setReport((data as { growth_report: GrowthReport }).growth_report)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '成長レポートの取得に失敗しました')
+    } finally {
+      setLoadingReport(false)
+    }
+  }
+
+  const finishPlan = async () => {
+    setFinishing(true)
+    setFinishError(null)
+    try {
+      const res = await fetch('/api/coaching-plan/finish', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? 'プランの完了に失敗しました')
+      setReport(null)
+      router.refresh()
+    } catch (e) {
+      setFinishError(e instanceof Error ? e.message : 'プランの完了に失敗しました')
+    } finally {
+      setFinishing(false)
     }
   }
 
@@ -116,7 +155,14 @@ export default function CoachingHome({ plan, trainerName, days, initialDay }: Pr
       {weekComplete && isFinalWeek && (
         <div className="mx-5 mt-3 px-5 py-4 rounded-3xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
           <p className="text-sm font-semibold text-black dark:text-white">プランの全メニューが終わりました 🎉</p>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">お疲れさまでした。次のプランはトレーナーから共有されます。</p>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{plan.totalWeeks}週間の成果を確認して、プランを完了しましょう。</p>
+          <button
+            onClick={showReport}
+            disabled={loadingReport}
+            className="mt-3 w-full py-3 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-50"
+          >
+            {loadingReport ? '集計中...' : '成果を見る'}
+          </button>
         </div>
       )}
 
@@ -137,6 +183,22 @@ export default function CoachingHome({ plan, trainerName, days, initialDay }: Pr
           ))
         )}
       </div>
+
+      {report && (
+        <GrowthReportModal
+          report={report}
+          isRenewing={finishing}
+          renewError={finishError}
+          onRenew={finishPlan}
+          onDismiss={() => setReport(null)}
+          copy={{
+            period: `${plan.totalWeeks}週間`,
+            message: `${plan.totalWeeks}週間、記録を続けたこと自体がいちばんの積み重ねです。プランを完了すると、${trainerName} さんが次のプランを共有するまでホームでお待ちいただく形になります。これまでの記録はそのまま残ります。`,
+            action: 'プランを完了する',
+            actionBusy: '完了中...',
+          }}
+        />
+      )}
     </>
   )
 }
