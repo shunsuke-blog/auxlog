@@ -123,8 +123,10 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
       </div>
 
       {creating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
-          <div className="absolute inset-0 bg-black/60" onClick={busy ? undefined : () => setCreating(false)} />
+        // 上揃えにする: 「Auxlog で作成／白紙から作成」の切り替えで中身の高さが変わっても、
+        // 切り替えボタンの位置が動かないようにする（2026-10-19 オーナー指摘。中央揃えだと上端がずれる）
+        <div className="fixed inset-0 z-50 flex items-start justify-center px-6 pt-[10vh] pb-6 overflow-y-auto">
+          <div className="fixed inset-0 bg-black/60" onClick={busy ? undefined : () => setCreating(false)} />
           <form onSubmit={handleCreate} className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
             <p className="text-base font-semibold text-black dark:text-white">新しいテンプレート</p>
 

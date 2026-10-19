@@ -57,7 +57,8 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose }: 
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center md:px-6">
+    // PCでは上揃え: 検索結果の件数や「独自の種目を作成」の展開で高さが変わっても、検索欄の位置を動かさない
+    <div className="fixed inset-0 z-50 flex items-center md:items-start justify-center md:px-6 md:pt-[10vh]">
       <div className="absolute inset-0 bg-black/60" onClick={busy ? undefined : onClose} />
       <div className="relative w-full h-full md:h-auto md:max-h-[80vh] md:max-w-lg flex flex-col bg-white dark:bg-black md:rounded-2xl overflow-hidden">
         <div className="flex items-center gap-3 px-5 pt-6 pb-4 border-b border-zinc-100 dark:border-zinc-900">
