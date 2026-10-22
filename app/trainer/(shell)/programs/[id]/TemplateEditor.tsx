@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowDown, ArrowUp, ChevronLeft, Copy, GripVertical, Plus, Trash2, X } from 'lucide-react'
@@ -192,31 +192,39 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     setDirty(prev => { const n = new Set(prev); ids.forEach(id => n.delete(id)); return n })
   }
 
-  // Day ごと表示で、未保存の Day から別の Day・週へ移るときは「保存しますか？」を確認する
-  const leaveDay = (proceed: () => void) => {
-    if (!dirty.has(dayId)) {
-      setMessage(null)
-      proceed()
-      return
-    }
-    setPending({ saveIds: [dayId], proceed })
-  }
-
+  // Day・週を移っても未保存の変更はそのまま残す（Day に ● が付く）。「保存しますか？」は編集画面を
+  // 離れる時（戻る・サイドバーのタブ）にまとめて聞く（2026-10-22 オーナー依頼）。
   const selectDay = (id: string) => {
-    if (id !== dayId) leaveDay(() => setDayId(id))
+    if (id !== dayId) { setMessage(null); setDayId(id) }
   }
 
   const selectWeek = (w: number) => {
     // 週を変えても同じ Day 番号を開く（無ければその週の最初の Day）
     const target = days.find(d => d.weekNumber === w && d.dayNumber === current?.dayNumber) ?? days.find(d => d.weekNumber === w)
-    if (target && target.id !== dayId) leaveDay(() => { setWeek(w); setDayId(target.id) })
+    if (target && target.id !== dayId) { setMessage(null); setWeek(w); setDayId(target.id) }
   }
 
-  const goBack = (e: React.MouseEvent) => {
+  // 未保存のまま画面内のリンク（サイドバーのタブなど）で離れようとしたら確認する。
+  // タブを閉じる・読み込み直す時はブラウザ標準の確認を出す。
+  useEffect(() => {
     if (dirty.size === 0) return
-    e.preventDefault()
-    setPending({ saveIds: [...dirty], proceed: () => router.push('/trainer/programs') })
-  }
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
+      const a = (e.target as HTMLElement | null)?.closest('a')
+      const href = a?.getAttribute('href')
+      if (!a || !href || !href.startsWith('/') || a.target === '_blank') return
+      e.preventDefault()
+      e.stopPropagation()
+      setPending({ saveIds: [...dirty], proceed: () => router.push(href) })
+    }
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    document.addEventListener('click', onClick, true)
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => {
+      document.removeEventListener('click', onClick, true)
+      window.removeEventListener('beforeunload', onBeforeUnload)
+    }
+  }, [dirty, router])
 
   const resolvePending = async (choice: 'save' | 'discard' | 'cancel') => {
     if (!pending) return
@@ -325,7 +333,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-4 space-y-3">
         {/* 1行目は表示を切り替えても高さ・位置が変わらない（切り替えボタンの位置を固定する） */}
         <div className="flex items-center gap-2">
-          <Link href="/trainer/programs" onClick={goBack} className="p-1 -ml-1 text-zinc-400 hover:text-black dark:hover:text-white">
+          <Link href="/trainer/programs" className="p-1 -ml-1 text-zinc-400 hover:text-black dark:hover:text-white">
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <input
@@ -401,12 +409,15 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           ))}
         </aside>
       )}
-      <div className="lg:flex-1 lg:min-w-0 lg:overflow-y-auto">
+      {/* Day ごと表示では、この列のどこに落としても追加できる（種目カードの上なら、その前後に入る） */}
+      <div
+        className="lg:flex-1 lg:min-w-0 lg:overflow-y-auto"
+        onDragOver={view === 'day' ? e => onDragOverAt(e, exercises.length) : undefined}
+        onDrop={view === 'day' ? e => onDropAt(e, dropIndex ?? exercises.length) : undefined}
+        onDragLeave={view === 'day' ? e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropIndex(null) } : undefined}
+      >
       {view === 'day' ? (
-        <div
-          className="px-6 py-6 space-y-4 max-w-4xl"
-          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropIndex(null) }}
-        >
+        <div className="px-6 py-6 space-y-4 max-w-4xl">
           {week > 1 && week1SameDay && (
             <button onClick={copyFromWeek1} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900">
               <Copy className="w-4 h-4" />
@@ -417,7 +428,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           {exercises.length === 0 && <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-8">この日の種目はまだありません。</p>}
 
           {exercises.map((ex, exIdx) => (
-            <div key={ex.key} className="relative" onDragOver={e => onDragOverCard(e, exIdx)} onDrop={e => onDropAt(e, dropIndex ?? exIdx)}>
+            <div key={ex.key} className="relative" onDragOver={e => { e.stopPropagation(); onDragOverCard(e, exIdx) }} onDrop={e => { e.stopPropagation(); onDropAt(e, dropIndex ?? exIdx) }}>
             {dropIndex === exIdx && <div className="absolute -top-2.5 left-0 right-0 h-1 rounded-full bg-black dark:bg-white" />}
             <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
               <div className="flex items-start gap-2">
@@ -458,9 +469,8 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           <button
             onClick={() => setPicking(true)}
             disabled={exercises.length >= 30}
-            onDragOver={e => onDragOverAt(e, exercises.length)}
-            onDragLeave={() => setDropIndex(null)}
-            onDrop={e => onDropAt(e, exercises.length)}
+            onDragOver={e => { e.stopPropagation(); onDragOverAt(e, exercises.length) }}
+            onDrop={e => { e.stopPropagation(); onDropAt(e, exercises.length) }}
             className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl border border-dashed text-sm disabled:opacity-30 transition-colors ${
               dropIndex === exercises.length
                 ? 'border-black dark:border-white text-black dark:text-white bg-zinc-50 dark:bg-zinc-900'
@@ -522,15 +532,9 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
         <p className={`flex-1 text-sm ${message?.kind === 'error' ? 'text-red-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
           {message?.text ?? (dirty.size > 0 ? `未保存の変更が ${dirty.size} 日分あります` : '')}
         </p>
-        {view === 'day' ? (
-          <button onClick={() => saveDays([dayId])} disabled={!dirty.has(dayId) || saving} className="px-5 py-2.5 rounded-xl bg-black dark:bg-white text-sm font-medium text-white dark:text-black disabled:opacity-40">
-            {saving ? '保存中...' : 'このDayを保存'}
-          </button>
-        ) : (
-          <button onClick={() => saveDays([...dirty])} disabled={dirty.size === 0 || saving} className="px-5 py-2.5 rounded-xl bg-black dark:bg-white text-sm font-medium text-white dark:text-black disabled:opacity-40">
-            {saving ? '保存中...' : `変更をすべて保存（${dirty.size}日分）`}
-          </button>
-        )}
+        <button onClick={() => saveDays([...dirty])} disabled={dirty.size === 0 || saving} className="px-5 py-2.5 rounded-xl bg-black dark:bg-white text-sm font-medium text-white dark:text-black disabled:opacity-40">
+          {saving ? '保存中...' : dirty.size > 0 ? `変更を保存（${dirty.size}日分）` : '保存済み'}
+        </button>
       </div>
 
       {pending && (
