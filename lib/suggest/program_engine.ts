@@ -320,7 +320,8 @@ export function effortRampTargetRpe(weekNumber: number, phase: ProgramPhase, day
 }
 
 export function slotNotes(params: Pick<ProgramWeeklyParams, 'phase' | 'top_set_is_amrap'>): string | undefined {
-  if (params.phase === 'deload') return 'ディロード週 — 重量を抑えて回復に集中'
+  // W8 は「セット数を減らして疲れを抜き、重量は保つ」週（設計書の Volume Deload、2026-10-22 文言を実態に合わせて修正）
+  if (params.phase === 'deload') return 'ディロード週 — セット数を減らして疲れを抜く（重量はそのまま）'
   if (params.phase === 'maxout' && params.top_set_is_amrap) return 'MaxOut週 — 全力で限界まで挑戦！'
   if (params.top_set_is_amrap) return '全力セット: できる限り多くの回数に挑戦！'
   return undefined
