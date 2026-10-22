@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 :root {
+  /* スクロールバーやフォーム部品もダークモードの色にする（白いスクロールバーが浮いて見えていた） */
+  color-scheme: light dark;
   --background: #ffffff;
   --foreground: #000000;
   --my-accent: #B8CC00;

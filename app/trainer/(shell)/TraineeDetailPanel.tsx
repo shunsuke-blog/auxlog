@@ -12,7 +12,7 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
   const detail = row.traineeId && row.status !== 'invited' ? await loadTraineeDetail(supabase, row.traineeId) : null
 
   return (
-    <div className="px-6 py-6 space-y-5 max-w-3xl">
+    <div className="px-6 py-6 space-y-5">
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold text-black dark:text-white">{row.name}</h2>

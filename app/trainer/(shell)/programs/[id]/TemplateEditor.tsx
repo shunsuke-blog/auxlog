@@ -38,7 +38,7 @@ function SetTable({ sets, onChange, onRemove, onAdd }: {
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full max-w-2xl text-sm">
           <thead>
             <tr className="text-[11px] text-zinc-400 text-left">
               <th className="font-medium py-1 pr-2 w-10">セット</th>
@@ -417,7 +417,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
         onDragLeave={view === 'day' ? e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropIndex(null) } : undefined}
       >
       {view === 'day' ? (
-        <div className="px-6 py-6 space-y-4 max-w-4xl">
+        <div className="px-6 py-6 space-y-4">
           {week > 1 && week1SameDay && (
             <button onClick={copyFromWeek1} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900">
               <Copy className="w-4 h-4" />
@@ -487,7 +487,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           </p>
         </div>
       ) : (
-        <div className="px-6 py-6 space-y-4 max-w-4xl">
+        <div className="px-6 py-6 space-y-4">
           {activeExercise && (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               {activeExercise.name}（{muscleLabel(activeExercise.targetMuscle)}）が出てくる {occurrences.length} 回分。週ごとの重量・回数の流れを見ながら直せます。

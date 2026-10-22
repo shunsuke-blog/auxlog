@@ -93,7 +93,7 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
         </button>
       </div>
 
-      <div className="px-6 py-6 space-y-3 max-w-3xl">
+      <div className="px-6 py-6 space-y-3">
         {error && <p className="text-sm text-red-500">{error}</p>}
         {templates.length === 0 ? (
           <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-16">
