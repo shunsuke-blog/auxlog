@@ -103,6 +103,8 @@ export function compositionDays(daysPerWeek: number): DaysPerWeek {
 
 type MovementGroup = 'push' | 'pull' | 'legs' | 'calves' | 'core'
 
+/** 改定ルール①（2026-10-22 オーナー決定）: 部位ごとの Day 割り振りを固定する。
+ *  三頭は押す日（胸・肩）、二頭は引く日（背中）、体幹は脚の日にだけ置く（「どの日でもよい」を廃止）。 */
 function movementGroup(category: CompositionCategory): MovementGroup {
   if (category.id === 'calves') return 'calves'
   if (category.muscle === 'legs') return 'legs'
@@ -114,20 +116,23 @@ function movementGroup(category: CompositionCategory): MovementGroup {
 
 // 週5〜7日の配置候補。同じ部位の高強度セッションの間隔を48時間以上空ける
 // （5日: 上半身/下半身/プッシュ/プル/脚、6日: プッシュ/プル/脚 ×2、7日: 6日＋体幹・カーフの日）。
-const EXTENDED_ELIGIBLE_DAYS: Record<5 | 6 | 7, Record<MovementGroup, number[]>> = {
-  5: { push: [1, 3], pull: [1, 4], legs: [2, 5], calves: [2, 5], core: [1, 2, 3, 4, 5] },
-  6: { push: [1, 4], pull: [2, 5], legs: [3, 6], calves: [3, 6], core: [1, 2, 3, 4, 5, 6] },
+// 週4日は上半身（胸・肩・背中・二頭・三頭）＝Day1・3、下半身（脚・体幹）＝Day2・4（改定ルール①）。
+const EXTENDED_ELIGIBLE_DAYS: Record<4 | 5 | 6 | 7, Record<MovementGroup, number[]>> = {
+  4: { push: [1, 3], pull: [1, 3], legs: [2, 4], calves: [2, 4], core: [2, 4] },
+  5: { push: [1, 3], pull: [1, 4], legs: [2, 5], calves: [2, 5], core: [2, 5] },
+  6: { push: [1, 4], pull: [2, 5], legs: [3, 6], calves: [3, 6], core: [3, 6] },
   7: { push: [1, 4], pull: [2, 5], legs: [3, 6], calves: [7], core: [7] },
 }
 
-/** 種目カテゴリを各 Day に配置する。週2〜4日は既存エンジンと同じ配置。 */
+/** 種目カテゴリを各 Day に配置する。週2〜3日は既存エンジンと同じ配置、週4〜7日は改定ルール①の固定。
+ *  セルフモードの提案エンジン（distributeToDays）の週4日の配置は変えていない。 */
 export function distributeTemplateDays(
   daysPerWeek: number,
   categories: readonly CompositionCategory[],
 ): Map<number, CompositionCategory[]> {
-  if (daysPerWeek <= 4) return distributeToDays(daysPerWeek as DaysPerWeek, categories)
+  if (daysPerWeek <= 3) return distributeToDays(daysPerWeek as DaysPerWeek, categories)
 
-  const eligible = EXTENDED_ELIGIBLE_DAYS[daysPerWeek as 5 | 6 | 7]
+  const eligible = EXTENDED_ELIGIBLE_DAYS[daysPerWeek as 4 | 5 | 6 | 7]
   const counts = new Map<number, number>()
   const result = new Map<number, CompositionCategory[]>()
   for (let d = 1; d <= daysPerWeek; d++) {
@@ -139,6 +144,39 @@ export function distributeTemplateDays(
     const day = [...eligible[movementGroup(category)]].sort((a, b) => counts.get(a)! - counts.get(b)!)[0]
     counts.set(day, counts.get(day)! + 1)
     result.get(day)!.push(category)
+  }
+  return result
+}
+
+/** 改定ルール②（2026-10-22 オーナー決定）: 1日の種目数の上限。90分〜は9種目まで。 */
+export const MAX_EXERCISES_PER_DAY: Record<SessionDurationMinutes, number> = { 60: 5, 75: 7, 90: 9 }
+
+/**
+ * Day への割り振りの後に、1日の種目数を時間の上限に収め、体幹をその日の最後に並べる。
+ * - 上限を超えた日は、枠の優先順位が低い（categories の後ろにある）種目から外す。
+ * - 重いメイン種目（6パターン、順位1〜6）は外さない。それだけで上限を超える場合はそのまま残す。
+ * - 体幹はスクワット等の前に疲れさせないよう、その日の一番最後にする（改定ルール①）。
+ */
+export function fitDaysToSession(
+  dayCategories: Map<number, CompositionCategory[]>,
+  categories: readonly CompositionCategory[],
+  minutes: SessionDurationMinutes,
+): Map<number, CompositionCategory[]> {
+  const limit = MAX_EXERCISES_PER_DAY[minutes]
+  const rank = new Map(categories.map((c, i) => [c.id, i]))
+  const result = new Map<number, CompositionCategory[]>()
+  for (const [day, list] of dayCategories) {
+    const kept = [...list]
+    while (kept.length > limit) {
+      let drop = -1
+      kept.forEach((c, i) => {
+        if (c.isSixPattern) return
+        if (drop < 0 || rank.get(c.id)! > rank.get(kept[drop].id)!) drop = i
+      })
+      if (drop < 0) break
+      kept.splice(drop, 1)
+    }
+    result.set(day, [...kept.filter(c => c.muscle !== 'core'), ...kept.filter(c => c.muscle === 'core')])
   }
   return result
 }
@@ -181,7 +219,7 @@ export function generateTemplate(input: GenerateTemplateInput): GeneratedDay[] {
 
   const baseDays = compositionDays(daysPerWeek)
   const categories = buildExerciseCategories(baseDays, priorities)
-  const dayCategories = distributeTemplateDays(daysPerWeek, categories)
+  const dayCategories = fitDaysToSession(distributeTemplateDays(daysPerWeek, categories), categories, minutes)
   const { names } = buildSlotSelections({ daysPerWeek: baseDays, priorityMuscles: priorities, exercises, selectedExercises: new Set() })
   const exerciseByName = new Map(exercises.map(e => [e.name, e]))
   const bonusMuscles = musclesNeedingSixPatternDurationBonus(baseDays, priorities)

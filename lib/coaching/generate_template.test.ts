@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildExerciseCategories } from '@/lib/suggest/generate_program_composition'
-import { distributeTemplateDays, planWeeks, MAX_CONSECUTIVE_HARD_WEEKS } from './generate_template'
+import { distributeTemplateDays, fitDaysToSession, planWeeks, MAX_CONSECUTIVE_HARD_WEEKS, MAX_EXERCISES_PER_DAY } from './generate_template'
 
 const isHard = (phase: string) => phase === 'volume' || phase === 'intensity'
 
@@ -57,4 +57,56 @@ test('distributeTemplateDays: 週7日の7日目は体幹・カーフだけで、
   const day7 = distributeTemplateDays(7, categories).get(7) ?? []
   assert.ok(day7.length > 0)
   assert.ok(day7.every(c => c.muscle === 'core' || c.id === 'calves'))
+})
+
+// 改定ルール①（2026-10-22）: 三頭は押す日、二頭は引く日、体幹は脚の日だけ
+const PRIORITY_COMBOS: string[][] = [[], ['chest'], ['biceps', 'triceps'], ['legs', 'core'], ['back', 'shoulders']]
+const muscleDays = (dist: Map<number, { id: string; muscle: string }[]>, pred: (c: { id: string; muscle: string }) => boolean) =>
+  new Set([...dist.entries()].filter(([, list]) => list.some(pred)).map(([d]) => d))
+const isPush = (c: { id: string; muscle: string }) => c.muscle === 'chest' || c.muscle === 'shoulders'
+const isPull = (c: { id: string; muscle: string }) => c.muscle === 'back'
+const isTriceps = (c: { id: string }) => c.id.startsWith('triceps')
+const isBiceps = (c: { id: string }) => c.id.startsWith('biceps')
+const isLegs = (c: { id: string; muscle: string }) => c.muscle === 'legs'
+
+test('distributeTemplateDays: 週4〜6日は三頭＝押す日、二頭＝引く日、体幹＝脚の日だけ（改定ルール①）', () => {
+  for (const days of [4, 5, 6]) {
+    for (const p of PRIORITY_COMBOS) {
+      const dist = distributeTemplateDays(days, buildExerciseCategories(4, p as never))
+      const push = muscleDays(dist, isPush), pull = muscleDays(dist, isPull), legs = muscleDays(dist, isLegs)
+      for (const d of muscleDays(dist, isTriceps)) assert.ok(push.has(d), `週${days}日 ${p}: 三頭がDay${d}（押す日でない）`)
+      for (const d of muscleDays(dist, isBiceps)) assert.ok(pull.has(d), `週${days}日 ${p}: 二頭がDay${d}（引く日でない）`)
+      for (const d of muscleDays(dist, c => c.muscle === 'core')) assert.ok(legs.has(d), `週${days}日 ${p}: 体幹がDay${d}（脚の日でない）`)
+    }
+  }
+  // 週4日は腕を下半身の日（Day2・4）に入れない
+  const dist4 = distributeTemplateDays(4, buildExerciseCategories(4, []))
+  for (const d of [2, 4]) assert.ok(!dist4.get(d)!.some(c => c.muscle === 'arms'), `週4日 Day${d} に腕`)
+})
+
+test('fitDaysToSession: 1日の種目数を時間の上限に収め、重いメイン種目は外さず、体幹は最後（改定ルール①②）', () => {
+  for (const days of [2, 3, 4, 5, 6, 7]) {
+    for (const p of PRIORITY_COMBOS) {
+      const base = days >= 4 ? 4 : days
+      const categories = buildExerciseCategories(base as never, p as never)
+      const dist = distributeTemplateDays(days, categories)
+      for (const minutes of [60, 75, 90] as const) {
+        const fitted = fitDaysToSession(dist, categories, minutes)
+        for (const [d, list] of fitted) {
+          const before = dist.get(d)!
+          const mainCount = before.filter(c => c.isSixPattern).length
+          assert.ok(list.length <= Math.max(MAX_EXERCISES_PER_DAY[minutes], mainCount), `週${days}日 ${minutes}分 Day${d}: ${list.length}種目`)
+          assert.equal(list.filter(c => c.isSixPattern).length, mainCount, `週${days}日 ${minutes}分 Day${d}: メイン種目が外れた`)
+          const firstCore = list.findIndex(c => c.muscle === 'core')
+          if (firstCore >= 0) assert.ok(list.slice(firstCore).every(c => c.muscle === 'core'), `週${days}日 Day${d}: 体幹の後に別の種目`)
+          // 外すのは順位の低い種目から（残った種目は、外した種目より必ず順位が高い）
+          const rank = new Map(categories.map((c, i) => [c.id, i]))
+          const removed = before.filter(c => !list.includes(c))
+          for (const r of removed) {
+            for (const k of list.filter(c => !c.isSixPattern)) assert.ok(rank.get(k.id)! < rank.get(r.id)!, `週${days}日 ${minutes}分 Day${d}: ${k.id} より順位の高い ${r.id} を外した`)
+          }
+        }
+      }
+    }
+  }
 })
