@@ -35,6 +35,9 @@ function SetTable({ sets, onChange, onRemove, onAdd }: {
   onRemove: (idx: number) => void
   onAdd: () => void
 }) {
+  // Tab キーは 重量 → 回数 → RIR → 次のセットの重量… の順に進む（2026-10-22 オーナー依頼）。
+  // W-UP・重量の種類・セットの削除は tabIndex={-1} で Tab の移動先から外す（マウスでは今までどおり操作できる）。
+  // 重量が「自動」のセットは重量の入力欄が無いので、回数から始まる。
   return (
     <>
       <div className="overflow-x-auto">
@@ -54,26 +57,26 @@ function SetTable({ sets, onChange, onRemove, onAdd }: {
               <tr key={i} className="align-middle">
                 <td className="py-1 pr-2 text-zinc-500 tabular-nums">{i + 1}</td>
                 <td className="py-1 pr-2">
-                  <input type="checkbox" checked={s.isWarmup} onChange={e => onChange(i, { isWarmup: e.target.checked })} />
+                  <input type="checkbox" tabIndex={-1} aria-label={`${i + 1}セット目をウォームアップにする`} checked={s.isWarmup} onChange={e => onChange(i, { isWarmup: e.target.checked })} />
                 </td>
                 <td className="py-1 pr-2">
                   <div className="flex items-center gap-1">
-                    <select value={s.mode} onChange={e => onChange(i, { mode: e.target.value as WeightMode, value: '' })} className={`${inputClass} text-xs`}>
+                    <select tabIndex={-1} aria-label={`${i + 1}セット目の重量の種類`} value={s.mode} onChange={e => onChange(i, { mode: e.target.value as WeightMode, value: '' })} className={`${inputClass} text-xs`}>
                       {(Object.keys(MODE_LABELS) as WeightMode[]).map(m => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}
                     </select>
                     {s.mode !== 'auto' && (
-                      <input inputMode="decimal" value={s.value} onChange={e => onChange(i, { value: e.target.value })} placeholder={s.mode === 'pct' ? '75' : '60'} className={`${inputClass} w-16`} />
+                      <input inputMode="decimal" aria-label={`${i + 1}セット目の重量`} value={s.value} onChange={e => onChange(i, { value: e.target.value })} placeholder={s.mode === 'pct' ? '75' : '60'} className={`${inputClass} w-16`} />
                     )}
                   </div>
                 </td>
                 <td className="py-1 pr-2">
-                  <input inputMode="numeric" value={s.reps} onChange={e => onChange(i, { reps: e.target.value })} className={`${inputClass} w-16`} />
+                  <input inputMode="numeric" aria-label={`${i + 1}セット目の回数`} value={s.reps} onChange={e => onChange(i, { reps: e.target.value })} className={`${inputClass} w-16`} />
                 </td>
                 <td className="py-1 pr-2">
-                  <input inputMode="numeric" value={s.rir} onChange={e => onChange(i, { rir: e.target.value })} placeholder="-" className={`${inputClass} w-12`} />
+                  <input inputMode="numeric" aria-label={`${i + 1}セット目のRIR`} value={s.rir} onChange={e => onChange(i, { rir: e.target.value })} placeholder="-" className={`${inputClass} w-12`} />
                 </td>
                 <td className="py-1">
-                  <button onClick={() => onRemove(i)} disabled={sets.length <= 1} title="セットを削除" className="p-1 text-zinc-300 hover:text-red-500 disabled:opacity-30">
+                  <button tabIndex={-1} onClick={() => onRemove(i)} disabled={sets.length <= 1} title="セットを削除" className="p-1 text-zinc-300 hover:text-red-500 disabled:opacity-30">
                     <X className="w-4 h-4" />
                   </button>
                 </td>
