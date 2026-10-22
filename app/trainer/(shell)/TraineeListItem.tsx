@@ -15,7 +15,7 @@ export function ProgressBar({ done, total }: { done: number; total: number }) {
   const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0
   return (
     <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-      <div className="h-full rounded-full bg-black dark:bg-white" style={{ width: `${pct}%` }} />
+      <div className="h-full rounded-full bg-zinc-500 dark:bg-zinc-400" style={{ width: `${pct}%` }} />
     </div>
   )
 }
@@ -26,7 +26,7 @@ export default function TraineeListItem({ row, selected }: { row: TraineeRow; se
     <Link
       href={`/trainer?id=${row.linkId}`}
       className={`block px-4 py-3.5 rounded-2xl border transition-colors ${
-        selected ? 'border-black dark:border-white' : 'border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-950'
+        selected ? 'border-brand bg-brand-soft' : 'border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-950'
       } ${ended ? 'opacity-50' : ''}`}
     >
       <div className="flex items-start gap-3">

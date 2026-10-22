@@ -20,7 +20,7 @@ export default function TrainerNav({ collapsed, onToggle }: { collapsed: boolean
   return (
     <>
       <aside
-        className={`hidden md:flex fixed inset-y-0 left-0 z-40 flex-col border-r border-zinc-100 dark:border-zinc-900 bg-white dark:bg-black transition-[width] ${
+        className={`hidden md:flex fixed inset-y-0 left-0 z-40 flex-col border-r border-zinc-100 dark:border-zinc-900 bg-zinc-50 dark:bg-zinc-950 transition-[width] ${
           collapsed ? 'w-16' : 'w-56'
         }`}
       >
@@ -35,7 +35,7 @@ export default function TrainerNav({ collapsed, onToggle }: { collapsed: boolean
           <button
             onClick={onToggle}
             aria-label={collapsed ? 'メニューを開く' : 'メニューを閉じる'}
-            className="group relative p-1.5 rounded-lg text-zinc-400 hover:text-black hover:bg-zinc-50 dark:hover:text-white dark:hover:bg-zinc-900"
+            className="group relative p-1.5 rounded-lg text-zinc-400 hover:text-black hover:bg-zinc-100 dark:hover:text-white dark:hover:bg-zinc-900"
           >
             {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
             {collapsed && <NavTooltip text="メニューを開く" />}
@@ -51,8 +51,8 @@ export default function TrainerNav({ collapsed, onToggle }: { collapsed: boolean
                 aria-label={collapsed ? label : undefined}
                 className={`group relative flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${collapsed ? 'justify-center px-0' : 'px-3'} ${
                   active
-                    ? 'bg-zinc-100 dark:bg-zinc-900 text-black dark:text-white'
-                    : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-950'
+                    ? 'bg-brand-soft text-brand-text'
+                    : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 hover:text-black dark:hover:bg-zinc-900 dark:hover:text-white'
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" strokeWidth={active ? 2.5 : 1.8} />
@@ -73,10 +73,10 @@ export default function TrainerNav({ collapsed, onToggle }: { collapsed: boolean
             return (
               <Link key={href} href={href} className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2.5">
                 <Icon
-                  className={`w-5 h-5 ${active ? 'text-black dark:text-white' : 'text-zinc-400 dark:text-zinc-600'}`}
+                  className={`w-5 h-5 ${active ? 'text-brand-text' : 'text-zinc-400 dark:text-zinc-600'}`}
                   strokeWidth={active ? 2.5 : 1.8}
                 />
-                <span className={`text-[10px] font-medium ${active ? 'text-black dark:text-white' : 'text-zinc-400 dark:text-zinc-600'}`}>
+                <span className={`text-[10px] font-medium ${active ? 'text-brand-text' : 'text-zinc-400 dark:text-zinc-600'}`}>
                   {label}
                 </span>
               </Link>
@@ -92,7 +92,7 @@ export default function TrainerNav({ collapsed, onToggle }: { collapsed: boolean
 // マウスを乗せたらすぐ出す（2026-10-22 オーナー指摘）。
 function NavTooltip({ text }: { text: string }) {
   return (
-    <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 rounded-lg bg-black dark:bg-white text-xs font-medium text-white dark:text-black whitespace-nowrap shadow-lg opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-75 z-50">
+    <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 rounded-lg bg-zinc-800 dark:bg-zinc-200 text-xs font-medium text-white dark:text-zinc-900 whitespace-nowrap shadow-lg opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-75 z-50">
       {text}
     </span>
   )

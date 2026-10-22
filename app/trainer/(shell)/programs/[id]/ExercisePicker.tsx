@@ -104,7 +104,7 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
                     <button
                       key={m}
                       onClick={() => setMuscle(m)}
-                      className={`py-2 rounded-lg border text-sm ${muscle === m ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
+                      className={`py-2 rounded-lg border text-sm ${muscle === m ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
                     >
                       {TARGET_MUSCLE_LABELS[m]}
                     </button>
@@ -119,7 +119,7 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
                   自重種目
                 </label>
                 {error && <p className="text-sm text-red-500">{error}</p>}
-                <button onClick={handleCreate} disabled={busy} className="w-full py-3 rounded-xl bg-black dark:bg-white text-sm font-medium text-white dark:text-black disabled:opacity-50">
+                <button onClick={handleCreate} disabled={busy} className="w-full py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
                   {busy ? '作成中...' : '作成して追加'}
                 </button>
               </div>

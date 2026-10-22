@@ -85,7 +85,7 @@ export default function AddTraineeButton({ templates }: { templates: TemplateOpt
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium">
+      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium">
         <Plus className="w-4 h-4" />
         追加
       </button>
@@ -110,12 +110,12 @@ export default function AddTraineeButton({ templates }: { templates: TemplateOpt
                   {new Date(issued.expires_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} まで（7日間）有効です。
                   トレーニーに伝えて、Auxlog で入力してもらってください。一覧からいつでも確認・再発行できます。
                 </p>
-                <button onClick={close} className="w-full py-3 rounded-xl bg-black dark:bg-white text-sm font-medium text-white dark:text-black">閉じる</button>
+                <button onClick={close} className="w-full py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white">閉じる</button>
               </div>
             ) : templates.length === 0 ? (
               <div className="space-y-4">
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">共有するプログラムがまだありません。先にプログラムのテンプレートを作成してください。</p>
-                <Link href="/trainer/programs" className="block w-full py-3 rounded-xl bg-black dark:bg-white text-center text-sm font-medium text-white dark:text-black">プログラムを作る</Link>
+                <Link href="/trainer/programs" className="block w-full py-3 rounded-xl bg-brand hover:bg-brand-hover text-center text-sm font-medium text-on-brand">プログラムを作る</Link>
               </div>
             ) : (
               <form onSubmit={submit} className="space-y-4">
@@ -162,7 +162,7 @@ export default function AddTraineeButton({ templates }: { templates: TemplateOpt
                 {error && <p className="text-sm text-red-500">{error}</p>}
                 <div className="flex gap-3">
                   <button type="button" onClick={close} disabled={busy} className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white">キャンセル</button>
-                  <button type="submit" disabled={busy || !name.trim() || !template} className="flex-1 py-3 rounded-xl bg-black dark:bg-white text-sm font-medium text-white dark:text-black disabled:opacity-50">
+                  <button type="submit" disabled={busy || !name.trim() || !template} className="flex-1 py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
                     {busy ? '発行中...' : '招待コードを発行'}
                   </button>
                 </div>

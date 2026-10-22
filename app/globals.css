@@ -6,6 +6,14 @@
   --background: #ffffff;
   --foreground: #000000;
   --my-accent: #B8CC00;
+  /* トレーナー画面のブランドカラー（テック・ティール、2026-10-22）。配色は 白60:グレー30:ブランド10。
+     ブランドカラーは「いちばん押してほしいボタン」と「選択中のタブ」だけに使う。
+     白文字とのコントラスト比は約5.3（WCAG AA）。 */
+  --brand: #0B7A75;
+  --brand-hover: #09625E;
+  --on-brand: #FFFFFF;
+  --brand-soft: #E7F3F2;
+  --brand-text: #0B7A75;
 }
 
 @theme inline {
@@ -13,6 +21,11 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --color-accent: var(--my-accent);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-on-brand: var(--on-brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-text: var(--brand-text);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -20,6 +33,12 @@
     --background: #0A0A0A;
     --foreground: #ffffff;
     --my-accent: #E8FF00;
+    /* ダークでは明るめのティールに濃い文字（暗い背景で白文字のティールは沈んで読みにくい） */
+    --brand: #3FBFB4;
+    --brand-hover: #5ECDC3;
+    --on-brand: #04201E;
+    --brand-soft: rgba(63, 191, 180, 0.14);
+    --brand-text: #5ECDC3;
     /* ダーク背景の一括上書き */
     --color-black: #0A0A0A;
     --color-zinc-950: #141414;

@@ -320,7 +320,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   }
 
   const chip = (active: boolean) =>
-    `shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold ${active ? 'bg-black dark:bg-white text-white dark:text-black' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500'}`
+    `shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold ${active ? 'bg-brand-soft text-brand-text' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-black dark:hover:text-white'}`
 
   // 種目ごと表示: 選んだ種目が出てくる全週・全Day
   const occurrences = activeExercise
@@ -348,7 +348,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
               <button
                 key={v}
                 onClick={() => { setView(v); setMessage(null) }}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg ${view === v ? 'bg-white dark:bg-zinc-800 text-black dark:text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-400'}`}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg ${view === v ? 'bg-white dark:bg-zinc-800 text-brand-text font-semibold shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white'}`}
               >
                 {text}
               </button>
@@ -368,7 +368,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
                 <button
                   key={d.id}
                   onClick={() => selectDay(d.id)}
-                  className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border ${d.id === dayId ? 'border-black dark:border-white text-black dark:text-white' : 'border-zinc-200 dark:border-zinc-800 text-zinc-500'}`}
+                  className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border ${d.id === dayId ? 'border-brand bg-brand-soft text-brand-text' : 'border-zinc-200 dark:border-zinc-800 text-zinc-500'}`}
                 >
                   Day {d.dayNumber}{dirty.has(d.id) ? ' ●' : ''}
                 </button>
@@ -381,7 +381,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       <div className="lg:flex-1 lg:min-h-0 lg:flex">
       {view === 'exercise' && (
         // 種目ごと表示: テンプレートに出てくる種目を部位ごとのカードで並べ、選んだ種目の全週を右に出す
-        <aside className="px-6 pt-6 lg:p-4 lg:w-72 lg:shrink-0 lg:overflow-y-auto lg:border-r border-zinc-100 dark:border-zinc-900 space-y-4">
+        <aside className="px-6 pt-6 lg:p-4 lg:w-72 lg:shrink-0 lg:overflow-y-auto lg:border-r border-zinc-100 dark:border-zinc-900 lg:bg-zinc-50 lg:dark:bg-zinc-950 space-y-4">
           {exerciseOptions.length === 0 && <p className="text-xs text-zinc-400">まだ種目がありません。Dayごとの表示で種目を追加してください。</p>}
           {exerciseGroups.map(g => (
             <div key={g.key} className="space-y-1.5">
@@ -395,12 +395,12 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
                       onClick={() => setSelectedExercise(o.id)}
                       className={`text-left px-3 py-2.5 rounded-xl border transition-colors ${
                         active
-                          ? 'border-black dark:border-white bg-black dark:bg-white'
+                          ? 'border-brand bg-brand-soft'
                           : 'border-zinc-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-zinc-300 dark:hover:border-zinc-700'
                       }`}
                     >
-                      <p className={`text-[13px] font-semibold leading-snug ${active ? 'text-white dark:text-black' : 'text-black dark:text-white'}`}>{o.name}</p>
-                      <p className={`text-[11px] ${active ? 'text-white/60 dark:text-black/60' : 'text-zinc-400'}`}>{o.count}回</p>
+                      <p className={`text-[13px] font-semibold leading-snug ${active ? 'text-brand-text' : 'text-black dark:text-white'}`}>{o.name}</p>
+                      <p className={`text-[11px] ${active ? 'text-brand-text/70' : 'text-zinc-400'}`}>{o.count}回</p>
                     </button>
                   )
                 })}
@@ -429,7 +429,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
 
           {exercises.map((ex, exIdx) => (
             <div key={ex.key} className="relative" onDragOver={e => { e.stopPropagation(); onDragOverCard(e, exIdx) }} onDrop={e => { e.stopPropagation(); onDropAt(e, dropIndex ?? exIdx) }}>
-            {dropIndex === exIdx && <div className="absolute -top-2.5 left-0 right-0 h-1 rounded-full bg-black dark:bg-white" />}
+            {dropIndex === exIdx && <div className="absolute -top-2.5 left-0 right-0 h-1 rounded-full bg-zinc-500 dark:bg-zinc-400" />}
             <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
               <div className="flex items-start gap-2">
                 <div
@@ -473,7 +473,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
             onDrop={e => { e.stopPropagation(); onDropAt(e, exercises.length) }}
             className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl border border-dashed text-sm disabled:opacity-30 transition-colors ${
               dropIndex === exercises.length
-                ? 'border-black dark:border-white text-black dark:text-white bg-zinc-50 dark:bg-zinc-900'
+                ? 'border-zinc-500 dark:border-zinc-400 text-black dark:text-white bg-zinc-100 dark:bg-zinc-900'
                 : 'border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:text-zinc-600'
             }`}
           >
@@ -517,7 +517,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       )}
       </div>
       {view === 'day' && (
-        <aside className="hidden lg:block lg:w-72 lg:shrink-0 border-l border-zinc-100 dark:border-zinc-900 overflow-hidden">
+        <aside className="hidden lg:block lg:w-72 lg:shrink-0 border-l border-zinc-100 dark:border-zinc-900 bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
           <ExerciseLibrary
             catalog={catalog}
             onAdd={ex => addExercise(ex)}
@@ -532,7 +532,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
         <p className={`flex-1 text-sm ${message?.kind === 'error' ? 'text-red-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
           {message?.text ?? (dirty.size > 0 ? `未保存の変更が ${dirty.size} 日分あります` : '')}
         </p>
-        <button onClick={() => saveDays([...dirty])} disabled={dirty.size === 0 || saving} className="px-5 py-2.5 rounded-xl bg-black dark:bg-white text-sm font-medium text-white dark:text-black disabled:opacity-40">
+        <button onClick={() => saveDays([...dirty])} disabled={dirty.size === 0 || saving} className="px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-40">
           {saving ? '保存中...' : dirty.size > 0 ? `変更を保存（${dirty.size}日分）` : '保存済み'}
         </button>
       </div>
@@ -546,7 +546,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
               {pending.saveIds.length === 1 ? `${label(pending.saveIds[0])} に未保存の変更があります。` : `${pending.saveIds.length}日分の未保存の変更があります。`}
             </p>
             <div className="flex flex-col gap-2">
-              <button onClick={() => resolvePending('save')} disabled={saving} className="w-full py-3 rounded-xl bg-black dark:bg-white text-sm font-medium text-white dark:text-black disabled:opacity-50">
+              <button onClick={() => resolvePending('save')} disabled={saving} className="w-full py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
                 {saving ? '保存中...' : '保存する'}
               </button>
               <button onClick={() => resolvePending('discard')} disabled={saving} className="w-full py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-red-500">

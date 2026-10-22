@@ -86,7 +86,7 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
         <h1 className="text-xl font-semibold text-black dark:text-white">プログラム</h1>
         <button
           onClick={() => setCreating(true)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium"
         >
           <Plus className="w-4 h-4" />
           新しく作る
@@ -141,7 +141,7 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
                     if (m === 'auxlog' && days < 2) setDays(2)
                   }}
                   className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-lg ${
-                    mode === m ? 'bg-white dark:bg-zinc-800 text-black dark:text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-400'
+                    mode === m ? 'bg-white dark:bg-zinc-800 text-brand-text font-semibold shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white'
                   }`}
                 >
                   {m === 'auxlog' && <Sparkles className="w-3.5 h-3.5" />}
@@ -190,7 +190,7 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
                         key={o.value}
                         type="button"
                         onClick={() => setSessionMinutes(o.value)}
-                        className={`flex-1 py-2 rounded-lg border text-sm ${sessionMinutes === o.value ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
+                        className={`flex-1 py-2 rounded-lg border text-sm ${sessionMinutes === o.value ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
                       >
                         {o.label}
                       </button>
@@ -209,7 +209,7 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
                           type="button"
                           disabled={disabled}
                           onClick={() => setPriorities(prev => (selected ? prev.filter(p => p !== m) : [...prev, m]))}
-                          className={`px-3 py-1.5 rounded-full border text-sm disabled:opacity-40 ${selected ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
+                          className={`px-3 py-1.5 rounded-full border text-sm disabled:opacity-40 ${selected ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
                         >
                           {PRIORITY_MUSCLE_OPTION_LABELS[m]}
                         </button>
@@ -224,7 +224,7 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
               <button type="button" onClick={() => setCreating(false)} disabled={busy} className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white">
                 キャンセル
               </button>
-              <button type="submit" disabled={busy || !name.trim()} className="flex-1 py-3 rounded-xl bg-black dark:bg-white text-sm font-medium text-white dark:text-black disabled:opacity-50">
+              <button type="submit" disabled={busy || !name.trim()} className="flex-1 py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
                 {busy ? '作成中...' : '作成'}
               </button>
             </div>
