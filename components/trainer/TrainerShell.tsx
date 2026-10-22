@@ -17,7 +17,8 @@ export default function TrainerShell({ initialCollapsed, children }: { initialCo
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black">
+    // light-only: トレーナー画面は端末の設定に関係なくライトモード（globals.css）
+    <div className="light-only min-h-screen bg-white">
       <TrainerNav collapsed={collapsed} onToggle={toggle} />
       <main className={`pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0 transition-[padding] ${collapsed ? 'md:pl-16' : 'md:pl-56'}`}>
         {children}

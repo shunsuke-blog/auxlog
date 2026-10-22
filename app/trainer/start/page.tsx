@@ -16,7 +16,7 @@ export default async function TrainerStartPage() {
   const isGymOwner = userRow?.account_type === 'gym_owner'
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black px-6">
+    <div className="light-only min-h-screen flex items-center justify-center bg-white px-6">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-white">トレーナーとして始める</h1>

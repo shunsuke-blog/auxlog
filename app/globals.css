@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* dark: は端末がダークモードの時に効く。ただしトレーナー画面（.light-only の中）は常にライトモード
+   （2026-10-22 オーナー決定: 白60:グレー30:ブランド10 の配色を、端末の設定に関係なく保つ） */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:not(.light-only, .light-only *) {
+      @slot;
+    }
+  }
+}
+
 :root {
   /* スクロールバーやフォーム部品もダークモードの色にする（白いスクロールバーが浮いて見えていた） */
   color-scheme: light dark;
@@ -59,4 +69,26 @@ body {
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* トレーナー画面は常にライトモード。:root のダークモード用の上書きを、この範囲だけ元に戻す */
+.light-only {
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #000000;
+  --my-accent: #B8CC00;
+  --brand: #0B7A75;
+  --brand-hover: #09625E;
+  --on-brand: #FFFFFF;
+  --brand-soft: #E7F3F2;
+  --brand-text: #0B7A75;
+  --color-black: #000;
+  --color-zinc-950: oklch(14.1% 0.005 285.823);
+  --color-zinc-900: oklch(21% 0.006 285.885);
+  --color-zinc-800: oklch(27.4% 0.006 286.033);
+  background: var(--background);
+  color: var(--foreground);
+}
+body:has(.light-only) {
+  background: #ffffff;
 }
