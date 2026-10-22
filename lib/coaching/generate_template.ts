@@ -148,6 +148,22 @@ export function distributeTemplateDays(
   return result
 }
 
+/**
+ * 途中の回復週（MaxOut の直前ではない回復週、10週以上のプランで入る）の負荷（2026-10-22 オーナー決定 b）。
+ * 元の9週間の W8 は「セット数だけを減らし、重量は保つ」週（直後の MaxOut に向けた調整）なので、
+ * MaxOut の直前の回復週はそのまま W8 を使う。途中の回復週は直後に測定が無いため、
+ * 直前の週より重量を約1割下げ、セット数を減らし、努力度も下げて疲れを抜く。
+ */
+export const MID_DELOAD = {
+  /** 重いメイン種目の%1RM: 直前の週のトップセットに掛ける割合 */
+  pctFactor: 0.9,
+  /** 全セットのRIR（重いメイン種目・補助種目とも） */
+  rir: 3,
+  /** 補助種目・6パターン以外の枠のセット数: 通常のセット数に掛ける割合（切り上げ、最低1セット） */
+  setsFactor: 0.6,
+  note: '回復週 — 直前の週より重量を約1割下げ、セット数を減らして疲れを抜く',
+} as const
+
 /** 改定ルール②（2026-10-22 オーナー決定）: 1日の種目数の上限。90分〜は9種目まで。 */
 export const MAX_EXERCISES_PER_DAY: Record<SessionDurationMinutes, number> = { 60: 5, 75: 7, 90: 9 }
 
@@ -228,7 +244,11 @@ export function generateTemplate(input: GenerateTemplateInput): GeneratedDay[] {
   const weeks = planWeeks(totalWeeks)
 
   const out: GeneratedDay[] = []
-  for (const { week, sourceWeek, phase } of weeks) {
+  let lastHardSourceWeek = 1
+  for (const [weekIndex, { week, sourceWeek, phase }] of weeks.entries()) {
+    const isMidDeload = phase === 'deload' && weeks[weekIndex + 1]?.phase !== 'maxout'
+    if (phase === 'volume' || phase === 'intensity') lastHardSourceWeek = sourceWeek
+    const midSets = (normal: number) => Math.max(1, Math.ceil(normal * MID_DELOAD.setsFactor))
     for (let day = 1; day <= daysPerWeek; day++) {
       // 週7日の7日目（体幹・カーフの日）は低めの努力度で行う（RIR +1）
       const rirBonus = daysPerWeek === 7 && day === 7 ? 1 : 0
@@ -244,7 +264,23 @@ export function generateTemplate(input: GenerateTemplateInput): GeneratedDay[] {
         const sets: GeneratedSet[] = []
         const notes: string[] = []
 
-        if (hasOneRm) {
+        if (hasOneRm && isMidDeload) {
+          // 途中の回復週: 直前の週の重量・回数を基準に約1割軽く、バックオフは W8 と同じセット数
+          const prev = movementBy.get(`${lastHardSourceWeek}:${exercise.movement_pattern}`)
+          const w8 = movementBy.get(`8:${exercise.movement_pattern}`)
+          if (!prev || prev.top_set_pct_rm == null || prev.top_set_reps == null) continue
+          const topPct = Math.min(prev.top_set_pct_rm + frequencyPctRmOffset(baseDays), 1) * MID_DELOAD.pctFactor
+          sets.push({ target_pct_1rm: roundPct(topPct), target_weight_kg: null, target_reps: prev.top_set_reps, target_rir: MID_DELOAD.rir + rirBonus, is_warmup: false })
+          const backoffCount = category.isSixPattern
+            ? (w8?.backoff_sets ?? 2) + (bonusMuscles.has(category.muscle) ? sixPatternDurationBonusSets(minutes) : 0)
+            : Math.max(0, midSets(setsForNonPatternCategory(minutes)) - 1)
+          if (prev.backoff_pct_of_top != null && prev.backoff_reps) {
+            for (let i = 0; i < backoffCount; i++) {
+              sets.push({ target_pct_1rm: roundPct(topPct * prev.backoff_pct_of_top), target_weight_kg: null, target_reps: prev.backoff_reps, target_rir: MID_DELOAD.rir + rirBonus, is_warmup: false })
+            }
+          }
+          notes.push(MID_DELOAD.note)
+        } else if (hasOneRm) {
           const mp = movementBy.get(`${sourceWeek}:${exercise.movement_pattern}`)
           if (!mp || mp.top_set_pct_rm == null || (mp.top_set_reps == null && !mp.top_set_is_amrap)) continue
           const topPct = Math.min(mp.top_set_pct_rm + frequencyPctRmOffset(baseDays), 1)
@@ -267,15 +303,19 @@ export function generateTemplate(input: GenerateTemplateInput): GeneratedDay[] {
           const params = weeklyBy.get(`${sourceWeek}:${category.id}`)
           if (!params) continue
           const ramps = volumeRampsForCategory(category, minutes, priorities)
-          const count = ramps ? (params.working_sets ?? 0) : setsForNonPatternCategory(minutes)
-          const rpe = ramps ? (params.rpe ?? 8) : effortRampTargetRpe(sourceWeek, phase, baseDays)
-          const reps = params.rep_range_min ?? 10
+          const normalCount = ramps ? (params.working_sets ?? 0) : setsForNonPatternCategory(minutes)
+          // 途中の回復週は、通常のセット数の約6割・RIR3（直前の週の回数の範囲を使う）
+          const prevParams = isMidDeload ? weeklyBy.get(`${lastHardSourceWeek}:${category.id}`) ?? params : params
+          const count = isMidDeload ? midSets(ramps ? (prevParams.working_sets ?? 0) : normalCount) : normalCount
+          const rir = isMidDeload ? MID_DELOAD.rir : rpeToRir(ramps ? (params.rpe ?? 8) : effortRampTargetRpe(sourceWeek, phase, baseDays))
+          const reps = (isMidDeload ? prevParams.rep_range_min : params.rep_range_min) ?? 10
           for (let i = 0; i < count; i++) {
-            sets.push({ target_pct_1rm: null, target_weight_kg: null, target_reps: reps, target_rir: rpeToRir(rpe) + rirBonus, is_warmup: false })
+            sets.push({ target_pct_1rm: null, target_weight_kg: null, target_reps: reps, target_rir: rir + rirBonus, is_warmup: false })
           }
-          const phaseNote = slotNotes(params)
+          const phaseNote = isMidDeload ? MID_DELOAD.note : slotNotes(params)
           if (phaseNote) notes.push(phaseNote)
-          if (params.rep_range_min != null && params.rep_range_max != null) notes.push(`${params.rep_range_min}〜${params.rep_range_max}回の範囲で`)
+          const range = isMidDeload ? prevParams : params
+          if (range.rep_range_min != null && range.rep_range_max != null) notes.push(`${range.rep_range_min}〜${range.rep_range_max}回の範囲で`)
         }
 
         if (sets.length === 0) continue

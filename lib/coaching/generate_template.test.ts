@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildExerciseCategories } from '@/lib/suggest/generate_program_composition'
-import { distributeTemplateDays, fitDaysToSession, planWeeks, MAX_CONSECUTIVE_HARD_WEEKS, MAX_EXERCISES_PER_DAY } from './generate_template'
+import { distributeTemplateDays, fitDaysToSession, generateTemplate, planWeeks, MAX_CONSECUTIVE_HARD_WEEKS, MAX_EXERCISES_PER_DAY } from './generate_template'
 
 const isHard = (phase: string) => phase === 'volume' || phase === 'intensity'
 
@@ -109,4 +109,25 @@ test('fitDaysToSession: 1日の種目数を時間の上限に収め、重いメ�
       }
     }
   }
+})
+
+test('generateTemplate: 途中の回復週は直前の週より軽く、MaxOutの直前の回復週は元のW8のまま（2026-10-22 決定b）', () => {
+  const exercises = [{ id: 'bp', name: 'バーベルベンチプレス', target_muscle: 'chest', movement_pattern: 'horizontal_press', requires_one_rm: true }]
+  const mp = (week: number, phase: string, pct: number, reps: number, rpe: number, bo: number) =>
+    ({ movement_pattern: 'horizontal_press', week_number: week, phase, top_set_pct_rm: pct, top_set_reps: reps, top_set_rpe: rpe, top_set_is_amrap: week === 9, backoff_sets: bo, backoff_pct_of_top: 0.92, backoff_reps: reps })
+  const movementParams = [
+    mp(1, 'volume', 0.78, 5, 6, 4), mp(2, 'volume', 0.78, 6, 7, 4), mp(3, 'volume', 0.8, 5, 7, 5), mp(4, 'volume', 0.8, 6, 8, 5),
+    mp(5, 'intensity', 0.82, 5, 8, 5), mp(6, 'intensity', 0.84, 4, 8, 5), mp(7, 'intensity', 0.84, 5, 9, 4),
+    mp(8, 'deload', 0.86, 4, 9, 2), mp(9, 'maxout', 0.86, 1, 10, 2),
+  ]
+  const days = generateTemplate({ totalWeeks: 12, daysPerWeek: 4, sessionMinutes: 75, priorities: [], exercises: exercises as never, weeklyParams: [], movementParams: movementParams as never })
+  const plan = planWeeks(12)
+  const bench = (week: number) => days.filter(d => d.week === week).flatMap(d => d.exercises)[0]
+  const midIdx = plan.findIndex((w, i) => w.phase === 'deload' && plan[i + 1]?.phase !== 'maxout')
+  const mid = bench(midIdx + 1), before = bench(midIdx)
+  assert.ok(mid.sets[0].target_pct_1rm! < before.sets[0].target_pct_1rm!, '途中の回復週は直前の週より軽い')
+  assert.equal(mid.sets[0].target_rir, 3)
+  assert.equal(mid.sets.length, 1 + 2, 'バックオフはW8と同じ2セット')
+  const finalDeload = bench(11)
+  assert.equal(finalDeload.sets[0].target_pct_1rm, 0.86, 'MaxOutの直前の回復週は元のW8のまま')
 })
