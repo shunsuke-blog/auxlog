@@ -75,17 +75,27 @@ body {
 .light-only {
   color-scheme: light;
   --background: #ffffff;
-  --foreground: #000000;
+  /* 文字は真っ黒ではなくスレートの濃い色（白地との強すぎるコントラストを和らげる） */
+  --foreground: oklch(20.8% 0.042 265.755);
   --my-accent: #B8CC00;
   --brand: #0B7A75;
   --brand-hover: #09625E;
   --on-brand: #FFFFFF;
   --brand-soft: #E7F3F2;
   --brand-text: #0B7A75;
-  --color-black: #000;
-  --color-zinc-950: oklch(14.1% 0.005 285.823);
-  --color-zinc-900: oklch(21% 0.006 285.885);
-  --color-zinc-800: oklch(27.4% 0.006 286.033);
+  --color-black: oklch(20.8% 0.042 265.755);
+  /* グレーはスレートグレー（2026-10-22 オーナー指定）。トレーナー画面の zinc-* をすべて slate の値にする */
+  --color-zinc-50: oklch(98.4% 0.003 247.858);
+  --color-zinc-100: oklch(96.8% 0.007 247.896);
+  --color-zinc-200: oklch(92.9% 0.013 255.508);
+  --color-zinc-300: oklch(86.9% 0.022 252.894);
+  --color-zinc-400: oklch(70.4% 0.04 256.788);
+  --color-zinc-500: oklch(55.4% 0.046 257.417);
+  --color-zinc-600: oklch(44.6% 0.043 257.281);
+  --color-zinc-700: oklch(37.2% 0.044 257.287);
+  --color-zinc-800: oklch(27.9% 0.041 260.031);
+  --color-zinc-900: oklch(20.8% 0.042 265.755);
+  --color-zinc-950: oklch(12.9% 0.042 264.695);
   background: var(--background);
   color: var(--foreground);
 }
