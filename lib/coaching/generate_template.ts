@@ -357,7 +357,7 @@ export function generateTemplate(input: GenerateTemplateInput): GeneratedDay[] {
 }
 
 // ── 固定テンプレート方式（2026-10-24 オーナー決定） ──
-// 週2〜4日は lib/coaching/base_templates.ts の骨組みに、時間・重点部位を当てはめ（改定ルール③）、
+// 週2〜7日は lib/coaching/base_templates.ts の骨組みに、時間・重点部位を当てはめ（改定ルール③）、
 // 週ごとの値（%RM・RPE・セット数・回数の範囲）を DB から入れる。週の並び・途中の回復週・MaxOut は
 // 動的生成と同じ。テンプレートが無い日数（週5〜7日）は generateTemplate（動的生成）を使う。
 
@@ -389,10 +389,13 @@ export function generateFromBaseTemplate(input: TemplateGenerateInput): Generate
 
     for (const day of days) {
       const generated: GeneratedExercise[] = []
+      // リカバリーの日（週7日の Day7）は1段軽く（RIR +1）
+      const rirBonus = day.kind === 'recovery' ? 1 : 0
       for (const item of day.exercises) {
         const exercise = byCode.get(item.code)
         if (!exercise) continue
-        const oneRm = exercise.requires_one_rm
+        // テンプレートで1RM管理しないと指定した種目（oneRm: false）は補助種目として扱う
+        const oneRm = exercise.requires_one_rm && item.oneRm !== false
         // MaxOut週はメインリフトの実力測定週なので、1RM管理種目以外は外す
         if (phase === 'maxout' && !oneRm) continue
 
@@ -400,7 +403,7 @@ export function generateFromBaseTemplate(input: TemplateGenerateInput): Generate
           // バックオフのセット数は DB の値そのまま（テンプレート方式では時間による増減をしない）
           const built = buildOneRmSets({
             movementBy, pattern: exercise.movement_pattern, sourceWeek, lastHardSourceWeek, isMidDeload,
-            pctOffset, rirBonus: 0, backoffSets: (mp, mid) => mp?.backoff_sets ?? (mid ? 2 : 0),
+            pctOffset, rirBonus, backoffSets: (mp, mid) => mp?.backoff_sets ?? (mid ? 2 : 0),
           })
           if (!built) continue
           generated.push({ exercise_master_id: exercise.id, trainer_exercise_id: null, note: built.notes.join(' ／ ') || null, sets: built.sets })
@@ -411,7 +414,7 @@ export function generateFromBaseTemplate(input: TemplateGenerateInput): Generate
         const params = weeklyBy.get(`${isMidDeload ? lastHardSourceWeek : sourceWeek}:${item.params}`)
         if (!params || !params.working_sets) continue
         const count = isMidDeload ? Math.max(1, Math.ceil(params.working_sets * MID_DELOAD.setsFactor)) : params.working_sets
-        const rir = isMidDeload ? MID_DELOAD.rir : rpeToRir(params.rpe ?? 8)
+        const rir = (isMidDeload ? MID_DELOAD.rir : rpeToRir(params.rpe ?? 8)) + rirBonus
         const sets: GeneratedSet[] = Array.from({ length: count }, () => ({
           target_pct_1rm: null, target_weight_kg: null, target_reps: params.rep_range_min ?? 10, target_rir: rir, is_warmup: false,
         }))

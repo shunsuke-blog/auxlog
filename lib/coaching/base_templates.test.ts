@@ -31,8 +31,11 @@ test('三頭は押す日、二頭は引く日、体幹はその日の最後（�
   for (const { t, m, p, days } of allOutputs()) {
     for (const d of days) {
       const label = `${t.daysPerWeek}日 ${m}分 [${p}] Day${d.day}`
-      if (has(d, ['triceps'])) assert.ok(has(d, ['chest', 'shoulders']), `${label}: 三頭があるのに押す種目が無い`)
-      if (has(d, ['biceps'])) assert.ok(has(d, ['back']), `${label}: 二頭があるのに背中が無い`)
+      // リカバリーの日（週7日の Day7）は、腕のパンプを押す・引く種目なしで入れる（テンプレートの指定）
+      if (d.kind !== 'recovery') {
+        if (has(d, ['triceps'])) assert.ok(has(d, ['chest', 'shoulders']), `${label}: 三頭があるのに押す種目が無い`)
+        if (has(d, ['biceps'])) assert.ok(has(d, ['back']), `${label}: 二頭があるのに背中が無い`)
+      }
       const firstCore = d.exercises.findIndex(e => e.muscle === 'core')
       if (firstCore >= 0) assert.ok(d.exercises.slice(firstCore).every(e => e.muscle === 'core'), `${label}: 体幹の後に別の種目`)
       const codes = d.exercises.map(e => e.code)
@@ -80,4 +83,11 @@ test('二つ選んだ時、もう一方の重点部位の種目は奪わない�
 
 test('差し替えルールは全部位に定義されている', () => {
   for (const p of opts) assert.ok(PRIORITY_SWAPS[p], p)
+})
+
+test('週2〜7日すべてにテンプレートがあり、Day の数が週の日数と同じ', () => {
+  for (const n of [2, 3, 4, 5, 6, 7]) {
+    assert.equal(BASE_TEMPLATES[n]?.days.length, n, `${n}日`)
+    assert.deepEqual(BASE_TEMPLATES[n].days.map(d => d.day), Array.from({ length: n }, (_, i) => i + 1))
+  }
 })

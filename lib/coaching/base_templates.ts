@@ -3,7 +3,7 @@
 // 動的な割り振り（generate_program_composition.ts）をやめ、プロが組んだ分割法の骨組みを定数で持つ。
 // テンプレートは枠組みだけ（種目・並び順・何分コースから含めるか）で、重量・強度・セット数・回数は
 // 生成時に DB の週ごとの値（movement_pattern_weekly_params / program_weekly_params）から入れる。
-// 元データ: オーナー作成の「AUXLOG Base Templates」（週2〜4日）。週5〜7日は未定義（従来の生成を使う）。
+// 元データ: オーナー作成の「AUXLOG Base Templates」（週2〜4日、2026-10-24）と「週5~7.ts」（2026-10-24）。
 //
 // 種目は exercise_master.code で指定する（名前を直してもテンプレートが壊れない）。
 
@@ -12,7 +12,7 @@ import type { PriorityMuscleOption } from '@/types'
 export type SessionMinutes = 60 | 75 | 90
 
 /** Day の種類。重点部位の差し替え（改定ルール③）でどの日が対象になるかに使う */
-export type DayKind = 'full' | 'upper' | 'lower' | 'push' | 'pull' | 'legs'
+export type DayKind = 'full' | 'upper' | 'lower' | 'push' | 'pull' | 'legs' | 'recovery'
 
 /** 種目の部位（重点部位の保護・差し替えの判定に使う。ふくらはぎは脚の一部） */
 export type TemplateMuscle = 'chest' | 'back' | 'shoulders' | 'biceps' | 'triceps' | 'legs' | 'core'
@@ -32,14 +32,17 @@ export type TemplateExercise = {
    *  1RM管理の種目は種目の動き（movement_pattern）で movement_pattern_weekly_params を引く */
   params: string
   role?: SwapRole
+  /** false: 種目マスタでは1RM管理の種目でも、このテンプレートでは%で出さず補助種目として扱う
+   *  （例: 週5〜7日のダンベルショルダープレス。テンプレートの is1RM: false に合わせる） */
+  oneRm?: false
 }
 
 export type TemplateDay = { day: number; name: string; kind: DayKind; exercises: TemplateExercise[] }
 
 export type BaseTemplate = { daysPerWeek: number; name: string; days: TemplateDay[] }
 
-const ex = (slot: string, code: string, muscle: TemplateMuscle, minMinutes: SessionMinutes, params: string, role?: SwapRole): TemplateExercise =>
-  ({ slot, code, muscle, minMinutes, params, role })
+const ex = (slot: string, code: string, muscle: TemplateMuscle, minMinutes: SessionMinutes, params: string, role?: SwapRole, oneRm?: false): TemplateExercise =>
+  ({ slot, code, muscle, minMinutes, params, role, ...(oneRm === false ? { oneRm } : {}) })
 
 // 全身 A / B（週2日・週3日で共通）
 const FULL_A: TemplateExercise[] = [
@@ -55,6 +58,73 @@ const FULL_B: TemplateExercise[] = [
   ex('back_vertical_pull', 'lat_pulldown', 'back', 60, 'back_vertical_pull'),
   ex('biceps', 'dumbbell_curl', 'biceps', 75, 'biceps', 'biceps'),
   ex('calf', 'seated_calf_raise', 'legs', 90, 'calves_seated', 'calf'),
+]
+
+// Lower A（週4日の Day2 と週5日の Day2 で共通）
+const LOWER_A: TemplateExercise[] = [
+  ex('squat', 'low_bar_squat', 'legs', 60, 'leg_squat'),
+  ex('hip_hinge', 'romanian_deadlift', 'legs', 60, 'hamstring_glute'),
+  ex('leg_single', 'bulgarian_split_squat', 'legs', 75, 'quad_glute_secondary'),
+  ex('calf', 'seated_calf_raise', 'legs', 75, 'calves_seated', 'calf'),
+  ex('core', 'ab_roller', 'core', 60, 'core'),
+]
+
+// Push / Pull / Legs × 2（週6日・週7日の Day1〜6 で共通）
+const PPL_X2: TemplateDay[] = [
+  {
+    day: 1, name: 'Push A（胸メイン・肩・三頭）', kind: 'push', exercises: [
+      ex('chest_press', 'barbell_bench_press', 'chest', 60, 'chest_press'),
+      ex('shoulder_press', 'dumbbell_shoulder_press', 'shoulders', 60, 'shoulder_press_2', undefined, false),
+      ex('chest_fly', 'cable_fly', 'chest', 60, 'chest_fly'),
+      ex('shoulder_side', 'side_raise', 'shoulders', 75, 'shoulder_lateral'),
+      ex('triceps', 'lying_triceps_extension', 'triceps', 75, 'triceps', 'triceps'),
+    ],
+  },
+  {
+    day: 2, name: 'Pull A（背中垂直メイン・後部肩・二頭）', kind: 'pull', exercises: [
+      ex('back_vertical_pull', 'lat_pulldown', 'back', 60, 'back_vertical_pull'),
+      ex('back_horizontal_pull', 'chest_supported_row', 'back', 60, 'back_horizontal_pull'),
+      ex('shoulder_rear', 'face_pull', 'shoulders', 60, 'shoulder_rear_delt', 'shoulder_rear'),
+      ex('biceps', 'dumbbell_curl', 'biceps', 75, 'biceps', 'biceps'),
+      ex('back_pullover', 'straight_arm_pulldown', 'back', 90, 'back_vertical_pull'),
+    ],
+  },
+  {
+    day: 3, name: 'Legs A（四頭メイン・ハム・カーフ・腹筋）', kind: 'legs', exercises: [
+      ex('squat', 'low_bar_squat', 'legs', 60, 'leg_squat'),
+      ex('hip_hinge', 'romanian_deadlift', 'legs', 60, 'hamstring_glute'),
+      ex('core', 'ab_roller', 'core', 60, 'core'),
+      ex('leg_curl', 'leg_curl', 'legs', 75, 'leg_curl'),
+      ex('calf', 'seated_calf_raise', 'legs', 90, 'calves_seated', 'calf'),
+    ],
+  },
+  {
+    day: 4, name: 'Push B（肩メイン・胸・三頭）', kind: 'push', exercises: [
+      ex('shoulder_press2', 'overhead_press', 'shoulders', 60, 'shoulder_press'),
+      ex('chest_press2', 'incline_dumbbell_press', 'chest', 60, 'chest_press'),
+      ex('triceps2', 'triceps_pushdown', 'triceps', 60, 'triceps', 'triceps'),
+      ex('chest_fly2', 'pec_deck_fly', 'chest', 75, 'chest_isolation'),
+      ex('shoulder_side2', 'cable_side_raise', 'shoulders', 90, 'shoulder_lateral_cable'),
+    ],
+  },
+  {
+    day: 5, name: 'Pull B（背中水平メイン・後部肩・二頭）', kind: 'pull', exercises: [
+      ex('back_horizontal_pull2', 'one_hand_row', 'back', 60, 'back_horizontal_pull_heavy'),
+      ex('back_vertical_pull2', 'pull_up', 'back', 60, 'back_vertical_pull_alt'),
+      ex('biceps2', 'incline_dumbbell_curl', 'biceps', 60, 'biceps_alt', 'biceps'),
+      ex('shoulder_rear2', 'rear_delt_fly', 'shoulders', 75, 'shoulder_rear_delt_alt', 'shoulder_rear'),
+      ex('biceps3', 'hammer_curl', 'biceps', 90, 'biceps_2', 'biceps'),
+    ],
+  },
+  {
+    day: 6, name: 'Legs B（ハムメイン・四頭・カーフ・腹筋）', kind: 'legs', exercises: [
+      ex('deadlift', 'deadlift', 'legs', 60, 'leg_hinge'),
+      ex('squat2', 'leg_press', 'legs', 60, 'leg_2'),
+      ex('core2', 'cable_crunch', 'core', 60, 'core_alt'),
+      ex('leg_extension', 'leg_extension', 'legs', 75, 'leg_curl'),
+      ex('calf2', 'standing_calf_raise', 'legs', 90, 'calves_standing', 'calf'),
+    ],
+  },
 ]
 
 export const BASE_TEMPLATES: Record<number, BaseTemplate> = {
@@ -99,15 +169,7 @@ export const BASE_TEMPLATES: Record<number, BaseTemplate> = {
           ex('biceps', 'dumbbell_curl', 'biceps', 90, 'biceps', 'biceps'),
         ],
       },
-      {
-        day: 2, name: 'Lower A（四頭・ハム・カーフ・腹筋）', kind: 'lower', exercises: [
-          ex('squat', 'low_bar_squat', 'legs', 60, 'leg_squat'),
-          ex('hip_hinge', 'romanian_deadlift', 'legs', 60, 'hamstring_glute'),
-          ex('leg_single', 'bulgarian_split_squat', 'legs', 75, 'quad_glute_secondary'),
-          ex('calf', 'seated_calf_raise', 'legs', 75, 'calves_seated', 'calf'),
-          ex('core', 'ab_roller', 'core', 60, 'core'),
-        ],
-      },
+      { day: 2, name: 'Lower A（四頭・ハム・カーフ・腹筋）', kind: 'lower', exercises: LOWER_A },
       {
         day: 3, name: 'Upper B（肩・胸・背中・腕）', kind: 'upper', exercises: [
           ex('shoulder_press', 'overhead_press', 'shoulders', 60, 'shoulder_press'),
@@ -129,6 +191,71 @@ export const BASE_TEMPLATES: Record<number, BaseTemplate> = {
       },
     ],
   },
+  5: {
+    daysPerWeek: 5,
+    name: 'Upper / Lower / Push / Pull / Legs',
+    days: [
+      {
+        day: 1, name: 'Upper（胸・背中・肩・腕）', kind: 'upper', exercises: [
+          ex('chest_press', 'barbell_bench_press', 'chest', 60, 'chest_press'),
+          ex('back_vertical_pull', 'lat_pulldown', 'back', 60, 'back_vertical_pull'),
+          ex('shoulder_press', 'dumbbell_shoulder_press', 'shoulders', 60, 'shoulder_press_2', undefined, false),
+          ex('back_horizontal_pull', 'chest_supported_row', 'back', 75, 'back_horizontal_pull'),
+          ex('shoulder_side', 'side_raise', 'shoulders', 75, 'shoulder_lateral'),
+          ex('triceps', 'lying_triceps_extension', 'triceps', 90, 'triceps', 'triceps'),
+          ex('biceps', 'dumbbell_curl', 'biceps', 90, 'biceps', 'biceps'),
+        ],
+      },
+      { day: 2, name: 'Lower（四頭・ハム・カーフ・腹筋）', kind: 'lower', exercises: LOWER_A },
+      {
+        day: 3, name: 'Push（胸・肩・三頭）', kind: 'push', exercises: [
+          ex('chest_press2', 'incline_dumbbell_press', 'chest', 60, 'chest_press'),
+          ex('shoulder_press2', 'overhead_press', 'shoulders', 60, 'shoulder_press'),
+          ex('chest_fly', 'cable_fly', 'chest', 60, 'chest_fly'),
+          ex('shoulder_side2', 'cable_side_raise', 'shoulders', 75, 'shoulder_lateral_cable'),
+          ex('triceps1', 'triceps_pushdown', 'triceps', 75, 'triceps', 'triceps'),
+          ex('triceps2', 'triceps_overhead_extension', 'triceps', 90, 'triceps_2', 'triceps'),
+        ],
+      },
+      {
+        day: 4, name: 'Pull（背中・後部肩・二頭）', kind: 'pull', exercises: [
+          ex('back_vertical_pull2', 'pull_up', 'back', 60, 'back_vertical_pull_alt'),
+          ex('back_horizontal_pull2', 'one_hand_row', 'back', 60, 'back_horizontal_pull_heavy'),
+          ex('shoulder_rear', 'face_pull', 'shoulders', 60, 'shoulder_rear_delt', 'shoulder_rear'),
+          ex('back_pullover', 'straight_arm_pulldown', 'back', 75, 'back_vertical_pull'),
+          ex('biceps1', 'incline_dumbbell_curl', 'biceps', 75, 'biceps', 'biceps'),
+          ex('biceps2', 'hammer_curl', 'biceps', 90, 'biceps_2', 'biceps'),
+        ],
+      },
+      {
+        day: 5, name: 'Legs（ハム・四頭・カーフ・腹筋）', kind: 'legs', exercises: [
+          ex('deadlift', 'deadlift', 'legs', 60, 'leg_hinge'),
+          ex('squat2', 'leg_press', 'legs', 60, 'leg_2'),
+          ex('core2', 'cable_crunch', 'core', 60, 'core_alt'),
+          ex('calf2', 'standing_calf_raise', 'legs', 75, 'calves_standing', 'calf'),
+          ex('leg_extension', 'leg_extension', 'legs', 90, 'leg_curl'),
+        ],
+      },
+    ],
+  },
+  6: { daysPerWeek: 6, name: 'Push / Pull / Legs × 2', days: PPL_X2 },
+  7: {
+    daysPerWeek: 7,
+    name: 'Push / Pull / Legs × 2 ＋ リカバリー',
+    days: [
+      ...PPL_X2,
+      {
+        // リカバリーの日（体幹・カーフ・腕のパンプ）。押す・引く種目が無くても腕を入れる（テンプレートの指定）。
+        // 重点部位の差し替えの対象外。努力度は他の日より1段軽くする（RIR +1）
+        day: 7, name: 'Active Recovery（体幹・カーフ・腕パンプ）', kind: 'recovery', exercises: [
+          ex('core', 'hanging_knee_raise', 'core', 60, 'core'),
+          ex('calf', 'seated_calf_raise', 'legs', 60, 'calves_seated'),
+          ex('biceps', 'cable_curl', 'biceps', 75, 'biceps'),
+          ex('triceps', 'cable_triceps_extension', 'triceps', 75, 'triceps_2'),
+        ],
+      },
+    ],
+  },
 }
 
 // ── 改定ルール③：重点部位の差し替え（2026-10-24 オーナー決定） ──
@@ -138,8 +265,8 @@ export const BASE_TEMPLATES: Record<number, BaseTemplate> = {
 export type PrioritySwap = {
   kinds: DayKind[]
   takes: SwapRole[]
-  /** 差し替え後の種目。Day の主役の動きで選び分けが要る場合（脚）は pick で決める */
-  replacement: (day: TemplateDay) => Omit<TemplateExercise, 'minMinutes' | 'role'>
+  /** 差し替え後の種目の候補（先頭から、その日にまだ無い種目を使う）。Day の主役で選び分ける場合（脚）は day を見る */
+  replacement: (day: TemplateDay) => Omit<TemplateExercise, 'minMinutes' | 'role'>[]
 }
 
 const has = (day: TemplateDay, code: string) => day.exercises.some(e => e.code === code)
@@ -147,40 +274,58 @@ const has = (day: TemplateDay, code: string) => day.exercises.some(e => e.code =
 export const PRIORITY_SWAPS: Record<PriorityMuscleOption, PrioritySwap> = {
   chest: {
     kinds: ['upper', 'push', 'full'], takes: ['triceps'],
-    replacement: () => ({ slot: 'chest_fly', code: 'pec_deck_fly', muscle: 'chest', params: 'chest_isolation' }),
+    replacement: () => [
+      { slot: 'chest_fly', code: 'pec_deck_fly', muscle: 'chest', params: 'chest_isolation' },
+      { slot: 'chest_fly', code: 'dumbbell_fly', muscle: 'chest', params: 'chest_isolation' },
+    ],
   },
   back: {
     // ケーブルプルオーバーはマスタに無いため、同じ動き（腕を伸ばしたまま引き下ろす）のストレートアームプルダウン
     kinds: ['upper', 'pull', 'full'], takes: ['biceps'],
-    replacement: () => ({ slot: 'back_pullover', code: 'straight_arm_pulldown', muscle: 'back', params: 'back_vertical_pull' }),
+    replacement: () => [
+      { slot: 'back_pullover', code: 'straight_arm_pulldown', muscle: 'back', params: 'back_vertical_pull' },
+      { slot: 'back_row', code: 'seated_cable_row', muscle: 'back', params: 'back_horizontal_pull' },
+    ],
   },
   shoulders: {
     // 前部は押す種目で十分使うため、側部を足す。同じ日にサイドレイズがあればケーブルサイドレイズ
     kinds: ['upper', 'full'], takes: ['triceps', 'biceps'],
-    replacement: day => has(day, 'side_raise')
-      ? { slot: 'shoulder_side', code: 'cable_side_raise', muscle: 'shoulders', params: 'shoulder_lateral_cable' }
-      : { slot: 'shoulder_side', code: 'side_raise', muscle: 'shoulders', params: 'shoulder_lateral' },
+    replacement: () => [
+      { slot: 'shoulder_side', code: 'side_raise', muscle: 'shoulders', params: 'shoulder_lateral' },
+      { slot: 'shoulder_side', code: 'cable_side_raise', muscle: 'shoulders', params: 'shoulder_lateral_cable' },
+      { slot: 'shoulder_side', code: 'incline_side_raise', muscle: 'shoulders', params: 'shoulder_lateral' },
+    ],
   },
   biceps: {
     kinds: ['upper', 'pull', 'full'], takes: ['shoulder_rear'],
-    replacement: () => ({ slot: 'biceps_2', code: 'hammer_curl', muscle: 'biceps', params: 'biceps_2' }),
+    replacement: () => [
+      { slot: 'biceps_2', code: 'hammer_curl', muscle: 'biceps', params: 'biceps_2' },
+      { slot: 'biceps_2', code: 'cable_curl', muscle: 'biceps', params: 'biceps_2' },
+    ],
   },
   triceps: {
     kinds: ['upper', 'push', 'full'], takes: ['shoulder_rear'],
-    replacement: () => ({ slot: 'triceps_2', code: 'cable_triceps_extension', muscle: 'triceps', params: 'triceps_2' }),
+    replacement: () => [
+      { slot: 'triceps_2', code: 'cable_triceps_extension', muscle: 'triceps', params: 'triceps_2' },
+      { slot: 'triceps_2', code: 'skull_crusher', muscle: 'triceps', params: 'triceps_2' },
+    ],
   },
   legs: {
     // デッドリフトが主役の日は前モモ（レッグエクステンション）、それ以外は裏モモ（レッグカール）を足す
     kinds: ['lower', 'legs', 'full'], takes: ['calf'],
-    replacement: day => has(day, 'deadlift')
-      ? { slot: 'leg_isolation', code: 'leg_extension', muscle: 'legs', params: 'leg_curl' }
-      : { slot: 'leg_isolation', code: 'leg_curl', muscle: 'legs', params: 'leg_curl' },
+    replacement: day => {
+      const ext = { slot: 'leg_isolation', code: 'leg_extension', muscle: 'legs' as const, params: 'leg_curl' }
+      const curl = { slot: 'leg_isolation', code: 'leg_curl', muscle: 'legs' as const, params: 'leg_curl' }
+      return has(day, 'deadlift') ? [ext, curl] : [curl, ext]
+    },
   },
   core: {
     kinds: ['lower', 'legs', 'full'], takes: ['calf'],
-    replacement: day => has(day, 'cable_crunch')
-      ? { slot: 'core_2', code: 'hanging_knee_raise', muscle: 'core', params: 'core_2' }
-      : { slot: 'core_2', code: 'cable_crunch', muscle: 'core', params: 'core_2' },
+    replacement: () => [
+      { slot: 'core_2', code: 'cable_crunch', muscle: 'core', params: 'core_2' },
+      { slot: 'core_2', code: 'hanging_knee_raise', muscle: 'core', params: 'core_2' },
+      { slot: 'core_2', code: 'leg_raise', muscle: 'core', params: 'core_2' },
+    ],
   },
 }
 
@@ -205,7 +350,10 @@ export function applyTemplate(
       for (const role of rule.takes) {
         const idx = list.findIndex(e => e.role === role && !e.swapped && !protectedMuscles.has(e.muscle))
         if (idx < 0) continue
-        list[idx] = { ...rule.replacement({ ...day, exercises: list }), minMinutes: 60, swapped: true }
+        const current = { ...day, exercises: list }
+        const pick = rule.replacement(current).find(r => !has(current, r.code))
+        if (!pick) continue
+        list[idx] = { ...pick, minMinutes: 60, swapped: true }
         break
       }
     }
