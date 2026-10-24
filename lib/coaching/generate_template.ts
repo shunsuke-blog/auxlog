@@ -25,6 +25,7 @@ import {
   type SessionDurationMinutes,
 } from '@/lib/suggest/generate_program_composition'
 import { buildSlotSelections, type ExerciseMasterRow } from '@/lib/onboarding/exercise_matching'
+import { BASE_TEMPLATES, applyTemplate } from './base_templates'
 import {
   COMPOUND_VOLUME_PHASE_RPE_CEILING,
   effortRampTargetRpe,
@@ -197,6 +198,58 @@ export function fitDaysToSession(
   return result
 }
 
+type MovementParamsRow = MovementPatternWeeklyParams
+
+/**
+ * 1RM管理の種目のセット（トップセット＋バックオフ）を作る。通常の週は DB の週ごとの値、
+ * 途中の回復週は直前の週を約1割軽くする（MID_DELOAD）。データが無ければ null。
+ * backoffSets(mp, mid): 通常の週はその週の値、途中の回復週は元の W8 の値を渡す。
+ */
+function buildOneRmSets(o: {
+  movementBy: Map<string, MovementParamsRow>
+  pattern: string
+  sourceWeek: number
+  lastHardSourceWeek: number
+  isMidDeload: boolean
+  pctOffset: number
+  rirBonus: number
+  backoffSets: (mp: MovementParamsRow | undefined, mid: boolean) => number
+}): { sets: GeneratedSet[]; notes: string[] } | null {
+  const sets: GeneratedSet[] = []
+  const notes: string[] = []
+  if (o.isMidDeload) {
+    // 途中の回復週: 直前の週の重量・回数を基準に約1割軽く、バックオフは W8 と同じセット数
+    const prev = o.movementBy.get(`${o.lastHardSourceWeek}:${o.pattern}`)
+    if (!prev || prev.top_set_pct_rm == null || prev.top_set_reps == null) return null
+    const topPct = Math.min(prev.top_set_pct_rm + o.pctOffset, 1) * MID_DELOAD.pctFactor
+    sets.push({ target_pct_1rm: roundPct(topPct), target_weight_kg: null, target_reps: prev.top_set_reps, target_rir: MID_DELOAD.rir + o.rirBonus, is_warmup: false })
+    const count = o.backoffSets(o.movementBy.get(`8:${o.pattern}`), true)
+    if (prev.backoff_pct_of_top != null && prev.backoff_reps) {
+      for (let i = 0; i < count; i++) {
+        sets.push({ target_pct_1rm: roundPct(topPct * prev.backoff_pct_of_top), target_weight_kg: null, target_reps: prev.backoff_reps, target_rir: MID_DELOAD.rir + o.rirBonus, is_warmup: false })
+      }
+    }
+    notes.push(MID_DELOAD.note)
+    return { sets, notes }
+  }
+  const mp = o.movementBy.get(`${o.sourceWeek}:${o.pattern}`)
+  if (!mp || mp.top_set_pct_rm == null || (mp.top_set_reps == null && !mp.top_set_is_amrap)) return null
+  const topPct = Math.min(mp.top_set_pct_rm + o.pctOffset, 1)
+  const rawRpe = mp.top_set_rpe ?? 9
+  const topRpe = mp.phase === 'volume' ? Math.min(rawRpe, COMPOUND_VOLUME_PHASE_RPE_CEILING) : rawRpe
+  sets.push({ target_pct_1rm: roundPct(topPct), target_weight_kg: null, target_reps: mp.top_set_reps ?? 1, target_rir: rpeToRir(topRpe) + o.rirBonus, is_warmup: false })
+  const count = o.backoffSets(mp, false)
+  if (mp.backoff_pct_of_top != null && mp.backoff_reps) {
+    for (let i = 0; i < count; i++) {
+      sets.push({ target_pct_1rm: roundPct(topPct * mp.backoff_pct_of_top), target_weight_kg: null, target_reps: mp.backoff_reps, target_rir: rpeToRir(8) + o.rirBonus, is_warmup: false })
+    }
+  }
+  const phaseNote = slotNotes(mp)
+  if (phaseNote) notes.push(phaseNote)
+  if (mp.top_set_is_amrap) notes.push('1セット目はできる限り多くの回数に挑戦')
+  return { sets, notes }
+}
+
 export type GeneratedSet = {
   target_pct_1rm: number | null
   target_weight_kg: null
@@ -264,41 +317,17 @@ export function generateTemplate(input: GenerateTemplateInput): GeneratedDay[] {
         const sets: GeneratedSet[] = []
         const notes: string[] = []
 
-        if (hasOneRm && isMidDeload) {
-          // 途中の回復週: 直前の週の重量・回数を基準に約1割軽く、バックオフは W8 と同じセット数
-          const prev = movementBy.get(`${lastHardSourceWeek}:${exercise.movement_pattern}`)
-          const w8 = movementBy.get(`8:${exercise.movement_pattern}`)
-          if (!prev || prev.top_set_pct_rm == null || prev.top_set_reps == null) continue
-          const topPct = Math.min(prev.top_set_pct_rm + frequencyPctRmOffset(baseDays), 1) * MID_DELOAD.pctFactor
-          sets.push({ target_pct_1rm: roundPct(topPct), target_weight_kg: null, target_reps: prev.top_set_reps, target_rir: MID_DELOAD.rir + rirBonus, is_warmup: false })
-          const backoffCount = category.isSixPattern
-            ? (w8?.backoff_sets ?? 2) + (bonusMuscles.has(category.muscle) ? sixPatternDurationBonusSets(minutes) : 0)
-            : Math.max(0, midSets(setsForNonPatternCategory(minutes)) - 1)
-          if (prev.backoff_pct_of_top != null && prev.backoff_reps) {
-            for (let i = 0; i < backoffCount; i++) {
-              sets.push({ target_pct_1rm: roundPct(topPct * prev.backoff_pct_of_top), target_weight_kg: null, target_reps: prev.backoff_reps, target_rir: MID_DELOAD.rir + rirBonus, is_warmup: false })
-            }
-          }
-          notes.push(MID_DELOAD.note)
-        } else if (hasOneRm) {
-          const mp = movementBy.get(`${sourceWeek}:${exercise.movement_pattern}`)
-          if (!mp || mp.top_set_pct_rm == null || (mp.top_set_reps == null && !mp.top_set_is_amrap)) continue
-          const topPct = Math.min(mp.top_set_pct_rm + frequencyPctRmOffset(baseDays), 1)
-          const rawRpe = mp.top_set_rpe ?? 9
-          const topRpe = mp.phase === 'volume' ? Math.min(rawRpe, COMPOUND_VOLUME_PHASE_RPE_CEILING) : rawRpe
-          sets.push({ target_pct_1rm: roundPct(topPct), target_weight_kg: null, target_reps: mp.top_set_reps ?? 1, target_rir: rpeToRir(topRpe) + rirBonus, is_warmup: false })
-
-          const backoffCount = category.isSixPattern
-            ? (mp.backoff_sets ?? 0) + (bonusMuscles.has(category.muscle) ? sixPatternDurationBonusSets(minutes) : 0)
-            : setsForNonPatternCategory(minutes) - 1
-          if (mp.backoff_pct_of_top != null && mp.backoff_reps) {
-            for (let i = 0; i < backoffCount; i++) {
-              sets.push({ target_pct_1rm: roundPct(topPct * mp.backoff_pct_of_top), target_weight_kg: null, target_reps: mp.backoff_reps, target_rir: rpeToRir(8) + rirBonus, is_warmup: false })
-            }
-          }
-          const phaseNote = slotNotes(mp)
-          if (phaseNote) notes.push(phaseNote)
-          if (mp.top_set_is_amrap) notes.push('1セット目はできる限り多くの回数に挑戦')
+        if (hasOneRm) {
+          const built = buildOneRmSets({
+            movementBy, pattern: exercise.movement_pattern, sourceWeek, lastHardSourceWeek, isMidDeload,
+            pctOffset: frequencyPctRmOffset(baseDays), rirBonus,
+            backoffSets: (mp, mid) => category.isSixPattern
+              ? (mp?.backoff_sets ?? (mid ? 2 : 0)) + (bonusMuscles.has(category.muscle) ? sixPatternDurationBonusSets(minutes) : 0)
+              : mid ? Math.max(0, midSets(setsForNonPatternCategory(minutes)) - 1) : setsForNonPatternCategory(minutes) - 1,
+          })
+          if (!built) continue
+          sets.push(...built.sets)
+          notes.push(...built.notes)
         } else {
           const params = weeklyBy.get(`${sourceWeek}:${category.id}`)
           if (!params) continue
@@ -322,6 +351,77 @@ export function generateTemplate(input: GenerateTemplateInput): GeneratedDay[] {
         generated.push({ exercise_master_id: exercise.id, trainer_exercise_id: null, note: notes.length > 0 ? notes.join(' ／ ') : null, sets })
       }
       out.push({ week, day, exercises: generated })
+    }
+  }
+  return out
+}
+
+// ── 固定テンプレート方式（2026-10-24 オーナー決定） ──
+// 週2〜4日は lib/coaching/base_templates.ts の骨組みに、時間・重点部位を当てはめ（改定ルール③）、
+// 週ごとの値（%RM・RPE・セット数・回数の範囲）を DB から入れる。週の並び・途中の回復週・MaxOut は
+// 動的生成と同じ。テンプレートが無い日数（週5〜7日）は generateTemplate（動的生成）を使う。
+
+export type TemplateGenerateInput = Omit<GenerateTemplateInput, 'exercises'> & {
+  exercises: (ExerciseMasterRow & { id: string; code: string })[]
+}
+
+export function hasBaseTemplate(daysPerWeek: number): boolean {
+  return BASE_TEMPLATES[daysPerWeek] != null
+}
+
+export function generateFromBaseTemplate(input: TemplateGenerateInput): GeneratedDay[] {
+  const { totalWeeks, daysPerWeek, sessionMinutes: minutes, priorities, exercises, weeklyParams, movementParams } = input
+  const template = BASE_TEMPLATES[daysPerWeek]
+  if (!template) throw new Error(`no base template for ${daysPerWeek} days`)
+
+  const days = applyTemplate(template, minutes, priorities)
+  const byCode = new Map(exercises.map(e => [e.code, e]))
+  const weeklyBy = new Map(weeklyParams.map(p => [`${p.week_number}:${p.slot_id}`, p]))
+  const movementBy = new Map(movementParams.map(p => [`${p.week_number}:${p.movement_pattern}`, p]))
+  const pctOffset = frequencyPctRmOffset(compositionDays(daysPerWeek))
+  const weeks = planWeeks(totalWeeks)
+
+  const out: GeneratedDay[] = []
+  let lastHardSourceWeek = 1
+  for (const [weekIndex, { week, sourceWeek, phase }] of weeks.entries()) {
+    const isMidDeload = phase === 'deload' && weeks[weekIndex + 1]?.phase !== 'maxout'
+    if (phase === 'volume' || phase === 'intensity') lastHardSourceWeek = sourceWeek
+
+    for (const day of days) {
+      const generated: GeneratedExercise[] = []
+      for (const item of day.exercises) {
+        const exercise = byCode.get(item.code)
+        if (!exercise) continue
+        const oneRm = exercise.requires_one_rm
+        // MaxOut週はメインリフトの実力測定週なので、1RM管理種目以外は外す
+        if (phase === 'maxout' && !oneRm) continue
+
+        if (oneRm) {
+          // バックオフのセット数は DB の値そのまま（テンプレート方式では時間による増減をしない）
+          const built = buildOneRmSets({
+            movementBy, pattern: exercise.movement_pattern, sourceWeek, lastHardSourceWeek, isMidDeload,
+            pctOffset, rirBonus: 0, backoffSets: (mp, mid) => mp?.backoff_sets ?? (mid ? 2 : 0),
+          })
+          if (!built) continue
+          generated.push({ exercise_master_id: exercise.id, trainer_exercise_id: null, note: built.notes.join(' ／ ') || null, sets: built.sets })
+          continue
+        }
+
+        // 1RM管理でない種目: その週のセット数・回数の範囲・RPE を DB から（途中の回復週は直前の週の約6割・RIR3）
+        const params = weeklyBy.get(`${isMidDeload ? lastHardSourceWeek : sourceWeek}:${item.params}`)
+        if (!params || !params.working_sets) continue
+        const count = isMidDeload ? Math.max(1, Math.ceil(params.working_sets * MID_DELOAD.setsFactor)) : params.working_sets
+        const rir = isMidDeload ? MID_DELOAD.rir : rpeToRir(params.rpe ?? 8)
+        const sets: GeneratedSet[] = Array.from({ length: count }, () => ({
+          target_pct_1rm: null, target_weight_kg: null, target_reps: params.rep_range_min ?? 10, target_rir: rir, is_warmup: false,
+        }))
+        const notes: string[] = []
+        const phaseNote = isMidDeload ? MID_DELOAD.note : slotNotes(params)
+        if (phaseNote) notes.push(phaseNote)
+        if (params.rep_range_min != null && params.rep_range_max != null) notes.push(`${params.rep_range_min}〜${params.rep_range_max}回の範囲で`)
+        generated.push({ exercise_master_id: exercise.id, trainer_exercise_id: null, note: notes.join(' ／ ') || null, sets })
+      }
+      out.push({ week, day: day.day, exercises: generated })
     }
   }
   return out

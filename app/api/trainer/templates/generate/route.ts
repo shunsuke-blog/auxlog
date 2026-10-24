@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { dbError, validationError } from '@/lib/api/errors'
 import { trainerRpcError } from '@/lib/trainer/rpc'
-import { generateTemplate, MAX_GENERATED_DAYS, MAX_TEMPLATE_WEEKS, MIN_GENERATED_DAYS } from '@/lib/coaching/generate_template'
+import { generateFromBaseTemplate, generateTemplate, hasBaseTemplate, MAX_GENERATED_DAYS, MAX_TEMPLATE_WEEKS, MIN_GENERATED_DAYS } from '@/lib/coaching/generate_template'
 import { MAX_PRIORITY_MUSCLES, PRIORITY_MUSCLE_OPTION_ORDER } from '@/types'
 import type { MovementPatternWeeklyParams, ProgramWeeklyParams } from '@/types'
 import type { ExerciseMasterRow } from '@/lib/onboarding/exercise_matching'
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const input = parsed.data
 
   const [exercisesRes, weeklyRes, movementRes] = await Promise.all([
-    supabase.from('exercise_master').select('id, name, target_muscle, movement_pattern, requires_one_rm').order('sort_order'),
+    supabase.from('exercise_master').select('id, code, name, target_muscle, movement_pattern, requires_one_rm').order('sort_order'),
     supabase.from('program_weekly_params').select('slot_id, week_number, working_sets, rep_range_min, rep_range_max, rpe, phase, top_set_is_amrap'),
     supabase.from('movement_pattern_weekly_params').select('*'),
   ])
@@ -36,15 +36,18 @@ export async function POST(request: Request) {
     return dbError('プログラムの元データの取得に失敗しました', exercisesRes.error ?? weeklyRes.error ?? movementRes.error)
   }
 
-  const days = generateTemplate({
+  // 週2〜4日は固定テンプレート方式（2026-10-24）、テンプレートが無い週5〜7日は従来の動的生成
+  const useTemplate = hasBaseTemplate(input.days_per_week)
+  const generateInput = {
     totalWeeks: input.total_weeks,
     daysPerWeek: input.days_per_week,
     sessionMinutes: input.session_minutes,
     priorities: input.priority_muscles as never,
-    exercises: exercisesRes.data as (ExerciseMasterRow & { id: string })[],
+    exercises: exercisesRes.data as (ExerciseMasterRow & { id: string; code: string })[],
     weeklyParams: weeklyRes.data as ProgramWeeklyParams[],
     movementParams: movementRes.data as MovementPatternWeeklyParams[],
-  })
+  }
+  const days = useTemplate ? generateFromBaseTemplate(generateInput) : generateTemplate(generateInput)
 
   const { data, error } = await supabase.rpc('create_generated_template', {
     p_name: input.name,
@@ -54,6 +57,7 @@ export async function POST(request: Request) {
       days_per_week: input.days_per_week,
       session_minutes: input.session_minutes,
       priority_muscles: input.priority_muscles,
+      method: useTemplate ? 'base_template' : 'dynamic',
     },
     p_days: days,
   })
