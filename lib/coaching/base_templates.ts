@@ -348,7 +348,8 @@ export function applyTemplate(
       const rule = PRIORITY_SWAPS[p]
       if (!rule.kinds.includes(day.kind)) continue
       for (const role of rule.takes) {
-        const idx = list.findIndex(e => e.role === role && !e.swapped && !protectedMuscles.has(e.muscle))
+        // もう一方の重点部位の種目は奪わない。ただし自分の部位の枠（脚を選んだ時のふくらはぎ）は使ってよい
+        const idx = list.findIndex(e => e.role === role && !e.swapped && (e.muscle === p || !protectedMuscles.has(e.muscle)))
         if (idx < 0) continue
         const current = { ...day, exercises: list }
         const pick = rule.replacement(current).find(r => !has(current, r.code))

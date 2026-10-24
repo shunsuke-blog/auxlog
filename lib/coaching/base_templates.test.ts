@@ -91,3 +91,14 @@ test('週2〜7日すべてにテンプレートがあり、Day の数が週の�
     assert.deepEqual(BASE_TEMPLATES[n].days.map(d => d.day), Array.from({ length: n }, (_, i) => i + 1))
   }
 })
+
+test('脚を選ぶと、ふくらはぎの枠が脚のアイソレーションに差し替わる（ふくらはぎ自体は脚の種目でも奪える）', () => {
+  for (const n of [2, 4, 5, 6]) {
+    const days = applyTemplate(BASE_TEMPLATES[n], 90, ['legs'])
+    const codes = days.flatMap(d => d.exercises.map(e => e.code))
+    assert.ok(codes.includes('leg_extension') || codes.includes('leg_curl'), `${n}日: 脚のアイソレーションが入っていない`)
+  }
+  // 脚＋体幹: 先に選んだ脚がふくらはぎを使い、体幹は奪わない
+  const both = applyTemplate(BASE_TEMPLATES[4], 90, ['legs', 'core'])
+  assert.ok(both.flatMap(d => d.exercises).some(e => e.code === 'leg_curl' || e.code === 'leg_extension'))
+})
