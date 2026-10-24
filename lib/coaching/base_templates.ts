@@ -246,9 +246,10 @@ export const BASE_TEMPLATES: Record<number, BaseTemplate> = {
       ...PPL_X2,
       {
         // リカバリーの日（体幹・カーフ・腕のパンプ）。押す・引く種目が無くても腕を入れる（テンプレートの指定）。
+        // 三頭はテンプレートではケーブルキックバックだが、ケーブルトライセプスエクステンションを使う（2026-10-24 オーナー指示）。
         // 重点部位の差し替えの対象外。努力度は他の日より1段軽くする（RIR +1）
         day: 7, name: 'Active Recovery（体幹・カーフ・腕パンプ）', kind: 'recovery', exercises: [
-          ex('core', 'hanging_knee_raise', 'core', 60, 'core'),
+          ex('core', 'hanging_leg_raise', 'core', 60, 'core'),
           ex('calf', 'seated_calf_raise', 'legs', 60, 'calves_seated'),
           ex('biceps', 'cable_curl', 'biceps', 75, 'biceps'),
           ex('triceps', 'cable_triceps_extension', 'triceps', 75, 'triceps_2'),
@@ -323,7 +324,7 @@ export const PRIORITY_SWAPS: Record<PriorityMuscleOption, PrioritySwap> = {
     kinds: ['lower', 'legs', 'full'], takes: ['calf'],
     replacement: () => [
       { slot: 'core_2', code: 'cable_crunch', muscle: 'core', params: 'core_2' },
-      { slot: 'core_2', code: 'hanging_knee_raise', muscle: 'core', params: 'core_2' },
+      { slot: 'core_2', code: 'hanging_leg_raise', muscle: 'core', params: 'core_2' },
       { slot: 'core_2', code: 'leg_raise', muscle: 'core', params: 'core_2' },
     ],
   },

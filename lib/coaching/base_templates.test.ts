@@ -9,7 +9,12 @@ import { PRIORITY_MUSCLE_OPTION_ORDER, type PriorityMuscleOption } from '@/types
 
 // 種目マスタの code（本番に適用した SQL と同じ一覧）
 const sql = readFileSync(join(process.cwd(), 'lib/sql/add_exercise_master_code_2026-10-24.sql'), 'utf8')
-const MASTER_CODES = new Set([...sql.matchAll(/\('[^']+', '([a-z0-9_]+)'\)/g)].map(m => m[1]))
+// 2026-10-24 に追加した種目（ハンギングレッグレイズ・ケーブルキックバック）
+const added = readFileSync(join(process.cwd(), 'lib/sql/add_hanging_leg_raise_cable_kickback_2026-10-24.sql'), 'utf8')
+const MASTER_CODES = new Set([
+  ...[...sql.matchAll(/\('[^']+', '([a-z0-9_]+)'\)/g)].map(m => m[1]),
+  ...[...added.matchAll(/\('[^']+', '([a-z0-9_]+)', '/g)].map(m => m[1]),
+])
 
 const opts = PRIORITY_MUSCLE_OPTION_ORDER as PriorityMuscleOption[]
 const COMBOS: PriorityMuscleOption[][] = [[], ...opts.map(o => [o])]
@@ -20,7 +25,7 @@ const allOutputs = () => Object.values(BASE_TEMPLATES).flatMap(t =>
   MINUTES.flatMap(m => COMBOS.map(p => ({ t, m, p, days: applyTemplate(t, m, p) }))))
 
 test('テンプレートと差し替え先の種目は、すべて種目マスタの code にある', () => {
-  assert.ok(MASTER_CODES.size === 82, `code の一覧を読めていない（${MASTER_CODES.size}件）`)
+  assert.ok(MASTER_CODES.size === 84, `code の一覧を読めていない（${MASTER_CODES.size}件）`)
   for (const t of Object.values(BASE_TEMPLATES)) for (const d of t.days) for (const e of d.exercises) assert.ok(MASTER_CODES.has(e.code), `${t.daysPerWeek}日 ${e.code}`)
   for (const out of allOutputs()) for (const d of out.days) for (const e of d.exercises) assert.ok(MASTER_CODES.has(e.code), `差し替え ${e.code}`)
 })
