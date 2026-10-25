@@ -21,7 +21,7 @@ export default function TrainerNav({ collapsed, onToggle }: { collapsed: boolean
   return (
     <>
       <aside
-        className={`hidden md:flex fixed inset-y-0 left-0 z-40 flex-col border-r border-zinc-100 dark:border-zinc-900 bg-zinc-50 dark:bg-zinc-950 transition-[width] ${
+        className={`hidden md:flex fixed inset-y-0 left-0 z-40 flex-col border-r border-[#E5E7EB] bg-white transition-[width] ${
           collapsed ? 'w-16' : 'w-56'
         }`}
       >

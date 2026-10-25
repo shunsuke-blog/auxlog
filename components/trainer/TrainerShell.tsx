@@ -19,7 +19,7 @@ export default function TrainerShell({ initialCollapsed, children }: { initialCo
   return (
     // light-only: トレーナー画面は端末の設定に関係なくライトモード（globals.css）。
     // 高さは dvh: iPhone の Safari では 100vh が見えている高さより大きく、中身が短くても画面が動いてしまう
-    <div className="light-only min-h-dvh bg-[#F4F7F6]">
+    <div className="light-only min-h-dvh bg-zinc-50">
       <TrainerNav collapsed={collapsed} onToggle={toggle} />
       <main className={`pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0 transition-[padding] ${collapsed ? 'md:pl-16' : 'md:pl-56'}`}>
         {children}
