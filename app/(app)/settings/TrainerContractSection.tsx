@@ -64,20 +64,21 @@ export default function TrainerContractSection({ link }: Props) {
             <p>契約を終了すると、トレーナーのプランは使えなくなります（途中から再開はできません）。</p>
             <p>これまでの記録はそのまま残ります。記録から重量の基準を推定して、自分用のプログラムを自動で作るので、無料でそのまま続けられます。</p>
           </div>
+          {/* 取り消しにくい操作の確認は、キャンセルを左・実行を右に揃える（アカウントの削除と同じ並び、2026-10-25） */}
           <div className="flex gap-2">
-            <button
-              onClick={endContract}
-              disabled={ending}
-              className="flex-1 py-2.5 rounded-lg bg-red-500 text-white text-xs font-semibold disabled:opacity-50"
-            >
-              {ending ? '終了中...' : '契約を終了する'}
-            </button>
             <button
               onClick={() => setConfirming(false)}
               disabled={ending}
               className="flex-1 py-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-black dark:text-white"
             >
               キャンセル
+            </button>
+            <button
+              onClick={endContract}
+              disabled={ending}
+              className="flex-1 py-2.5 rounded-lg bg-red-500 text-white text-xs font-semibold disabled:opacity-50"
+            >
+              {ending ? '終了中...' : '契約を終了する'}
             </button>
           </div>
         </div>
