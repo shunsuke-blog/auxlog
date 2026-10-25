@@ -117,3 +117,18 @@ body:has(.light-only) {
   background-size: 1rem 1rem;
   padding-right: 2.25rem;
 }
+
+/* 日付の入力欄（招待コードの入力画面の「プランを始める日」など）。Safari の日付欄は既定の最小幅を
+   持ち、w-full でも右にはみ出して右側の余白が無くなるため、標準の見た目を外して幅を枠に収める。
+   中の文字も左揃えにする（2026-10-25 オーナー指摘） */
+input[type='date'] {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: block;
+}
+input[type='date']::-webkit-date-and-time-value {
+  text-align: left;
+}

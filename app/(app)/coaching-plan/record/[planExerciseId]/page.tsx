@@ -9,7 +9,7 @@ type Row = {
   trainer_exercise_id: string | null
   exercise_master: { name: string; is_bodyweight: boolean | null } | null
   trainer_exercises: { name: string; is_bodyweight: boolean | null } | null
-  plan_sets: { set_number: number; target_weight_kg: number | null; target_reps: number; target_rir: number | null; is_warmup: boolean }[]
+  plan_sets: { set_number: number; target_weight_kg: number | null; target_pct_1rm: number | null; target_reps: number; target_rir: number | null; is_warmup: boolean }[]
   plan_days: { week_number: number; day_number: number } | null
 }
 
@@ -23,7 +23,7 @@ export default async function CoachingRecordPage({ params }: { params: Promise<{
 
   const { data } = await supabase
     .from('plan_exercises')
-    .select('id, note, exercise_master_id, trainer_exercise_id, exercise_master(name, is_bodyweight), trainer_exercises(name, is_bodyweight), plan_sets(set_number, target_weight_kg, target_reps, target_rir, is_warmup), plan_days(week_number, day_number)')
+    .select('id, note, exercise_master_id, trainer_exercise_id, exercise_master(name, is_bodyweight), trainer_exercises(name, is_bodyweight), plan_sets(set_number, target_weight_kg, target_pct_1rm, target_reps, target_rir, is_warmup), plan_days(week_number, day_number)')
     .eq('id', planExerciseId)
     .maybeSingle()
   if (!data) notFound()
@@ -64,6 +64,8 @@ export default async function CoachingRecordPage({ params }: { params: Promise<{
         setNumber: s.set_number,
         weightKg: weight,
         weightIsTarget: s.target_weight_kg != null,
+        // %1RM のセットなのに重量が無い（トレーナーが1RMを入れていない）。初回の記録から重量を自動計算する
+        awaitingOneRm: s.target_pct_1rm != null && s.target_weight_kg == null,
         reps: s.target_reps,
         rir: s.target_rir,
         isWarmup: s.is_warmup,

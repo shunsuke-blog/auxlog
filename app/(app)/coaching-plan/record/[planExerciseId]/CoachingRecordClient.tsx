@@ -15,6 +15,8 @@ export type PrefillSet = {
   /** null = トレーナーの指定なし・前回記録もなし（自分で入力） */
   weightKg: number | null
   weightIsTarget: boolean
+  /** %1RM のセットだが重量がまだ無い（初回の記録から自動計算する） */
+  awaitingOneRm?: boolean
   reps: number
   rir: number | null
   isWarmup: boolean
@@ -133,6 +135,14 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
             <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900 px-4 py-3">
               <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">トレーナーからのメモ</p>
               <p className="text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap">{note}</p>
+            </div>
+          )}
+
+          {prefill.some(s => s.awaitingOneRm) && (
+            <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 px-4 py-3">
+              <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                重量が空欄の場合は、今回の記録をもとに、次回からあなたに合わせた目標重量が自動で計算されます。
+              </p>
             </div>
           )}
 

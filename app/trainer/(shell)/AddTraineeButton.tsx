@@ -147,7 +147,7 @@ export default function AddTraineeButton({ templates }: { templates: TemplateOpt
                 {template && template.oneRmExercises.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                      1RM（任意）: 入力すると %1RM のセットに重量が入ります。空欄の種目は前回の記録から重量を提案します。
+                      1RM（任意）: 入力すると %1RM のセットに重量が入ります。空欄の種目は、トレーニーの初回の記録から1RMを推定して、次回から重量を自動で入れます。
                     </p>
                     {template.oneRmExercises.map(ex => (
                       <label key={keyOf(ex)} className="flex items-center gap-2 text-sm text-black dark:text-white">

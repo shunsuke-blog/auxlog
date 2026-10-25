@@ -52,6 +52,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'セットの保存に失敗しました' }, { status: 500 })
   }
 
+  // コーチングモード: 1RMを入れずに共有された種目は、初回の記録から1RMを推定して、
+  // 次回以降の %1RM のセットに重量を入れる（2026-10-25。重量が入っていれば何もしない）
+  const planExerciseIds = [...new Set(sets.map(s => s.plan_exercise_id).filter((id): id is string => !!id))]
+  for (const id of planExerciseIds) {
+    const { error: fillError } = await supabase.rpc('fill_plan_weights_from_record', { p_plan_exercise_id: id })
+    if (fillError) console.error('[fill_plan_weights_from_record]', fillError.message)
+  }
+
   // exercise_bests テーブルで自己最高記録と比較・更新
   const workingSets = sets.filter(s => !s.is_warmup)
   const exerciseIds = [...new Set(workingSets.map(s => s.exercise_id))]
