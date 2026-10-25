@@ -9,18 +9,9 @@ import FatigueSelector from '@/components/record/FatigueSelector'
 import SaveComplete from '@/components/ui/SaveComplete'
 import { useNavigationGuard } from '@/lib/contexts/NavigationGuard'
 import { todayLocalDate } from '@/lib/utils/date'
+import type { PrefillSet } from '@/lib/coaching/record'
 
-export type PrefillSet = {
-  setNumber: number
-  /** null = トレーナーの指定なし・前回記録もなし（自分で入力） */
-  weightKg: number | null
-  weightIsTarget: boolean
-  /** %1RM のセットだが重量がまだ無い（初回の記録から自動計算する） */
-  awaitingOneRm?: boolean
-  reps: number
-  rir: number | null
-  isWarmup: boolean
-}
+export type { PrefillSet }
 
 type Props = {
   planExerciseId: string
