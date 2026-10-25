@@ -21,7 +21,7 @@ export type DashboardData = {
   highlights: { linkId: string; name: string; exercise: string; beforeKg: number; recentKg: number; gainKg: number; trainedOn: string }[]
   /** プランが最終週の人（次のプランの準備の目安） */
   finalWeek: NamedLink[]
-  /** 契約中などで上限に数える人数（無料の上限 FREE_TRAINEE_LIMIT と比べる） */
+  /** 契約中などで上限に数える人数（プランの上限 TRAINER_PLANS と比べる） */
   usedSlots: number
   /** アラート: プランの目標に届かなかった記録（直近2週間）・今週まだ記録なし */
   shortfalls: DashboardItem[]

@@ -17,12 +17,13 @@ type Issued = { code: string; expires_at: string; link_id: string }
 // iconOnlyOnMobile: スマホでは人のマーク（＋）だけにする（ダッシュボードの見出しでボタンが大きくならないように、2026-10-25）
 // limitReached: 無料枠の上限（クライアント3名）に達している。追加を押した時点で上限の案内を出し、名前や1RMを
 // 入力した後で断らない（2026-10-25 オーナー指摘「入力した後でエラーになると萎える」）
-export default function AddTraineeButton({ templates, label = '追加', iconOnlyOnMobile = false, limitReached = false, limit = 3 }: {
+export default function AddTraineeButton({ templates, label = '追加', iconOnlyOnMobile = false, limitReached = false, limit = 3, planLabel = 'スタータープラン' }: {
   templates: TemplateOption[]
   label?: string
   iconOnlyOnMobile?: boolean
   limitReached?: boolean
   limit?: number
+  planLabel?: string
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -144,7 +145,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
             {limitReached && !issued ? (
               <div className="space-y-4">
                 <p className="text-sm text-black dark:text-white leading-relaxed">
-                  無料プランで招待できるクライアントは{limit}人までです。
+                  {planLabel}で招待できるクライアントは{limit}人までです。
                 </p>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
                   今は招待中・契約中のクライアントが{limit}人います。新しく招待するには、使っていない招待を取り消すか、終わったクライアントとの契約を終了してください（終了した契約は数えません）。

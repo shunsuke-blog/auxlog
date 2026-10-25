@@ -6,7 +6,7 @@ import { loadTraineeRows } from '@/lib/trainer/trainees'
 import TraineeListItem from './TraineeListItem'
 import TraineeDetailPanel from './TraineeDetailPanel'
 import AddTraineeButton, { type TemplateOption } from './AddTraineeButton'
-import { FREE_TRAINEE_LIMIT, usedTraineeSlots } from '@/lib/trainer/dashboard'
+import { TRAINER_PLANS, usedTraineeSlots } from '@/lib/trainer/dashboard'
 
 // トレーニー一覧（2026-10-19 決定）: 一番上に自分自身、その下にトレーニー。契約終了はグレーで一番下。
 // 名前・状態・最後に記録した日・今週の進み具合（4 / 6 種目＋バー、スキップは別表示）・アラート「！」。
@@ -27,6 +27,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
       .order('updated_at', { ascending: false }),
   ])
 
+  const plan = TRAINER_PLANS[profile?.plan ?? 'starter']
   const templateOptions: TemplateOption[] = (templates ?? []).map(t => ({ id: t.id as string, name: t.name as string }))
 
   const selected = rows.find(r => r.linkId === selectedId && !r.isSelf) ?? null
@@ -37,7 +38,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
     <div className="md:h-screen md:flex md:flex-col">
       <div className={`sticky top-0 z-10 shrink-0 trainer-header h-14 md:h-[72px] px-4 md:px-6 items-center justify-between ${selected ? 'hidden md:flex' : 'flex'}`}>
         <h1 className="text-xl font-semibold text-black dark:text-white">クライアント一覧</h1>
-        <AddTraineeButton templates={templateOptions} limitReached={usedTraineeSlots(rows) >= FREE_TRAINEE_LIMIT} limit={FREE_TRAINEE_LIMIT} />
+        <AddTraineeButton templates={templateOptions} limitReached={plan.limit != null && usedTraineeSlots(rows) >= plan.limit} limit={plan.limit ?? 0} planLabel={plan.label} />
       </div>
       <div className="md:flex md:flex-1 md:min-h-0">
       <section className={`md:w-[420px] md:shrink-0 md:border-r border-zinc-100 dark:border-zinc-900 md:overflow-y-auto ${selected ? 'hidden md:block' : ''}`}>

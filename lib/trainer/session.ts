@@ -4,13 +4,15 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // 立っていなければ、トレーナーがトレーニー用の画面を開いてもトレーナー画面（/trainer）へ戻す。
 export const SELF_VIEW_COOKIE = 'auxlog_trainer_self_view'
 
-export type TrainerProfile = { user_id: string; display_name: string }
+export type TrainerPlan = 'starter' | 'pro' | 'business'
+
+export type TrainerProfile = { user_id: string; display_name: string; plan: TrainerPlan }
 
 // trainer_profiles に行があればトレーナー（RLSで本人の行だけ読める）。
 export async function getTrainerProfile(supabase: SupabaseClient, userId: string): Promise<TrainerProfile | null> {
   const { data } = await supabase
     .from('trainer_profiles')
-    .select('user_id, display_name')
+    .select('user_id, display_name, plan')
     .eq('user_id', userId)
     .maybeSingle()
   return data ?? null

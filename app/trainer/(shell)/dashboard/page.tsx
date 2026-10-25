@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { ClipboardPlus, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { loadDashboard } from '@/lib/trainer/dashboard_data'
-import { FREE_TRAINEE_LIMIT, formatActivityTime, HIGHLIGHT_DAYS } from '@/lib/trainer/dashboard'
+import { formatActivityTime, HIGHLIGHT_DAYS, TRAINER_PLANS } from '@/lib/trainer/dashboard'
+import { getTrainerProfile } from '@/lib/trainer/session'
 import AddTraineeButton, { type TemplateOption } from '../AddTraineeButton'
 import { ProgressBar } from '../TraineeListItem'
 
@@ -16,10 +17,13 @@ export default async function TrainerDashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const now = new Date()
-  const [data, { data: templates }] = await Promise.all([
+  const [data, { data: templates }, profile] = await Promise.all([
     loadDashboard(supabase, user.id, now),
     supabase.from('coaching_plans').select('id, name').is('link_id', null).order('updated_at', { ascending: false }),
+    getTrainerProfile(supabase, user.id),
   ])
+  const plan = TRAINER_PLANS[profile?.plan ?? 'starter']
+  const limitReached = plan.limit != null && data.usedSlots >= plan.limit
   const templateOptions: TemplateOption[] = (templates ?? []).map(t => ({ id: t.id as string, name: t.name as string }))
   const { week, activity, highlights, todos } = data
   // ToDo: やることを先に書く。アラート: 今の様子（契約者一覧のアラートと同じ文言）
@@ -41,7 +45,7 @@ export default async function TrainerDashboardPage() {
       <div className="sticky top-0 z-10 trainer-header h-14 md:h-[72px] px-4 md:px-6 flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-black dark:text-white whitespace-nowrap">ダッシュボード</h1>
         <div className="flex items-center gap-2">
-          <AddTraineeButton templates={templateOptions} label="クライアントを追加" iconOnlyOnMobile limitReached={data.usedSlots >= FREE_TRAINEE_LIMIT} limit={FREE_TRAINEE_LIMIT} />
+          <AddTraineeButton templates={templateOptions} label="クライアントを追加" iconOnlyOnMobile limitReached={limitReached} limit={plan.limit ?? 0} planLabel={plan.label} />
           <Link
             href="/trainer/programs?create=1"
             aria-label="プログラムを作成"
@@ -60,10 +64,15 @@ export default async function TrainerDashboardPage() {
         <section className="space-y-3">
           <h2 className="text-xs font-semibold text-zinc-400 tracking-wider">クイック統計</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {/* 契約中と無料枠の残りは経営の数字なので隣に並べる（スマホは1段目、2026-10-25 オーナー指摘） */}
+            {/* 契約中とプランの残りは経営の数字なので隣に並べる（スマホは1段目、2026-10-25 オーナー指摘） */}
             <Stat label="契約中" value={`${data.activeCount}`} unit="名" />
-            {/* 無料で契約できる人数の残り。上限に達して追加しようとして初めて気づく、を防ぐ */}
-            <Stat label="無料枠の残り" value={`${Math.max(0, FREE_TRAINEE_LIMIT - data.usedSlots)}`} unit="人" note={`${FREE_TRAINEE_LIMIT}人まで`} />
+            {/* 今のプランで契約できるクライアントの残り（招待中も数える）。上限に達して追加しようとして初めて気づく、を防ぐ */}
+            <Stat
+              label={`${plan.label}の残り`}
+              value={plan.limit == null ? '無制限' : `${Math.max(0, plan.limit - data.usedSlots)}`}
+              unit={plan.limit == null ? undefined : '人'}
+              note={plan.limit == null ? undefined : `${plan.limit}人まで`}
+            />
             <Stat label="今週完了した種目" value={`${week.done} / ${week.total}`} />
             <Stat label="1RM更新" value={`${highlights.length}`} unit="件" note={`直近${HIGHLIGHT_DAYS / 7}週間`} />
           </div>

@@ -116,8 +116,15 @@ export function formatActivityTime(iso: string, now: Date): { day: string; time:
 
 // ── 2026-10-25 追加: 目標未達・招待できる残り人数・今週まだ記録なし・スキップの多い種目・招待中で未入力 ──
 
-/** 無料で契約できる人数。DB の trainer_trainee_limit()（トレーニーの追加を拒否する上限）と同じ値。課金の段階を入れる時は両方を変える */
-export const FREE_TRAINEE_LIMIT = 3
+/**
+ * トレーナーのプランと、契約できるクライアントの上限（2026-10-25 料金体系）。DB の trainer_trainee_limit()（追加を拒否する上限）と
+ * 同じ値。limit が null は無制限（ビジネス）
+ */
+export const TRAINER_PLANS: Record<'starter' | 'pro' | 'business', { label: string; limit: number | null }> = {
+  starter: { label: 'スタータープラン', limit: 3 },
+  pro: { label: 'プロプラン', limit: 30 },
+  business: { label: 'ビジネスプラン', limit: null },
+}
 
 /** 上限に数える契約（招待中・契約中・一時停止中、自分は除く。DB の add_trainee_with_plan と同じ数え方） */
 export function usedTraineeSlots(rows: TraineeRow[]): number {
