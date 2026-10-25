@@ -112,3 +112,92 @@ export function formatActivityTime(iso: string, now: Date): { day: string; time:
   const day = at.ymd === today.ymd ? '今日' : at.ymd === yesterday.ymd ? '昨日' : `${at.month}/${at.day}`
   return { day, time: dateOnly ? null : at.hm }
 }
+
+// ── 2026-10-25 追加: 目標未達・招待できる残り人数・今週まだ記録なし・スキップの多い種目・招待中で未入力 ──
+
+/** 無料で契約できる人数。DB の trainer_trainee_limit()（トレーニーの追加を拒否する上限）と同じ値。課金の段階を入れる時は両方を変える */
+export const FREE_TRAINEE_LIMIT = 3
+
+/** 上限に数える契約（招待中・契約中・一時停止中、自分は除く。DB の add_trainee_with_plan と同じ数え方） */
+export function usedTraineeSlots(rows: TraineeRow[]): number {
+  return rows.filter(r => !r.isSelf && (r.status === 'invited' || r.status === 'active' || r.status === 'paused')).length
+}
+
+export type DashboardItem = { linkId: string; name: string; text: string }
+
+/** 週の半ば（4日目）を過ぎても、今週まだ1種目も記録していない人。7日記録なしのアラートが出ている人は除く（重複させない） */
+export const NOT_STARTED_FROM_DAY = 4
+
+export function notStartedThisWeek(rows: TraineeRow[], todayJst: string): DashboardItem[] {
+  const items: DashboardItem[] = []
+  for (const r of rows) {
+    if (r.isSelf || r.status !== 'active' || !r.plan?.startDate || !r.progress || !isLive(r.plan.status)) continue
+    if (r.progress.done > 0 || r.alerts.some(a => a.kind === 'no_record')) continue
+    const weekStart = new Date(`${r.plan.startDate}T00:00:00Z`)
+    weekStart.setUTCDate(weekStart.getUTCDate() + (r.plan.currentWeek - 1) * 7)
+    const day = Math.floor((new Date(`${todayJst}T00:00:00Z`).getTime() - weekStart.getTime()) / DAY_MS) + 1
+    if (day >= NOT_STARTED_FROM_DAY && day <= 7) items.push({ linkId: r.linkId, name: r.name, text: `今週（Week ${r.plan.currentWeek}）はまだ記録がありません（${day}日目）` })
+  }
+  return items
+}
+
+export type RecordedExercise = {
+  linkId: string
+  name: string
+  exercise: string
+  trainedOn: string
+  actual: { setNumber: number; weightKg: number; reps: number; isWarmup: boolean }[]
+  targets: { setNumber: number; weightKg: number | null; reps: number; isWarmup: boolean }[]
+}
+
+/**
+ * プランの目標に届かなかった記録。ワーキングセットを順に目標と突き合わせ、最初に届かなかったセットを出す。
+ * 届かない = 目標の重量があるのに軽くした、または回数（時間で行う種目は秒数）が目標より少ない。
+ * 目標より多いセットを足した分・少ないセット数は見ない（回数・重量だけで判定）。
+ */
+export function shortfalls(records: RecordedExercise[]): DashboardItem[] {
+  const items: DashboardItem[] = []
+  for (const r of records) {
+    const unit = r.exercise.includes('（秒）') ? '秒' : '回'
+    const actual = r.actual.filter(s => !s.isWarmup).sort((a, b) => a.setNumber - b.setNumber)
+    const targets = r.targets.filter(s => !s.isWarmup).sort((a, b) => a.setNumber - b.setNumber)
+    for (let i = 0; i < Math.min(actual.length, targets.length); i++) {
+      const a = actual[i]
+      const t = targets[i]
+      const lighter = t.weightKg != null && a.weightKg < t.weightKg
+      if (!lighter && a.reps >= t.reps) continue
+      const target = `${t.weightKg != null ? `${t.weightKg}kg×` : ''}${t.reps}${unit}`
+      const done = lighter ? `${a.weightKg}kg×${a.reps}${unit}` : `${a.reps}${unit}`
+      items.push({ linkId: r.linkId, name: r.name, text: `${r.exercise} 目標 ${target} → ${done}（${r.trainedOn.slice(5).replace('-', '/').replace(/^0/, '')}）` })
+      break
+    }
+  }
+  return items
+}
+
+export type SkippedExercise = { linkId: string; name: string; exerciseKey: string; exercise: string; week: number; currentWeek: number }
+
+/** 直近3週（今週を含む）のうち2週以上でスキップした種目。器具が無い・痛み・合っていないなどの、種目の入れ替えの合図 */
+export const SKIP_WINDOW_WEEKS = 3
+export const SKIP_MIN_WEEKS = 2
+
+export function repeatedSkips(skips: SkippedExercise[]): DashboardItem[] {
+  const weeks = new Map<string, { item: SkippedExercise; weeks: Set<number> }>()
+  for (const s of skips) {
+    if (s.week > s.currentWeek || s.week <= s.currentWeek - SKIP_WINDOW_WEEKS) continue
+    const key = `${s.linkId}:${s.exerciseKey}`
+    const entry = weeks.get(key) ?? { item: s, weeks: new Set<number>() }
+    entry.weeks.add(s.week)
+    weeks.set(key, entry)
+  }
+  return [...weeks.values()]
+    .filter(e => e.weeks.size >= SKIP_MIN_WEEKS)
+    .map(e => ({ linkId: e.item.linkId, name: e.item.name, text: `${e.item.exercise}を直近${SKIP_WINDOW_WEEKS}週で${e.weeks.size}回スキップ。種目の入れ替えを検討する` }))
+}
+
+/** 招待コードを発行したが、まだ入力されていない人（期限切れは別の ToDo「再発行する」） */
+export function pendingInvites(rows: TraineeRow[]): DashboardItem[] {
+  return rows
+    .filter(r => !r.isSelf && r.status === 'invited' && r.invite && !r.invite.expired)
+    .map(r => ({ linkId: r.linkId, name: r.name, text: `招待コード ${r.invite!.code} がまだ入力されていません（${r.invite!.expiresAt.slice(5, 10).replace('-', '/').replace(/^0/, '')}まで）。本人に連絡する` }))
+}

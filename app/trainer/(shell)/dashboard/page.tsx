@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { loadDashboard } from '@/lib/trainer/dashboard_data'
-import { formatActivityTime, HIGHLIGHT_DAYS } from '@/lib/trainer/dashboard'
+import { FREE_TRAINEE_LIMIT, formatActivityTime, HIGHLIGHT_DAYS } from '@/lib/trainer/dashboard'
 import AddTraineeButton, { type TemplateOption } from '../AddTraineeButton'
 import { ProgressBar } from '../TraineeListItem'
 
@@ -26,9 +26,15 @@ export default async function TrainerDashboardPage() {
   const todoItems: Item[] = [
     ...todos.filter(t => t.kind === 'waiting_plan').map(t => ({ ...t, text: '次のプランを共有する' })),
     ...data.finalWeek.map(p => ({ ...p, text: 'プランが最終週です。次のプランを準備する' })),
+    ...data.repeatedSkips,
     ...todos.filter(t => t.kind === 'invite_expired').map(t => ({ ...t, text: '招待コードを再発行する（期限切れ）' })),
+    ...data.pendingInvites,
   ]
-  const alertItems: Item[] = todos.filter(t => t.kind === 'no_record' || t.kind === 'stalled').map(t => ({ linkId: t.linkId, name: t.name, text: t.message }))
+  const alertItems: Item[] = [
+    ...todos.filter(t => t.kind === 'no_record' || t.kind === 'stalled').map(t => ({ linkId: t.linkId, name: t.name, text: t.message })),
+    ...data.notStarted,
+    ...data.shortfalls,
+  ]
 
   return (
     <div>
@@ -50,10 +56,12 @@ export default async function TrainerDashboardPage() {
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-4">
         <section className="space-y-3">
           <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">クイック統計</h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Stat label="契約中" value={`${data.activeCount}`} unit="名" />
             <Stat label="今週完了した種目" value={`${week.done} / ${week.total}`} />
             <Stat label="1RM更新" value={`${highlights.length}`} unit="件" note={`直近${HIGHLIGHT_DAYS / 7}週間`} />
+            {/* 無料で契約できる人数の残り。上限に達して追加しようとして初めて気づく、を防ぐ */}
+            <Stat label="招待できる残り" value={`${Math.max(0, FREE_TRAINEE_LIMIT - data.usedSlots)}`} unit="人" note={`無料 ${FREE_TRAINEE_LIMIT}人まで`} />
           </div>
         </section>
 
