@@ -205,7 +205,8 @@ export default function CoachingHome({ plan, trainerName, days, initialDay }: Pr
         {!day || day.exercises.length === 0 ? (
           <p className="px-1 py-10 text-center text-sm text-zinc-400">この日のメニューはありません</p>
         ) : (
-          day.exercises.map(ex => (
+          // 記録済み・スキップした種目は下に回す（セルフモードのホームと同じ。並び順はそれぞれの中でプランどおり）
+          [...day.exercises].sort((a, b) => Number(a.recorded || a.skipped) - Number(b.recorded || b.skipped)).map(ex => (
             <ExerciseCard
               key={ex.planExerciseId}
               ex={ex}
