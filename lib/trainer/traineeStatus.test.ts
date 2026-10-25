@@ -60,3 +60,13 @@ test('parseTraineeActivity: DBの集計をトレーニーごとに分け、numer
   assert.deepEqual(oneRmByUser.get('u1'), [{ exerciseKey: 'bench', trainedOn: '2026-10-15', weightKg: 82.5, reps: 5 }])
   assert.equal(parseTraineeActivity(null).oneRmByUser.size, 0)
 })
+
+test('traineeAlerts: プランの開始日が契約より後なら、そこから数える。開始前はアラートを出さない', () => {
+  const base = { status: 'active', startedAt: '2026-10-01T03:00:00Z', lastTrainedOn: null, oneRmSets: [], today }
+  assert.match(traineeAlerts(base)[0].message, /契約開始から19日間/)
+  assert.match(traineeAlerts({ ...base, planStartDate: '2026-10-10' })[0].message, /プラン開始から10日間/)
+  assert.equal(traineeAlerts({ ...base, planStartDate: '2026-10-15' }).length, 0)
+  assert.equal(traineeAlerts({ ...base, planStartDate: '2026-10-21' }).length, 0)
+  // プランの開始日が契約より前（過去の日付を選んだ）なら契約の開始日から数える
+  assert.match(traineeAlerts({ ...base, planStartDate: '2026-09-01' })[0].message, /契約開始から19日間/)
+})

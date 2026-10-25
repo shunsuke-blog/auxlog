@@ -3,6 +3,8 @@
 //   - 進み具合: 今週のプランの種目のうち記録した種目数 / （種目数 − スキップ数）。スキップは別に表示
 //   - アラート1: 契約中なのに最後の記録から7日以上（記録が無い場合は契約開始から7日以上）
 //   - アラート2: 直近3週間、1RM管理種目の推定1RMがどれも更新されていない（それ以前の記録がある種目で判定）
+// 日数は契約の開始日から数える。ただしプランの開始日（トレーニーがコード入力時に選ぶ）の方が後ならそこから数え、
+// プランが始まる前はアラートを出さない（2026-10-25 オーナー決定）
 
 import { estimateOneRm } from '@/lib/utils/epley'
 
@@ -45,12 +47,17 @@ const daysBetween = (fromIso: string, to: Date) => Math.floor((to.getTime() - ne
 export function traineeAlerts(params: {
   status: string
   startedAt: string | null
+  /** プランの開始日（coaching_plans.start_date）。無ければ契約の開始日だけで判定 */
+  planStartDate?: string | null
   lastTrainedOn: string | null
   oneRmSets: OneRmSetSample[]
   today: Date
 }): TraineeAlert[] {
-  const { status, startedAt, lastTrainedOn, oneRmSets, today } = params
-  if (status !== 'active' || !startedAt) return []
+  const { status, lastTrainedOn, oneRmSets, today, planStartDate } = params
+  if (status !== 'active' || !params.startedAt) return []
+  const contractStart = params.startedAt.slice(0, 10)
+  const startedAt = planStartDate && planStartDate > contractStart ? planStartDate : contractStart
+  if (daysBetween(startedAt, today) < 0) return []
   const alerts: TraineeAlert[] = []
 
   const sinceLast = lastTrainedOn ? daysBetween(lastTrainedOn, today) : null
@@ -58,7 +65,7 @@ export function traineeAlerts(params: {
   if (sinceLast != null ? sinceLast >= NO_RECORD_ALERT_DAYS : sinceStart >= NO_RECORD_ALERT_DAYS) {
     alerts.push({
       kind: 'no_record',
-      message: sinceLast != null ? `${sinceLast}日間記録がありません` : `契約開始から${sinceStart}日間記録がありません`,
+      message: sinceLast != null ? `${sinceLast}日間記録がありません` : `${startedAt === contractStart ? '契約開始' : 'プラン開始'}から${sinceStart}日間記録がありません`,
     })
   }
 

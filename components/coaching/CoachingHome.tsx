@@ -8,6 +8,7 @@ import GrowthReportModal from '@/components/home/GrowthReportModal'
 import type { GrowthReport } from '@/lib/program/week9-report'
 import { condenseTargetSets, isWeekComplete, type CoachingDay, type CoachingExercise, type LivePlan } from '@/lib/coaching/trainee'
 import { weekPurpose } from '@/lib/coaching/week_phases'
+import { weekDateRange } from '@/lib/coaching/week_dates'
 
 type Props = {
   plan: LivePlan
@@ -113,16 +114,7 @@ export default function CoachingHome({ plan, trainerName, days, initialDay }: Pr
 
   const purpose = weekPurpose(plan.weekPhases, plan.currentWeek)
   // 今週の日付（開始日＋(週−1)×7日 〜 ＋6日）。セルフモードのホームと同じ書き方
-  const weekRange = (() => {
-    if (!plan.startDate) return null
-    const DOW = ['日', '月', '火', '水', '木', '金', '土']
-    const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}(${DOW[d.getDay()]})`
-    const start = new Date(`${plan.startDate}T00:00:00`)
-    start.setDate(start.getDate() + (plan.currentWeek - 1) * 7)
-    const end = new Date(start)
-    end.setDate(end.getDate() + 6)
-    return `${fmt(start)} 〜 ${fmt(end)}`
-  })()
+  const weekRange = plan.startDate ? weekDateRange(plan.startDate, plan.currentWeek) : null
 
   return (
     <>

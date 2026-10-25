@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { CircleAlert } from 'lucide-react'
 import type { TraineeRow } from '@/lib/trainer/trainees'
+import { formatMonthDay, todayInJapan } from '@/lib/coaching/week_dates'
 
 export const STATUS_LABELS: Record<TraineeRow['status'], string> = {
   invited: '招待中',
@@ -22,6 +23,7 @@ export function ProgressBar({ done, total }: { done: number; total: number }) {
 
 export default function TraineeListItem({ row, selected }: { row: TraineeRow; selected: boolean }) {
   const ended = row.status === 'ended'
+  const startsLater = row.plan?.startDate && row.plan.startDate > todayInJapan() ? row.plan.startDate : null
   return (
     <Link
       href={`/trainer?id=${row.linkId}`}
@@ -47,7 +49,7 @@ export default function TraineeListItem({ row, selected }: { row: TraineeRow; se
           {row.progress && row.status !== 'ended' && (
             <div className="space-y-1">
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
-                Week {row.plan?.currentWeek} · 今週 {row.progress.done} / {row.progress.total} 種目
+                Week {row.plan?.currentWeek} · {startsLater ? `${formatMonthDay(startsLater)} 開始予定 · ` : '今週 '}{row.progress.done} / {row.progress.total} 種目
                 {row.progress.skipped > 0 && ` · スキップ ${row.progress.skipped}`}
               </p>
               <ProgressBar done={row.progress.done} total={row.progress.total} />

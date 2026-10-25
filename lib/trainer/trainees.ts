@@ -16,7 +16,8 @@ export type TraineeRow = {
   isSelf: boolean
   startedAt: string | null
   endedAt: string | null
-  plan: { id: string; name: string; currentWeek: number; totalWeeks: number; status: string } | null
+  /** startDate: プランの開始日（トレーニーがコード入力時に選ぶ）。契約の開始日（startedAt）とは別 */
+  plan: { id: string; name: string; currentWeek: number; totalWeeks: number; status: string; startDate: string | null } | null
   progress: WeekProgress | null
   lastTrainedOn: string | null
   alerts: TraineeAlert[]
@@ -26,7 +27,7 @@ export type TraineeRow = {
 const STATUS_ORDER: Record<LinkStatus, number> = { active: 0, paused: 1, invited: 2, ended: 3 }
 
 type LinkRow = { id: string; trainee_id: string | null; trainee_display_name: string; status: LinkStatus; started_at: string | null; ended_at: string | null; trainer_id: string }
-type PlanRow = { id: string; link_id: string; name: string; status: string; current_week: number; total_weeks: number; created_at: string }
+type PlanRow = { id: string; link_id: string; name: string; status: string; current_week: number; total_weeks: number; created_at: string; start_date: string | null }
 
 export async function loadTraineeRows(supabase: SupabaseClient, trainerId: string, now = new Date()): Promise<TraineeRow[]> {
   const { data: links } = await supabase
@@ -41,7 +42,7 @@ export async function loadTraineeRows(supabase: SupabaseClient, trainerId: strin
   const since = new Date(now.getTime() - 120 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
   const [{ data: plans }, { data: invites }, { data: activity }] = await Promise.all([
-    supabase.from('coaching_plans').select('id, link_id, name, status, current_week, total_weeks, created_at').in('link_id', linkIds).order('created_at', { ascending: false }),
+    supabase.from('coaching_plans').select('id, link_id, name, status, current_week, total_weeks, created_at, start_date').in('link_id', linkIds).order('created_at', { ascending: false }),
     supabase.from('trainer_invites').select('link_id, code, expires_at, created_at').in('link_id', linkIds).is('used_at', null).is('revoked_at', null).order('created_at', { ascending: false }),
     // 最後の記録日と停滞アラート用のセットは DB で集計して1つの値で受け取る（行のまま読むと
     // 1000行の上限で黙って切れるため）。契約期間外の記録は RLS で除かれる
@@ -99,12 +100,12 @@ export async function loadTraineeRows(supabase: SupabaseClient, trainerId: strin
       isSelf: l.trainee_id === l.trainer_id,
       startedAt: l.started_at,
       endedAt: l.ended_at,
-      plan: plan ? { id: plan.id, name: plan.name, currentWeek: plan.current_week, totalWeeks: plan.total_weeks, status: plan.status } : null,
+      plan: plan ? { id: plan.id, name: plan.name, currentWeek: plan.current_week, totalWeeks: plan.total_weeks, status: plan.status, startDate: plan.start_date } : null,
       progress: plan ? progressByPlan.get(plan.id) ?? null : null,
       lastTrainedOn,
       alerts: l.trainee_id === l.trainer_id
         ? []
-        : traineeAlerts({ status: l.status, startedAt: l.started_at, lastTrainedOn, oneRmSets: l.trainee_id ? oneRmByUser.get(l.trainee_id) ?? [] : [], today: now }),
+        : traineeAlerts({ status: l.status, startedAt: l.started_at, planStartDate: plan?.start_date ?? null, lastTrainedOn, oneRmSets: l.trainee_id ? oneRmByUser.get(l.trainee_id) ?? [] : [], today: now }),
       invite: invite ? { code: invite.code, expiresAt: invite.expires_at, expired: new Date(invite.expires_at) <= now } : null,
     }
   })

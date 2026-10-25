@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { loadTraineeDetail, type TraineeRow } from '@/lib/trainer/trainees'
 import { ProgressBar, STATUS_LABELS } from './TraineeListItem'
 import DetailActions from './DetailActions'
+import { formatMonthDay, todayInJapan, weekDateRange } from '@/lib/coaching/week_dates'
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' })
 
@@ -43,6 +44,13 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
             {row.plan.status === 'shared' && ' · まだ記録が始まっていません'}
             {row.plan.status === 'ended' && ' · 終了'}
           </p>
+          {/* プランの開始日はトレーニーがコード入力時に選ぶ（契約期間とは別、2026-10-25） */}
+          {row.plan.startDate && row.plan.status !== 'ended' && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              {row.plan.startDate > todayInJapan() ? `${formatMonthDay(row.plan.startDate)} 開始予定` : `開始日 ${formatMonthDay(row.plan.startDate)}`}
+              {' · '}Week {row.plan.currentWeek}（{weekDateRange(row.plan.startDate, row.plan.currentWeek)}）
+            </p>
+          )}
           {row.progress && row.status !== 'ended' && (
             <div className="space-y-1 pt-1">
               <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
