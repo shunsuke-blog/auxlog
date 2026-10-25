@@ -278,7 +278,10 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     const id = exerciseId(ex)
     const cat = catalog.find(c => exerciseId(c) === id)
     const dayList = swap.kind === 'card' ? byDay[swap.dayId] ?? [] : []
-    return { ex, id, movementPattern: cat?.movementPattern ?? null, inDay: new Set(dayList.map(exerciseId)) }
+    // 1RM管理の種目の入れ替え（%1RM のセットがある、またはマスタで1RM管理の種目）か
+    const sources = swap.kind === 'card' ? [ex] : sortedDays.flatMap(d => (byDay[d.id] ?? []).filter(e => exerciseId(e) === id))
+    const oneRm = !!cat?.requiresOneRm || sources.some(e => e.sets.some(st => st.mode === 'pct'))
+    return { ex, id, oneRm, movementPattern: cat?.movementPattern ?? null, inDay: new Set(dayList.map(exerciseId)) }
   })()
 
   const applySwap = (to: CatalogExercise, scope: SwapScope) => {
@@ -641,6 +644,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       {swap && swapSource && (
         <SwapPicker
           current={{ name: swapSource.ex.name, targetMuscle: swapSource.ex.targetMuscle, movementPattern: swapSource.movementPattern, isMaster: !!swapSource.ex.exerciseMasterId, id: swapSource.id }}
+          oneRmSource={swapSource.oneRm}
           catalog={catalog}
           inDay={swapSource.inDay}
           scope={swap.kind === 'card' ? { dayNumber: days.find(d => d.id === swap.dayId)?.dayNumber ?? 1, totalWeeks } : undefined}

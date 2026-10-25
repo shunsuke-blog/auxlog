@@ -10,6 +10,8 @@ export type SwapScope = 'this' | 'sameDayAllWeeks'
 type Props = {
   /** 入れ替える元の種目 */
   current: { name: string; targetMuscle: string | null; movementPattern: string | null; isMaster: boolean; id: string }
+  /** 1RM管理の種目（%1RM のセットがある種目）の入れ替えか。その時だけ「1RM管理外」の表示と説明を出す */
+  oneRmSource: boolean
   catalog: CatalogExercise[]
   /** その Day にすでにある種目（候補に「この Day にあり」と出す） */
   inDay: Set<string>
@@ -24,7 +26,7 @@ const keyOf = (e: Pick<CatalogExercise, 'exerciseMasterId' | 'trainerExerciseId'
 
 // 種目の入れ替え（2026-10-25 オーナー依頼）。セット・コメントはそのままで種目だけを替える。
 // 候補は「同じ動き」→「同じ部位」→ 検索した時だけその他、の順に出す。
-export default function SwapPicker({ current, catalog, inDay, scope, onPick, onClose }: Props) {
+export default function SwapPicker({ current, oneRmSource, catalog, inDay, scope, onPick, onClose }: Props) {
   const [query, setQuery] = useState('')
   const [range, setRange] = useState<SwapScope>('sameDayAllWeeks')
 
@@ -51,7 +53,7 @@ export default function SwapPicker({ current, catalog, inDay, scope, onPick, onC
             <ArrowLeftRight className="w-4 h-4 mt-1 text-zinc-400 shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-base font-semibold text-black dark:text-white">種目を入れ替え</p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">{current.name} → 選んだ種目（セット・回数・コメントはそのまま。「1RM管理外」の種目に替えると、%1RM のセットは重量「自動」になります）</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">{current.name} → 選んだ種目（セット・回数・コメントはそのまま{oneRmSource ? '。「1RM管理外」の種目に替えると、%1RM のセットは重量「自動」になります' : ''}）</p>
             </div>
             <button onClick={onClose} aria-label="閉じる" className="text-zinc-400"><X className="w-5 h-5" /></button>
           </div>
@@ -101,7 +103,7 @@ export default function SwapPicker({ current, catalog, inDay, scope, onPick, onC
                   <span className="shrink-0 flex items-center gap-1.5 text-xs text-zinc-400">
                     {inDay.has(keyOf(e)) && <span>この Day にあり</span>}
                     {e.trainerExerciseId && <span>独自の種目</span>}
-                    {!e.requiresOneRm && <span className="px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-500">1RM管理外</span>}
+                    {oneRmSource && !e.requiresOneRm && <span className="px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-500">1RM管理外</span>}
                   </span>
                 </button>
               ))}
