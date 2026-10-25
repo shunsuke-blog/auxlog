@@ -75,7 +75,6 @@ export default async function CoachingRecordPage({ params }: { params: Promise<{
       planExerciseId={pe.id}
       name={ref?.name ?? '種目'}
       note={pe.note}
-      week={pe.plan_days?.week_number ?? 1}
       day={pe.plan_days?.day_number ?? 1}
       isBodyweight={isBodyweight}
       prefill={prefill}

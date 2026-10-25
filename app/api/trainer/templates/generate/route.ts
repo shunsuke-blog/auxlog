@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { dbError, validationError } from '@/lib/api/errors'
 import { trainerRpcError } from '@/lib/trainer/rpc'
 import { availableDays, resolveProgramType } from '@/lib/coaching/base_templates'
+import { weekPhaseCodes } from '@/lib/coaching/week_phases'
 import { generateFromBaseTemplate, generateTemplate, hasBaseTemplate, MAX_GENERATED_DAYS, MAX_TEMPLATE_WEEKS, MIN_GENERATED_DAYS } from '@/lib/coaching/generate_template'
 import { MAX_PRIORITY_MUSCLES, PRIORITY_MUSCLE_OPTION_ORDER } from '@/types'
 import type { MovementPatternWeeklyParams, ProgramWeeklyParams } from '@/types'
@@ -72,6 +73,8 @@ export async function POST(request: Request) {
       gender: input.gender,
       level: input.level,
       program_type: programType,
+      // 週ごとのフェーズ（V/I/D/M）。トレーニーのホームの「今週の目的」に使う（2026-10-25）
+      week_phases: weekPhaseCodes(input.total_weeks),
     },
     p_days: days,
   })

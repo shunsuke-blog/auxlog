@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
+import { todayLocalDate } from '@/lib/utils/date'
 
 type Props = {
   /** すでに契約中のトレーナーがいる場合はその名前（新しいコードは入力できない） */
@@ -13,6 +14,8 @@ type Props = {
 export default function InviteForm({ currentTrainerName, hasSelfProgram }: Props) {
   const router = useRouter()
   const [code, setCode] = useState('')
+  // プランを始める日（過去の日付も選べる。週の日付の表示に使う）
+  const [startDate, setStartDate] = useState(() => todayLocalDate())
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -25,7 +28,7 @@ export default function InviteForm({ currentTrainerName, hasSelfProgram }: Props
       const res = await fetch('/api/invites/redeem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: normalized }),
+        body: JSON.stringify({ code: normalized, start_date: startDate }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error((data as { error?: string }).error ?? '招待コードの入力に失敗しました')
@@ -73,6 +76,17 @@ export default function InviteForm({ currentTrainerName, hasSelfProgram }: Props
               className="w-full px-4 py-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-center text-2xl font-mono tracking-[0.3em] text-black dark:text-white placeholder:text-zinc-300 placeholder:tracking-normal placeholder:text-base"
             />
 
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold text-black dark:text-white">プランを始める日</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-base text-black dark:text-white"
+              />
+              <span className="block text-xs text-zinc-500 dark:text-zinc-400">すでに始めている場合は、過去の日付も選べます。</span>
+            </label>
+
             <div className="text-xs text-zinc-500 dark:text-zinc-400 space-y-1.5 leading-relaxed">
               <p>コードを入力すると、トレーナーが作ったプランに沿って記録するようになります。</p>
               {hasSelfProgram && <p>今のプログラムは終了します。これまでの記録はそのまま残ります。</p>}
@@ -83,7 +97,7 @@ export default function InviteForm({ currentTrainerName, hasSelfProgram }: Props
 
             <button
               onClick={submit}
-              disabled={submitting || normalized.length !== 8}
+              disabled={submitting || normalized.length !== 8 || !startDate}
               className="w-full py-4 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-40"
             >
               {submitting ? '確認中...' : 'コードを入力して始める'}

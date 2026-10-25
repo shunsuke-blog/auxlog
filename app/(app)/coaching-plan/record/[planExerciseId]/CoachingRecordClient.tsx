@@ -24,21 +24,15 @@ type Props = {
   planExerciseId: string
   name: string
   note: string | null
-  week: number
   day: number
   isBodyweight: boolean
   prefill: PrefillSet[]
   alreadyRecorded: boolean
 }
 
-function targetLabel(s: PrefillSet): string {
-  const rir = s.rir != null ? ` · RIR${s.rir}` : ''
-  return `目標 ${s.reps}回${rir}${s.weightKg != null && !s.weightIsTarget ? ' · 重量は前回の記録' : ''}`
-}
-
 // コーチングモードの1種目の記録。プランの目標セットを初期値にして、実際の重量・回数を記録する。
 // 保存した記録はプランの種目（plan_exercise_id）と紐付き、トレーナーの画面に反映される。
-export default function CoachingRecordClient({ planExerciseId, name, note, week, day, isBodyweight, prefill, alreadyRecorded }: Props) {
+export default function CoachingRecordClient({ planExerciseId, name, note, day, isBodyweight, prefill, alreadyRecorded }: Props) {
   const router = useRouter()
   const { setIsDirty } = useNavigationGuard()
   const [sets, setSets] = useState<SetData[]>(() =>
@@ -116,12 +110,13 @@ export default function CoachingRecordClient({ planExerciseId, name, note, week,
   return (
     <div className="min-h-screen bg-white dark:bg-black pb-48">
       <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5">
-        <button onClick={() => router.push(`/?day=${day}`)} className="flex items-center gap-1 text-sm text-zinc-400 hover:text-black dark:hover:text-white -ml-1 mb-1">
-          <ChevronLeft className="w-4 h-4" />
-          ホーム
-        </button>
-        <p className="text-[11px] text-zinc-400 font-medium">Week {week} · Day {day}</p>
-        <h1 className="text-xl font-semibold text-black dark:text-white">{name}</h1>
+        {/* アプリと同じく「← 種目名」だけにする（2026-10-25） */}
+        <div className="flex items-center gap-2">
+          <button onClick={() => router.push(`/?day=${day}`)} aria-label="ホームに戻る" className="p-1 -ml-1 text-zinc-400 hover:text-black dark:hover:text-white">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-xl font-semibold text-black dark:text-white truncate">{name}</h1>
+        </div>
       </div>
 
       {alreadyRecorded ? (
@@ -143,8 +138,8 @@ export default function CoachingRecordClient({ planExerciseId, name, note, week,
 
           <div className="space-y-3">
             {sets.map((s, i) => (
-              <div key={i} className="space-y-1">
-                {prefill[i] && <p className="text-[11px] text-zinc-400 tabular-nums">{targetLabel(prefill[i])}</p>}
+              <div key={i}>
+                {/* 目標の回数・重量は入力欄に最初から入っているので、上に目標は書かない（2026-10-25） */}
                 <SetRow
                   setData={s}
                   canDelete={sets.length > 1}

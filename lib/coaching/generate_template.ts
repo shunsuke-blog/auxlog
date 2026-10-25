@@ -26,6 +26,7 @@ import {
 } from '@/lib/suggest/generate_program_composition'
 import { buildSlotSelections, type ExerciseMasterRow } from '@/lib/onboarding/exercise_matching'
 import { TEMPLATE_SETS, applyTemplate, type ProgramType } from './base_templates'
+import { effortText } from './week_phases'
 import {
   COMPOUND_VOLUME_PHASE_RPE_CEILING,
   effortRampTargetRpe,
@@ -427,7 +428,11 @@ export function generateFromBaseTemplate(input: TemplateGenerateInput): Generate
         const phaseNote = isMidDeload ? MID_DELOAD.note : slotNotes(params)
         if (phaseNote) notes.push(phaseNote)
         if (item.timed) notes.push(`${item.timed.minSec}〜${item.timed.maxSec}秒キープ（回数の欄に秒数を入力）`)
-        else if (params.rep_range_min != null && params.rep_range_max != null) notes.push(`${params.rep_range_min}〜${params.rep_range_max}回の範囲で`)
+        else {
+          // 重量は前回の記録から提案する種目なので、どのくらいの重さにするかを平易な言葉で書く（RIR はトレーニーに見せない）
+          const range = params.rep_range_min != null && params.rep_range_max != null ? `${params.rep_range_min}〜${params.rep_range_max}回の範囲で、` : ''
+          notes.push(`${range}${effortText(rir)}`)
+        }
         generated.push({ exercise_master_id: exercise.id, trainer_exercise_id: null, note: notes.join(' ／ ') || null, sets })
       }
       out.push({ week, day: day.day, exercises: generated })

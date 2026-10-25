@@ -17,6 +17,10 @@ export type LivePlan = {
   status: 'shared' | 'active'
   totalWeeks: number
   currentWeek: number
+  /** 開始日（招待コードの入力時にトレーニーが選んだ日。無ければ最初に記録した日） */
+  startDate: string | null
+  /** 週ごとのフェーズ（V/I/D/M）。白紙から作成したプランは null */
+  weekPhases: string[] | null
 }
 
 export type CoachingSet = {
@@ -72,7 +76,7 @@ export async function getTraineeLink(supabase: SupabaseClient, userId: string): 
 export async function getLivePlan(supabase: SupabaseClient, linkId: string): Promise<LivePlan | null> {
   const { data } = await supabase
     .from('coaching_plans')
-    .select('id, name, status, total_weeks, current_week')
+    .select('id, name, status, total_weeks, current_week, start_date, started_at, generation_inputs')
     .eq('link_id', linkId)
     .in('status', ['shared', 'active'])
     .maybeSingle()
@@ -83,6 +87,8 @@ export async function getLivePlan(supabase: SupabaseClient, linkId: string): Pro
     status: data.status,
     totalWeeks: data.total_weeks,
     currentWeek: data.current_week,
+    startDate: data.start_date ?? (data.started_at ? String(data.started_at).slice(0, 10) : null),
+    weekPhases: Array.isArray(data.generation_inputs?.week_phases) ? data.generation_inputs.week_phases : null,
   }
 }
 
@@ -153,9 +159,29 @@ export function isWeekComplete(days: CoachingDay[]): boolean {
   return all.length > 0 && all.every(e => e.recorded || e.skipped)
 }
 
-/** 目標セットの表示用（例: 80kg × 5回 RIR2 / 自動 × 10回） */
-export function formatTargetSet(s: CoachingSet, isBodyweight: boolean): string {
-  const weight = s.weightKg != null ? `${s.weightKg}kg` : isBodyweight ? '自重' : '前回から'
-  const rir = s.rir != null ? ` RIR${s.rir}` : ''
-  return `${weight} × ${s.reps}回${rir}`
+/**
+ * 目標セットを、アプリと同じ形にまとめて表示する（2026-10-25）。
+ * - ウォームアップは1行（「40kg×5 · 60kg×3」）
+ * - 同じ重量・回数が続くセットは「3セット」にまとめる。最初のセットだけ違う時は「メイン」
+ * - RIR（努力度）は出さない（重量が決まっている種目は不要、自動の種目はコメントで平易な言葉にする）
+ * - 時間で行う種目（プランク（秒））は回数を秒として出す
+ */
+export function condenseTargetSets(ex: Pick<CoachingExercise, 'sets' | 'isBodyweight' | 'name'>): { label: string; text: string }[] {
+  const unit = ex.name.includes('（秒）') ? '秒' : '回'
+  const weight = (s: CoachingSet) => (s.weightKg != null ? `${s.weightKg}kg` : ex.isBodyweight ? '自重' : '前回から')
+  const rows: { label: string; text: string }[] = []
+  const warmups = ex.sets.filter(s => s.isWarmup)
+  if (warmups.length > 0) rows.push({ label: 'ウォーム', text: warmups.map(s => `${weight(s)}×${s.reps}`).join(' · ') })
+
+  const groups: { set: CoachingSet; count: number }[] = []
+  for (const s of ex.sets.filter(x => !x.isWarmup)) {
+    const last = groups[groups.length - 1]
+    if (last && last.set.weightKg === s.weightKg && last.set.reps === s.reps) last.count++
+    else groups.push({ set: s, count: 1 })
+  }
+  groups.forEach((g, i) => {
+    const label = i === 0 && g.count === 1 && groups.length > 1 ? 'メイン' : `${g.count}セット`
+    rows.push({ label, text: `${weight(g.set)} × ${g.set.reps}${unit}` })
+  })
+  return rows
 }
