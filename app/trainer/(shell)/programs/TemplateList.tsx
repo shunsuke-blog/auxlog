@@ -123,9 +123,10 @@ async function postJson(url: string, body: unknown, method = 'POST') {
   return data as { id?: string }
 }
 
-export default function TemplateList({ templates }: { templates: TemplateSummary[] }) {
+export default function TemplateList({ templates, initialCreating = false }: { templates: TemplateSummary[]; initialCreating?: boolean }) {
   const router = useRouter()
-  const [creating, setCreating] = useState(false)
+  // ダッシュボードの「プログラムを作成」から来た時（?create=1）は作成ダイアログを開いた状態にする
+  const [creating, setCreating] = useState(initialCreating)
   const [mode, setMode] = useState<'auxlog' | 'blank'>('auxlog')
   const [name, setName] = useState('')
   const [weeks, setWeeks] = useState(9)

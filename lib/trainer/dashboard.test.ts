@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { dashboardTodos, highlights, weekSummary } from './dashboard'
+import { dashboardTodos, formatActivityTime, highlights, sortActivity, weekSummary } from './dashboard'
 import type { TraineeRow } from './trainees'
 
 const row = (p: Partial<TraineeRow>): TraineeRow => ({
@@ -50,4 +50,17 @@ test('highlights: 直近4週間で、それ以前のベストを1kg以上上回�
     ]],
   ]), today)
   assert.deepEqual(result.map(h => [h.userId, h.exerciseKey, h.gainKg, h.trainedOn]), [['u2', 'bench', 12.5, '2026-10-24'], ['u1', 'bench', 5.5, '2026-10-20']])
+})
+
+test('formatActivityTime: 日本時間で今日・昨日・月/日と時刻（日付だけの値は時刻なし）', () => {
+  const now = new Date('2026-10-25T05:00:00Z') // 日本時間 10/25 14:00
+  assert.deepEqual(formatActivityTime('2026-10-25T03:44:00Z', now), { day: '今日', time: '12:44' })
+  assert.deepEqual(formatActivityTime('2026-10-24T16:00:00Z', now), { day: '今日', time: '01:00' })
+  assert.deepEqual(formatActivityTime('2026-10-24T01:15:00Z', now), { day: '昨日', time: '10:15' })
+  assert.deepEqual(formatActivityTime('2026-10-19', now), { day: '10/19', time: null })
+})
+
+test('sortActivity: 新しい順に件数を絞る', () => {
+  const ev = (at: string) => ({ at, linkId: 'l', name: 'A', kind: 'recorded' as const, text: at })
+  assert.deepEqual(sortActivity([ev('2026-10-19T00:00:00Z'), ev('2026-10-25T00:00:00Z'), ev('2026-10-22T00:00:00Z')], 2).map(e => e.at), ['2026-10-25T00:00:00Z', '2026-10-22T00:00:00Z'])
 })

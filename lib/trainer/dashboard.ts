@@ -82,3 +82,33 @@ export function highlights(samplesByUser: ReadonlyMap<string, OneRmSetSample[]>,
   }
   return result.sort((a, b) => b.gainKg - a.gainKg || b.trainedOn.localeCompare(a.trainedOn))
 }
+
+export type ActivityEvent = {
+  at: string
+  linkId: string
+  name: string
+  kind: 'contract_started' | 'plan_started' | 'recorded' | 'contract_ended'
+  text: string
+}
+
+/** 新しい順に並べ、最大 limit 件 */
+export function sortActivity(events: ActivityEvent[], limit: number): ActivityEvent[] {
+  return [...events].sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit)
+}
+
+const JST_MS = 9 * 60 * 60 * 1000
+const jstParts = (d: Date) => {
+  const j = new Date(d.getTime() + JST_MS)
+  return { ymd: j.toISOString().slice(0, 10), month: j.getUTCMonth() + 1, day: j.getUTCDate(), hm: j.toISOString().slice(11, 16) }
+}
+
+/** アクティビティの時刻（日本時間）: 今日なら「今日」、昨日なら「昨日」、それ以外は「10/24」＋時刻 */
+export function formatActivityTime(iso: string, now: Date): { day: string; time: string | null } {
+  // 日付だけの値（記録の日など）は時刻を出さない
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+  const at = jstParts(dateOnly ? new Date(`${iso}T00:00:00+09:00`) : new Date(iso))
+  const today = jstParts(now)
+  const yesterday = jstParts(new Date(now.getTime() - 24 * 60 * 60 * 1000))
+  const day = at.ymd === today.ymd ? '今日' : at.ymd === yesterday.ymd ? '昨日' : `${at.month}/${at.day}`
+  return { day, time: dateOnly ? null : at.hm }
+}

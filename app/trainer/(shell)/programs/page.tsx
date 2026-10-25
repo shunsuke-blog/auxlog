@@ -12,7 +12,7 @@ type TemplateRow = {
 }
 
 // プログラム（テンプレート）一覧。テンプレート = link_id が null の coaching_plans（RLSで自分の分だけ読める）。
-export default async function TrainerProgramsPage() {
+export default async function TrainerProgramsPage({ searchParams }: { searchParams: Promise<{ create?: string }> }) {
   const supabase = await createClient()
 
   const [{ data: templates }, { data: shared }] = await Promise.all([
@@ -60,5 +60,5 @@ export default async function TrainerProgramsPage() {
     updatedAt: t.updated_at,
   }))
 
-  return <TemplateList templates={summaries} />
+  return <TemplateList templates={summaries} initialCreating={(await searchParams).create === '1'} />
 }

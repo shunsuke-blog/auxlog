@@ -14,7 +14,7 @@ type Issued = { code: string; expires_at: string; link_id: string }
 
 // トレーニーの追加（2026-10-19 決定）: 共有するテンプレートを選ぶ → 招待コードを発行する。
 // テンプレートの %1RM の種目は、ここで入力した1RMから kg を計算する（未入力なら重量は自動提案）。
-export default function AddTraineeButton({ templates }: { templates: TemplateOption[] }) {
+export default function AddTraineeButton({ templates, label = '追加' }: { templates: TemplateOption[]; label?: string }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -104,7 +104,7 @@ export default function AddTraineeButton({ templates }: { templates: TemplateOpt
     <>
       <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium">
         <Plus className="w-4 h-4" />
-        追加
+        {label}
       </button>
 
       {open && createPortal(
