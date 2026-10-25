@@ -97,10 +97,11 @@ export async function loadCoachingRecord(supabase: SupabaseClient, userId: strin
     ? await supabase.from('exercise_bests').select('best_weight_kg, best_reps, best_volume, best_total_reps').eq('user_id', userId).eq('exercise_id', userExercise.id).maybeSingle()
     : { data: null }
 
-  // 今の週の予定の開始日（プランの開始日＋(週−1)×7日）がまだ来ていない＝週を早く進めた
+  // 今の週の予定の開始日（プランの開始日＋(週−1)×7日）がまだ来ていない＝前の週を早く終えて週を進めた。
+  // Week 1 は「前の週」が無いので出さない（開始日より前に記録しても、早く進めたわけではない。2026-10-25 不具合修正）
   const plan = pe.plan_days?.coaching_plans
   let beforeWeekStart = false
-  if (plan?.start_date && pe.plan_days?.week_number === plan.current_week) {
+  if (plan?.start_date && plan.current_week > 1 && pe.plan_days?.week_number === plan.current_week) {
     const weekStart = new Date(`${plan.start_date}T00:00:00Z`)
     weekStart.setUTCDate(weekStart.getUTCDate() + (plan.current_week - 1) * 7)
     beforeWeekStart = todayInJapan() < weekStart.toISOString().slice(0, 10)

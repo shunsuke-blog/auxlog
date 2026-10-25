@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { UpdateSessionSchema } from '@/lib/validation/schemas'
 import { validationError, dbError, notFound } from '@/lib/api/errors'
+import { recomputeExerciseBests } from '@/lib/record/exercise_bests'
 
 export async function GET(
   request: Request,
@@ -44,6 +45,10 @@ export async function PATCH(
   const parsed = UpdateSessionSchema.safeParse(body)
   if (!parsed.success) return validationError(parsed.error)
   const { trained_at, fatigue_level, memo, sets } = parsed.data
+
+  // 編集前の種目（編集で外した種目の自己ベストも計算し直すため）
+  const { data: beforeSets } = await supabase.from('training_sets').select('exercise_id, training_sessions!inner(user_id)').eq('session_id', sessionId).eq('training_sessions.user_id', user.id)
+  const touchedExerciseIds = [...(beforeSets ?? []).map(r => r.exercise_id as string), ...sets.map(s => s.exercise_id)]
 
   // update_session_with_sets RPC でアトミックに更新
   // SQL: lib/sql/update_session_with_sets.sql を Supabase で実行済みであること
@@ -92,6 +97,9 @@ export async function PATCH(
     }
   }
 
+  // 編集で重量・回数が下がったり種目を外したりしても自己ベストが残らないよう、残っている記録から計算し直す
+  await recomputeExerciseBests(supabase, user.id, touchedExerciseIds)
+
   return NextResponse.json({ success: true })
 }
 
@@ -105,6 +113,9 @@ export async function DELETE(
 
   const { sessionId } = await params
 
+  // 削除する記録の種目（削除後に自己ベストを計算し直す）
+  const { data: deletedSets } = await supabase.from('training_sets').select('exercise_id, training_sessions!inner(user_id)').eq('session_id', sessionId).eq('training_sessions.user_id', user.id)
+
   const { error } = await supabase
     .from('training_sessions')
     .delete()
@@ -112,6 +123,9 @@ export async function DELETE(
     .eq('user_id', user.id)
 
   if (error) return dbError('セッションの削除に失敗しました', error)
+
+  // 消した記録の値が自己ベストに残らないよう、残っている記録から計算し直す（2026-10-25 不具合修正）
+  await recomputeExerciseBests(supabase, user.id, (deletedSets ?? []).map(r => r.exercise_id as string))
 
   return NextResponse.json({ success: true })
 }
