@@ -226,9 +226,9 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
                 </select>
               </label>
             </div>
-            {mode === 'auxlog' && auxlogDays.length < 6 && (
+            {mode === 'auxlog' && (
               <p className="-mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                {level === 'beginner' ? '初心者' : '女性向け'}のプログラムは週{auxlogDays[0]}〜{auxlogDays[auxlogDays.length - 1]}日で作れます。
+                {level === 'beginner' ? '初心者' : gender === 'female' ? '女性向け' : '男性向け中級者以上'}のプログラムは週{auxlogDays[0]}〜{auxlogDays[auxlogDays.length - 1]}日で作れます。
               </p>
             )}
             {mode === 'auxlog' && (
