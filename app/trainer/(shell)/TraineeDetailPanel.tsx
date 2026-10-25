@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { loadTraineeDetail, type TraineeRow } from '@/lib/trainer/trainees'
 import { ProgressBar, STATUS_LABELS } from './TraineeListItem'
 import DetailActions from './DetailActions'
+import TraineeNameEditor from './TraineeNameEditor'
 import { formatMonthDay, todayInJapan, weekDateRange } from '@/lib/coaching/week_dates'
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' })
@@ -16,8 +17,8 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
   return (
     <div className="px-4 md:px-6 py-4 md:py-6 space-y-5">
       <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <h2 className="text-xl font-semibold text-black dark:text-white">{row.name}</h2>
+        <div className="flex items-center gap-2 min-w-0">
+          <TraineeNameEditor key={row.name} linkId={row.linkId} name={row.name} />
           <span className="text-xs font-semibold px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">{STATUS_LABELS[row.status]}</span>
         </div>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
