@@ -399,7 +399,11 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
                 value={name}
                 onChange={e => setName(e.target.value)}
                 onBlur={saveName}
-                onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                onKeyDown={e => {
+                  // 日本語入力の変換を確定する Enter では保存しない（確定前に欄を離れると、入力中の文字が2重になる）。
+                  // Safari は変換確定の Enter で isComposing が false のことがあるため keyCode 229 も見る
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) e.currentTarget.blur()
+                }}
                 maxLength={60}
                 placeholder="テンプレート名"
                 // 入力欄の既定の幅（約20文字分）が幅を決めないよう最小にし、重ねた名前の幅に合わせる

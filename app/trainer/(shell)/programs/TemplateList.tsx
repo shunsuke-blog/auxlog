@@ -93,6 +93,8 @@ function TemplateName({ id, name }: { id: string; name: string }) {
           onChange={e => setValue(e.target.value)}
           onBlur={save}
           onKeyDown={e => {
+            // 日本語入力の変換を確定する Enter では確定しない（変換後にもう一度 Enter で確定）
+            if (e.nativeEvent.isComposing || e.keyCode === 229) return
             if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
             if (e.key === 'Escape') { setValue(name); setEditing(false); setError(null) }
           }}

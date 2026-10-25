@@ -5,12 +5,13 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Check, Copy, Plus } from 'lucide-react'
+import { TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
 
 export type TemplateOption = {
   id: string
   name: string
   // テンプレート内で %1RM を使っている種目（追加時に1RMを入力すると kg が入る）
-  oneRmExercises: { exerciseMasterId: string | null; trainerExerciseId: string | null; name: string }[]
+  oneRmExercises: { exerciseMasterId: string | null; trainerExerciseId: string | null; name: string; targetMuscle: string | null; sortOrder: number }[]
 }
 
 type Issued = { code: string; expires_at: string; link_id: string }
@@ -150,6 +151,7 @@ export default function AddTraineeButton({ templates }: { templates: TemplateOpt
                     </p>
                     {template.oneRmExercises.map(ex => (
                       <label key={keyOf(ex)} className="flex items-center gap-2 text-sm text-black dark:text-white">
+                        <span className="w-8 shrink-0 text-xs text-zinc-400">{ex.targetMuscle ? TARGET_MUSCLE_LABELS[ex.targetMuscle as TargetMuscle] ?? '' : ''}</span>
                         <span className="flex-1 truncate">{ex.name}</span>
                         <input
                           inputMode="decimal"

@@ -6,6 +6,7 @@ import { loadTraineeRows } from '@/lib/trainer/trainees'
 import TraineeListItem from './TraineeListItem'
 import TraineeDetailPanel from './TraineeDetailPanel'
 import AddTraineeButton, { type TemplateOption } from './AddTraineeButton'
+import { MUSCLE_ORDER, type TargetMuscle } from '@/types'
 
 type TemplateRow = {
   id: string
@@ -14,8 +15,8 @@ type TemplateRow = {
     plan_exercises: {
       exercise_master_id: string | null
       trainer_exercise_id: string | null
-      exercise_master: { name: string } | null
-      trainer_exercises: { name: string } | null
+      exercise_master: { name: string; target_muscle: string | null; sort_order: number } | null
+      trainer_exercises: { name: string; target_muscle: string | null } | null
       plan_sets: { target_pct_1rm: number | null }[]
     }[]
   }[]
@@ -35,7 +36,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
     loadTraineeRows(supabase, user.id),
     supabase
       .from('coaching_plans')
-      .select('id, name, plan_days(plan_exercises(exercise_master_id, trainer_exercise_id, exercise_master(name), trainer_exercises(name), plan_sets(target_pct_1rm)))')
+      .select('id, name, plan_days(plan_exercises(exercise_master_id, trainer_exercise_id, exercise_master(name, target_muscle, sort_order), trainer_exercises(name, target_muscle), plan_sets(target_pct_1rm)))')
       .is('link_id', null)
       .order('updated_at', { ascending: false }),
   ])
@@ -52,11 +53,16 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
             exerciseMasterId: e.exercise_master_id,
             trainerExerciseId: e.trainer_exercise_id,
             name: e.exercise_master?.name ?? e.trainer_exercises?.name ?? '',
+            targetMuscle: e.exercise_master?.target_muscle ?? e.trainer_exercises?.target_muscle ?? null,
+            sortOrder: e.exercise_master?.sort_order ?? Number.MAX_SAFE_INTEGER,
           })
         }
       }
     }
-    return { id: t.id, name: t.name, oneRmExercises: [...seen.values()] }
+    // 部位別（胸・背中・脚・肩・腕・体幹）に並べ、同じ部位の中は種目マスタの並び順（2026-10-25）
+    const muscleRank = (m: string | null) => { const i = MUSCLE_ORDER.indexOf(m as TargetMuscle); return i < 0 ? MUSCLE_ORDER.length : i }
+    const oneRmExercises = [...seen.values()].sort((a, b) => muscleRank(a.targetMuscle) - muscleRank(b.targetMuscle) || a.sortOrder - b.sortOrder)
+    return { id: t.id, name: t.name, oneRmExercises }
   })
 
   const selected = rows.find(r => r.linkId === selectedId && !r.isSelf) ?? null
