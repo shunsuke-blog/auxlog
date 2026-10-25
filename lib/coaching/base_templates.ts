@@ -437,7 +437,7 @@ export function availableDays(type: ProgramType): number[] {
 export type PrioritySwap = {
   kinds: DayKind[]
   takes: SwapRole[]
-  /** 差し替え後の種目の候補（先頭から、その日にまだ無い種目を使う）。Day の主役で選び分ける場合（脚）は day を見る */
+  /** 差し替え後の種目の候補（先頭から、その週のプログラム全体にまだ無い種目を使う）。Day の主役で選び分ける場合（脚）は day を見る */
   replacement: (day: TemplateDay) => Omit<TemplateExercise, 'minMinutes' | 'role'>[]
 }
 
@@ -449,6 +449,8 @@ export const PRIORITY_SWAPS: Record<PriorityMuscleOption, PrioritySwap> = {
     replacement: () => [
       { slot: 'chest_fly', code: 'pec_deck_fly', muscle: 'chest', params: 'chest_isolation' },
       { slot: 'chest_fly', code: 'dumbbell_fly', muscle: 'chest', params: 'chest_isolation' },
+      { slot: 'chest_fly', code: 'one_hand_cable_fly', muscle: 'chest', params: 'chest_isolation' },
+      { slot: 'chest_fly', code: 'cable_crossover', muscle: 'chest', params: 'chest_isolation' },
     ],
   },
   back: {
@@ -457,10 +459,12 @@ export const PRIORITY_SWAPS: Record<PriorityMuscleOption, PrioritySwap> = {
     replacement: () => [
       { slot: 'back_pullover', code: 'straight_arm_pulldown', muscle: 'back', params: 'back_vertical_pull' },
       { slot: 'back_row', code: 'seated_cable_row', muscle: 'back', params: 'back_horizontal_pull' },
+      { slot: 'back_row', code: 'dumbbell_row', muscle: 'back', params: 'back_horizontal_pull' },
+      { slot: 'back_row', code: 't_bar_row', muscle: 'back', params: 'back_horizontal_pull' },
     ],
   },
   shoulders: {
-    // 前部は押す種目で十分使うため、側部を足す。同じ日にサイドレイズがあればケーブルサイドレイズ
+    // 前部は押す種目で十分使うため、側部を足す
     kinds: ['upper', 'full'], takes: ['triceps', 'biceps'],
     replacement: () => [
       { slot: 'shoulder_side', code: 'side_raise', muscle: 'shoulders', params: 'shoulder_lateral' },
@@ -473,6 +477,8 @@ export const PRIORITY_SWAPS: Record<PriorityMuscleOption, PrioritySwap> = {
     replacement: () => [
       { slot: 'biceps_2', code: 'hammer_curl', muscle: 'biceps', params: 'biceps_2' },
       { slot: 'biceps_2', code: 'cable_curl', muscle: 'biceps', params: 'biceps_2' },
+      { slot: 'biceps_2', code: 'preacher_curl', muscle: 'biceps', params: 'biceps_2' },
+      { slot: 'biceps_2', code: 'bayesian_curl', muscle: 'biceps', params: 'biceps_2' },
     ],
   },
   triceps: {
@@ -480,15 +486,18 @@ export const PRIORITY_SWAPS: Record<PriorityMuscleOption, PrioritySwap> = {
     replacement: () => [
       { slot: 'triceps_2', code: 'cable_triceps_extension', muscle: 'triceps', params: 'triceps_2' },
       { slot: 'triceps_2', code: 'skull_crusher', muscle: 'triceps', params: 'triceps_2' },
+      { slot: 'triceps_2', code: 'cable_overhead_extension', muscle: 'triceps', params: 'triceps_2' },
+      { slot: 'triceps_2', code: 'cable_kickback', muscle: 'triceps', params: 'triceps_2' },
     ],
   },
   legs: {
-    // デッドリフトが主役の日は前モモ（レッグエクステンション）、それ以外は裏モモ（レッグカール）を足す
+    // デッドリフトが主役の日は前モモ（レッグエクステンション）、それ以外は裏モモ（レッグカール）を先に
     kinds: ['lower', 'legs', 'full'], takes: ['calf'],
     replacement: day => {
       const ext = { slot: 'leg_isolation', code: 'leg_extension', muscle: 'legs' as const, params: 'leg_curl' }
       const curl = { slot: 'leg_isolation', code: 'leg_curl', muscle: 'legs' as const, params: 'leg_curl' }
-      return has(day, 'deadlift') ? [ext, curl] : [curl, ext]
+      const seated = { slot: 'leg_isolation', code: 'seated_leg_curl', muscle: 'legs' as const, params: 'leg_curl' }
+      return has(day, 'deadlift') ? [ext, curl, seated] : [curl, ext, seated]
     },
   },
   core: {
@@ -497,6 +506,7 @@ export const PRIORITY_SWAPS: Record<PriorityMuscleOption, PrioritySwap> = {
       { slot: 'core_2', code: 'cable_crunch', muscle: 'core', params: 'core_2' },
       { slot: 'core_2', code: 'hanging_leg_raise', muscle: 'core', params: 'core_2' },
       { slot: 'core_2', code: 'leg_raise', muscle: 'core', params: 'core_2' },
+      { slot: 'core_2', code: 'crunch', muscle: 'core', params: 'core_2' },
     ],
   },
 }
@@ -514,24 +524,36 @@ export function applyTemplate(
   priorities: readonly PriorityMuscleOption[],
 ): TemplateDay[] {
   const protectedMuscles = new Set<TemplateMuscle>(priorities as TemplateMuscle[])
-  return template.days.map(day => {
-    let list: (TemplateExercise & { swapped?: boolean })[] = day.exercises.map(e => ({ ...e }))
-    for (const p of priorities) {
-      const rule = PRIORITY_SWAPS[p]
-      if (!rule.kinds.includes(day.kind)) continue
+  type Item = TemplateExercise & { swapped?: boolean }
+  const lists: Item[][] = template.days.map(day => day.exercises.map(e => ({ ...e })))
+  // 出来上がるプログラムに残る種目か（時間で絞った後。重点部位の種目と差し替えた種目は〜60分でも残る）
+  const kept = (e: Item) => e.swapped || protectedMuscles.has(e.muscle) || e.minMinutes <= minutes
+  // その週のプログラム全体に入っている種目（差し替え後の種目は、週のどこにも無い種目から選ぶ。2026-10-25 オーナー決定）
+  const weekCodes = () => new Set(lists.flatMap(list => list.filter(kept).map(e => e.code)))
+
+  for (const p of priorities) {
+    const rule = PRIORITY_SWAPS[p]
+    template.days.forEach((day, d) => {
+      if (!rule.kinds.includes(day.kind)) return
+      const list = lists[d]
       for (const role of rule.takes) {
         // もう一方の重点部位の種目は奪わない。ただし自分の部位の枠（脚を選んだ時のふくらはぎ）は使ってよい
         const idx = list.findIndex(e => e.role === role && !e.swapped && (e.muscle === p || !protectedMuscles.has(e.muscle)))
         if (idx < 0) continue
-        const current = { ...day, exercises: list }
-        const pick = rule.replacement(current).find(r => !has(current, r.code))
+        const used = weekCodes()
+        const pick = rule.replacement({ ...day, exercises: list }).find(r => !used.has(r.code))
         if (!pick) continue
         list[idx] = { ...pick, minMinutes: 60, swapped: true }
         break
       }
-    }
-    list = list.map(e => (protectedMuscles.has(e.muscle) ? { ...e, minMinutes: 60 } : e))
-    const kept = list.filter(e => e.minMinutes <= minutes).map(({ swapped: _swapped, ...e }) => e)
-    return { ...day, exercises: [...kept.filter(e => e.muscle !== 'core'), ...kept.filter(e => e.muscle === 'core')] }
+    })
+  }
+
+  return template.days.map((day, d) => {
+    const out = lists[d]
+      .map(e => (protectedMuscles.has(e.muscle) || e.swapped ? { ...e, minMinutes: 60 as const } : e))
+      .filter(e => e.minMinutes <= minutes)
+      .map(({ swapped: _swapped, ...e }) => e)
+    return { ...day, exercises: [...out.filter(e => e.muscle !== 'core'), ...out.filter(e => e.muscle === 'core')] }
   })
 }

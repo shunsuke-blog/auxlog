@@ -125,3 +125,23 @@ test('プログラムの種類: 初心者は性別に関係なく初心者向け
     }
   }
 })
+
+test('差し替えで入れた種目は、その週のプログラム全体にまだ無い種目（週の中で重複させない）', () => {
+  for (const { t, m, p, days } of allOutputs()) {
+    if (p.length === 0) continue
+    // 差し替えなし（保護だけ）で残る種目を Day ごとに数え、出力との差を「差し替えで入れた種目」とみなす
+    const swappedIn: string[] = []
+    days.forEach((d, i) => {
+      const plain = t.days[i].exercises.filter(e => (p as string[]).includes(e.muscle) || e.minMinutes <= m).map(e => e.code)
+      for (const e of d.exercises) {
+        const j = plain.indexOf(e.code)
+        if (j >= 0) plain.splice(j, 1)
+        else swappedIn.push(e.code)
+      }
+    })
+    const all = days.flatMap(d => d.exercises.map(e => e.code))
+    for (const code of swappedIn) {
+      assert.equal(all.filter(c => c === code).length, 1, `${t.name} ${m}分 [${p}]: 差し替えた ${code} が週に複数回`)
+    }
+  }
+})
