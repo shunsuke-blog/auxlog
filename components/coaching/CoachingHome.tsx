@@ -3,11 +3,12 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronRight, CheckCircle2 } from 'lucide-react'
+import { ChevronRight, CheckCircle2, Plus } from 'lucide-react'
 import GrowthReportModal from '@/components/home/GrowthReportModal'
 import DayProgress from '@/components/home/DayProgress'
 import type { GrowthReport } from '@/lib/program/week9-report'
-import { condenseTargetSets, isWeekComplete, type CoachingDay, type CoachingExercise, type LivePlan } from '@/lib/coaching/trainee'
+import { condenseTargetSets, isWeekComplete, type CoachingDay, type CoachingExercise, type LivePlan, type OffPlanRecord } from '@/lib/coaching/trainee'
+import AddExerciseOverlay from '@/components/home/AddExerciseOverlay'
 import { weekPurpose } from '@/lib/coaching/week_phases'
 import { weekDateRange } from '@/lib/coaching/week_dates'
 
@@ -15,12 +16,14 @@ type Props = {
   plan: LivePlan
   trainerName: string
   days: CoachingDay[]
+  /** 今週、プラン外の種目として記録したもの（「種目を追加」から） */
+  offPlan?: OffPlanRecord[]
   initialDay?: number
 }
 
 // コーチングモードのホーム。トレーナーが作ったプランの今週の Day ごとの種目を表示し、
 // 種目をタップすると記録画面へ。セルフモードと同じく、今週の全種目が済んだら「次の週へ」を出す。
-export default function CoachingHome({ plan, trainerName, days, initialDay }: Props) {
+export default function CoachingHome({ plan, trainerName, days, offPlan = [], initialDay }: Props) {
   const router = useRouter()
   // 指定が無ければ未完了の種目がある最初の Day を開く。記録画面から戻った時は ?day= で前の Day に戻す
   const [selectedDay, setSelectedDay] = useState(() =>
@@ -35,6 +38,7 @@ export default function CoachingHome({ plan, trainerName, days, initialDay }: Pr
   const [loadingReport, setLoadingReport] = useState(false)
   const [finishing, setFinishing] = useState(false)
   const [finishError, setFinishError] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
 
   const day = days.find(d => d.dayNumber === selectedDay) ?? days[0]
   const weekComplete = isWeekComplete(days)
@@ -216,6 +220,44 @@ export default function CoachingHome({ plan, trainerName, days, initialDay }: Pr
           ))
         )}
       </div>
+
+      {/* プラン外の種目（2026-10-25 オーナー決定）: プランに無い種目も記録できる。記録はプランの進み具合には
+          数えず、トレーナーの画面には「プラン外」として別に出る */}
+      <div className="px-5 pb-6 space-y-3">
+        {offPlan.length > 0 && (
+          <div className="space-y-2">
+            <p className="px-1 text-xs font-semibold text-zinc-400 uppercase tracking-wider">プラン外の種目（今週）</p>
+            {offPlan.map(r => (
+              <div key={`${r.exerciseId}-${r.trainedOn}`} className="flex items-start gap-3 px-5 py-3.5 rounded-3xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800/50">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] font-bold text-zinc-400 dark:text-zinc-500 truncate">{r.name}</p>
+                  <p className="text-[12px] text-zinc-400 tabular-nums">{r.trainedOn.slice(5).replace('-', '/').replace(/^0/, '')}　{r.sets}</p>
+                </div>
+                <CheckCircle2 className="w-4 h-4 text-brand-text mt-1 shrink-0" />
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={() => setAdding(true)}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-3xl border border-dashed border-zinc-300 dark:border-zinc-700 text-sm text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          種目を追加
+        </button>
+      </div>
+
+      {adding && (
+        <AddExerciseOverlay
+          excludedNames={new Set(days.flatMap(d => d.exercises.map(e => e.name)))}
+          note={`プランに無い種目を記録します。プランの進み具合には数えず、${trainerName} さんの画面には「プラン外」として表示されます。`}
+          onPicked={id => {
+            setAdding(false)
+            if (id) router.push(`/record?exerciseId=${id}`)
+          }}
+          onClose={() => setAdding(false)}
+        />
+      )}
 
       {report && (
         <GrowthReportModal

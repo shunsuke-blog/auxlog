@@ -53,7 +53,7 @@ type SessionRow = {
   user_id: string
   trained_at: string
   created_at: string
-  training_sets: { exercise_id: string; plan_exercises: { plan_days: { week_number: number; day_number: number; plan_id: string } | null } | null }[]
+  training_sets: { exercise_id: string; user_exercises: { custom_name: string | null; exercise_master: { name: string } | null } | null; plan_exercises: { plan_days: { week_number: number; day_number: number; plan_id: string } | null } | null }[]
 }
 
 export const ACTIVITY_LIMIT = 12
@@ -73,7 +73,7 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
     traineeIds.length > 0
       ? supabase
           .from('training_sessions')
-          .select('id, user_id, trained_at, created_at, training_sets(exercise_id, plan_exercises(plan_days(week_number, day_number, plan_id)))')
+          .select('id, user_id, trained_at, created_at, training_sets(exercise_id, user_exercises(custom_name, exercise_master(name)), plan_exercises(plan_days(week_number, day_number, plan_id)))')
           .in('user_id', traineeIds)
           .order('created_at', { ascending: false })
           .limit(ACTIVITY_LIMIT)
@@ -107,7 +107,8 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
       kind: 'recorded',
       text: day
         ? `が「${planName.get(day.plan_id) ?? 'プラン'}」の Week ${day.week_number} Day ${day.day_number} を記録しました（${count}種目）`
-        : `がトレーニングを記録しました（${count}種目）`,
+        // プランの種目に紐付いていない記録＝トレーニーが「種目を追加」から記録した、プラン外の種目
+        : `がプラン外の種目を記録しました（${[...new Set(s.training_sets.map(t => t.user_exercises?.exercise_master?.name ?? t.user_exercises?.custom_name ?? '種目'))].join('・')}）`,
     })
   }
 

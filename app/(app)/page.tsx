@@ -35,6 +35,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           plan={home.plan}
           trainerName={home.link.trainerName}
           days={home.days}
+          offPlan={home.offPlan}
           initialDay={Number((await searchParams).day) || undefined}
         />
       </div>

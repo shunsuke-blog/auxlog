@@ -301,3 +301,36 @@ export async function planUserExerciseIds(supabase: SupabaseClient, userId: stri
   const { data: own } = await supabase.from('user_exercises').select('id').eq('user_id', userId).or(filters.join(','))
   return (own ?? []).map(e => e.id as string)
 }
+
+/** プラン外の種目の記録（コーチングモードのホームの「種目を追加」から記録したもの） */
+export type OffPlanRecord = { exerciseId: string; name: string; trainedOn: string; sets: string }
+
+/**
+ * その期間の、プランの種目に紐付いていない記録（種目ごと・日ごと）。コーチングモードのホームで今週分を出す（2026-10-25）。
+ * 自分の記録だけを読む（トレーナーが自分の画面で読む時は can_trainer_view で契約期間内だけ）
+ */
+export async function loadOffPlanRecords(supabase: SupabaseClient, userId: string, from: string, to: string): Promise<OffPlanRecord[]> {
+  const { data } = await supabase
+    .from('training_sets')
+    .select('exercise_id, set_number, weight_kg, reps, is_warmup, training_sessions!inner(user_id, trained_at), user_exercises(custom_name, exercise_master(name))')
+    .eq('training_sessions.user_id', userId)
+    .gte('training_sessions.trained_at', from)
+    .lte('training_sessions.trained_at', to)
+    .is('plan_exercise_id', null)
+  type Row = { exercise_id: string; set_number: number; weight_kg: number | string; reps: number; is_warmup: boolean; training_sessions: { trained_at: string }; user_exercises: { custom_name: string | null; exercise_master: { name: string } | null } | null }
+  const byKey = new Map<string, { exerciseId: string; name: string; trainedOn: string; sets: Row[] }>()
+  for (const r of (data ?? []) as unknown as Row[]) {
+    const key = `${r.exercise_id}:${r.training_sessions.trained_at}`
+    const entry = byKey.get(key) ?? { exerciseId: r.exercise_id, name: r.user_exercises?.exercise_master?.name ?? r.user_exercises?.custom_name ?? '種目', trainedOn: r.training_sessions.trained_at, sets: [] }
+    entry.sets.push(r)
+    byKey.set(key, entry)
+  }
+  return [...byKey.values()]
+    .sort((a, b) => b.trainedOn.localeCompare(a.trainedOn))
+    .map(e => ({
+      exerciseId: e.exerciseId,
+      name: e.name,
+      trainedOn: e.trainedOn,
+      sets: e.sets.filter(s => !s.is_warmup).sort((a, b) => a.set_number - b.set_number).map(s => `${Number(s.weight_kg)}kg×${s.reps}`).join(' / '),
+    }))
+}

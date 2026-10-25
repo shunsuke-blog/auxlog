@@ -3,14 +3,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronRight, ChevronLeft, CheckCircle2, Plus, X, Search } from 'lucide-react'
+import { ChevronRight, CheckCircle2, Plus } from 'lucide-react'
 import type { UserProgramEnrollment, ProgramSuggestion, ProgramPhase, TargetMuscle } from '@/types'
-import { TARGET_MUSCLE_LABELS, MUSCLE_ORDER } from '@/types'
+import { TARGET_MUSCLE_LABELS } from '@/types'
 import ProgramSlotCard from './ProgramSlotCard'
 import NotCountedBadge from './NotCountedBadge'
 import GrowthReportModal from './GrowthReportModal'
 import type { GrowthReport } from '@/lib/program/week9-report'
 import DayProgress from './DayProgress'
+import AddExerciseOverlay from './AddExerciseOverlay'
 
 function SwipeableCard({ children, onRemove }: { children: React.ReactNode; onRemove: () => void }) {
   const [offset, setOffset] = useState(0)
@@ -108,7 +109,6 @@ const PHASE_DESCRIPTIONS: Record<ProgramPhase, string> = {
 
 // dbId は user_program_day_extras.id（削除に使用）、id は user_exercises.id（記録ページで使用）
 type ExtraExercise = { dbId: string; id: string | null; name: string; target_muscle?: string; last_weight_kg?: number | null; last_reps?: number | null }
-type MasterExercise = { id: string; name: string; target_muscle: string }
 type WeekStatus = {
   completed_exercise_ids: string[]
   all_complete: boolean
@@ -149,48 +149,16 @@ export default function ProgramDayView({ enrollment }: Props) {
   const [renewingCycle, setRenewingCycle] = useState(false)
   const [renewError, setRenewError] = useState<string | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [masterExercises, setMasterExercises] = useState<MasterExercise[]>([])
-  // exercise_master.id → user_exercises.id のマップ
-  const [masterToUserExId, setMasterToUserExId] = useState<Map<string, string>>(new Map())
-  const [masterLoading, setMasterLoading] = useState(false)
-  // マスタに無い名前で追加する場合だけ、部位を選ぶサブステップを挟む（モバイル版と同じ、2026-08-05。
-  // 部位が無いと種目が部位未設定のまま登録されてしまうため）
-  const [pendingCustomName, setPendingCustomName] = useState<string | null>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Day 切替時に追加種目をAPIからロード
   useEffect(() => {
     setExtraExercises([])
     setShowAddForm(false)
-    setSearchQuery('')
-    setPendingCustomName(null)
     fetch(`/api/program/day-extras?day=${selectedDay}`)
       .then(r => r.ok ? r.json() : { extras: [] })
       .then(data => setExtraExercises(data.extras ?? []))
       .catch(() => {})
   }, [selectedDay])
-
-  // 追加フォームを開いたとき、マスタ種目とユーザー種目を並列フェッチ
-  useEffect(() => {
-    if (!showAddForm || masterExercises.length > 0) return
-    setMasterLoading(true)
-    Promise.all([
-      fetch('/api/exercises/master').then(r => r.json()),
-      fetch('/api/exercises').then(r => r.json()),
-    ])
-      .then(([masterData, userExData]) => {
-        setMasterExercises(masterData.exercises ?? [])
-        // ユーザー種目の exercise_master_id → user_exercises.id マップを構築
-        const map = new Map<string, string>()
-        for (const ue of (userExData.exercises ?? [])) {
-          if (ue.exercise_master_id) map.set(ue.exercise_master_id, ue.id)
-        }
-        setMasterToUserExId(map)
-      })
-      .catch(() => {})
-      .finally(() => setMasterLoading(false))
-  }, [showAddForm, masterExercises.length])
 
   const refreshExtras = () => {
     fetch(`/api/program/day-extras?day=${selectedDay}`)
@@ -213,48 +181,17 @@ export default function ProgramDayView({ enrollment }: Props) {
     fetchDay(selectedDay, { force: true })
   }
 
-  const addExercise = async (ex: { id: string | null; masterId: string | null; name: string; target_muscle?: string }) => {
-    let finalId = ex.id
-
-    // user_exercises 未登録の場合は自動登録してIDを取得
-    if (!finalId) {
-      try {
-        const body = ex.masterId
-          ? { exercise_master_id: ex.masterId }
-          : { custom_name: ex.name, custom_target_muscle: ex.target_muscle, is_compound: false }
-        const res = await fetch('/api/exercises', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        })
-        if (res.ok) {
-          const data = await res.json()
-          finalId = data.exercise?.id ?? null
-          if (ex.masterId && finalId) {
-            const masterId = ex.masterId
-            setMasterToUserExId(prev => new Map(prev).set(masterId, finalId!))
-          }
-        }
-      } catch { /* ignore — fall back to /record without exerciseId */ }
-    }
-
-    if (finalId) {
+  // 選んだ種目（user_exercises.id）をこの Day の今週だけの追加種目にする
+  const addExercise = async (exerciseId: string | null) => {
+    if (exerciseId) {
       await fetch('/api/program/day-extras', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ exercise_id: finalId, day_number: selectedDay }),
+        body: JSON.stringify({ exercise_id: exerciseId, day_number: selectedDay }),
       }).catch(() => {})
       refreshExtras()
     }
     setShowAddForm(false)
-    setSearchQuery('')
-    setPendingCustomName(null)
-  }
-
-  const closeAddForm = () => {
-    setShowAddForm(false)
-    setSearchQuery('')
-    setPendingCustomName(null)
   }
 
   const removeExercise = async (dbId: string) => {
@@ -264,12 +201,6 @@ export default function ProgramDayView({ enrollment }: Props) {
     }
   }
 
-  const trimmedQuery = searchQuery.trim()
-  const filteredMaster = trimmedQuery
-    ? masterExercises.filter(e => e.name.includes(trimmedQuery))
-    : masterExercises
-
-  // すでに追加済み or プログラムスロットにある種目IDセット
   const addedNames = new Set(extraExercises.map(e => e.name))
   const slotNames = new Set(suggestion?.slots.map(s => s.exercise.name) ?? [])
 
@@ -625,106 +556,14 @@ export default function ProgramDayView({ enrollment }: Props) {
         />
       )}
 
-      {/* 種目選択オーバーレイ */}
+      {/* 種目選択（components/home/AddExerciseOverlay.tsx。コーチングモードのホームと共通） */}
       {showAddForm && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-black">
-          {/* ヘッダー */}
-          <div className="flex items-center gap-3 px-5 pt-14 pb-4 border-b border-zinc-100 dark:border-zinc-900">
-            {pendingCustomName ? (
-              <button
-                onClick={() => setPendingCustomName(null)}
-                className="flex-1 min-w-0 flex items-center gap-1 text-left text-[15px] text-zinc-500 dark:text-zinc-400"
-              >
-                <ChevronLeft className="w-4 h-4 shrink-0" />
-                <span className="truncate">「{pendingCustomName}」の部位</span>
-              </button>
-            ) : (
-            <div className="flex-1 flex items-center gap-2 px-4 py-3 rounded-2xl bg-zinc-100 dark:bg-zinc-900">
-              <Search className="w-4 h-4 text-zinc-400 shrink-0" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="種目名で検索..."
-                autoFocus
-                className="flex-1 text-[15px] text-black dark:text-white bg-transparent placeholder:text-zinc-400 focus:outline-none"
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="text-zinc-400">
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            )}
-            <button
-              onClick={closeAddForm}
-              className="text-sm font-medium text-zinc-500 dark:text-zinc-400 shrink-0"
-            >
-              キャンセル
-            </button>
-          </div>
-
-          <p className="px-5 pt-3 text-[12px] text-zinc-500 dark:text-zinc-400">
-            今週のメニューにだけ追加されます。毎週続ける種目は「プログラム」画面から追加してください。
-          </p>
-
-          {/* リスト */}
-          <div className="flex-1 overflow-y-auto">
-            {pendingCustomName ? (
-              <div className="grid grid-cols-2 gap-2 p-5">
-                {MUSCLE_ORDER.map(m => (
-                  <button
-                    key={m}
-                    onClick={() => addExercise({ id: null, masterId: null, name: pendingCustomName, target_muscle: m })}
-                    className="py-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900"
-                  >
-                    {TARGET_MUSCLE_LABELS[m]}
-                  </button>
-                ))}
-              </div>
-            ) : masterLoading ? (
-              <p className="text-sm text-zinc-400 text-center py-12">読み込み中...</p>
-            ) : (
-              <>
-                {filteredMaster
-                  .filter(e => !addedNames.has(e.name) && !slotNames.has(e.name))
-                  .map(ex => (
-                    <button
-                      key={ex.id}
-                      onClick={() => addExercise({
-                        // user_exercises.id を使う。未登録の場合は null（記録画面で種目なし遷移）
-                        id: masterToUserExId.get(ex.id) ?? null,
-                        masterId: ex.id,
-                        name: ex.name,
-                        target_muscle: ex.target_muscle,
-                      })}
-                      className="w-full flex items-center px-5 py-4 text-left border-b border-zinc-50 dark:border-zinc-900 active:bg-zinc-50 dark:active:bg-zinc-900 transition-colors"
-                    >
-                      <span className="text-[15px] text-black dark:text-white">{ex.name}</span>
-                    </button>
-                  ))}
-
-                {/* DBにない場合は自由入力で追加 */}
-                {trimmedQuery && !filteredMaster.some(e => e.name === trimmedQuery) && (
-                  <button
-                    onClick={() => setPendingCustomName(trimmedQuery)}
-                    className="w-full flex items-center gap-3 px-5 py-4 text-left border-b border-zinc-50 dark:border-zinc-900 active:bg-zinc-50 dark:active:bg-zinc-900 transition-colors"
-                  >
-                    <Plus className="w-4 h-4 text-zinc-400 shrink-0" />
-                    <span className="text-[15px] text-zinc-500 dark:text-zinc-400">
-                      「{trimmedQuery}」を追加する
-                    </span>
-                  </button>
-                )}
-
-                {!masterLoading && filteredMaster.length === 0 && !trimmedQuery && (
-                  <p className="text-sm text-zinc-400 text-center py-12">種目が見つかりません</p>
-                )}
-              </>
-            )}
-          </div>
-        </div>
+        <AddExerciseOverlay
+          excludedNames={new Set([...addedNames, ...slotNames])}
+          note="今週のメニューにだけ追加されます。毎週続ける種目は「プログラム」画面から追加してください。"
+          onPicked={addExercise}
+          onClose={() => setShowAddForm(false)}
+        />
       )}
     </>
   )

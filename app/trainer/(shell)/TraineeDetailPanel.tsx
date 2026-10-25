@@ -105,7 +105,11 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
                 <p className="text-sm font-semibold text-black dark:text-white">{fmtDate(s.trainedOn)}</p>
                 {s.exercises.map((e, i) => (
                   <div key={i} className="text-sm">
-                    <p className="text-black dark:text-white">{e.name}</p>
+                    <p className="text-black dark:text-white">
+                      {e.name}
+                      {/* トレーニーがホームの「種目を追加」から記録した、プランに無い種目 */}
+                      {e.offPlan && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">プラン外</span>}
+                    </p>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                       {e.sets.map(st => `${st.isWarmup ? 'W ' : ''}${st.weightKg}kg×${st.reps}`).join(' / ')}
                     </p>
