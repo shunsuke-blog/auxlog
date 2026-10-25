@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { todayInJapan } from './week_dates'
 
 // コーチングモードの記録画面（プランの1種目）のデータ。目標セットを初期値にし、重量が空欄（自動）の
 // セットは前回の同じ種目の記録から入れる。Web の記録画面とアプリ用の API（GET /api/coaching-plan/exercises/[id]）で共通。
@@ -23,6 +24,10 @@ export type CoachingRecordData = {
   isBodyweight: boolean
   prefill: PrefillSet[]
   alreadyRecorded: boolean
+  /** 前回までの自己ベスト（記録中の「Record! / Vol Up!」と「前回 ▶ 今回」の総挙上量に使う）。初めての種目は null */
+  prevBest: { weight: number; reps: number; volume: number; totalReps: number } | null
+  /** 今の週の予定の開始日より前（週を早く進めた）。オーバーワークの注意を出す（セルフモードと同じ、2026-10-25） */
+  beforeWeekStart: boolean
 }
 
 type Row = {
@@ -33,13 +38,13 @@ type Row = {
   exercise_master: { name: string; is_bodyweight: boolean | null } | null
   trainer_exercises: { name: string; is_bodyweight: boolean | null } | null
   plan_sets: { set_number: number; target_weight_kg: number | null; target_pct_1rm: number | null; target_reps: number; target_rir: number | null; is_warmup: boolean }[]
-  plan_days: { week_number: number; day_number: number } | null
+  plan_days: { week_number: number; day_number: number; coaching_plans: { start_date: string | null; current_week: number } | null } | null
 }
 
 export async function loadCoachingRecord(supabase: SupabaseClient, userId: string, planExerciseId: string): Promise<CoachingRecordData | null> {
   const { data } = await supabase
     .from('plan_exercises')
-    .select('id, note, exercise_master_id, trainer_exercise_id, exercise_master(name, is_bodyweight), trainer_exercises(name, is_bodyweight), plan_sets(set_number, target_weight_kg, target_pct_1rm, target_reps, target_rir, is_warmup), plan_days(week_number, day_number)')
+    .select('id, note, exercise_master_id, trainer_exercise_id, exercise_master(name, is_bodyweight), trainer_exercises(name, is_bodyweight), plan_sets(set_number, target_weight_kg, target_pct_1rm, target_reps, target_rir, is_warmup), plan_days(week_number, day_number, coaching_plans(start_date, current_week))')
     .eq('id', planExerciseId)
     .maybeSingle()
   if (!data) return null
@@ -88,6 +93,19 @@ export async function loadCoachingRecord(supabase: SupabaseClient, userId: strin
       }
     })
 
+  const { data: best } = userExercise
+    ? await supabase.from('exercise_bests').select('best_weight_kg, best_reps, best_volume, best_total_reps').eq('user_id', userId).eq('exercise_id', userExercise.id).maybeSingle()
+    : { data: null }
+
+  // 今の週の予定の開始日（プランの開始日＋(週−1)×7日）がまだ来ていない＝週を早く進めた
+  const plan = pe.plan_days?.coaching_plans
+  let beforeWeekStart = false
+  if (plan?.start_date && pe.plan_days?.week_number === plan.current_week) {
+    const weekStart = new Date(`${plan.start_date}T00:00:00Z`)
+    weekStart.setUTCDate(weekStart.getUTCDate() + (plan.current_week - 1) * 7)
+    beforeWeekStart = todayInJapan() < weekStart.toISOString().slice(0, 10)
+  }
+
   return {
     planExerciseId: pe.id,
     name: ref?.name ?? '種目',
@@ -96,5 +114,9 @@ export async function loadCoachingRecord(supabase: SupabaseClient, userId: strin
     isBodyweight,
     prefill,
     alreadyRecorded: (recorded ?? []).length > 0,
+    prevBest: best
+      ? { weight: Number(best.best_weight_kg), reps: best.best_reps, volume: Number(best.best_volume), totalReps: best.best_total_reps }
+      : null,
+    beforeWeekStart,
   }
 }

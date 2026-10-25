@@ -9,23 +9,17 @@ import FatigueSelector from '@/components/record/FatigueSelector'
 import SaveComplete from '@/components/ui/SaveComplete'
 import { useNavigationGuard } from '@/lib/contexts/NavigationGuard'
 import { todayLocalDate } from '@/lib/utils/date'
-import type { PrefillSet } from '@/lib/coaching/record'
+import type { CoachingRecordData, PrefillSet } from '@/lib/coaching/record'
+import { calcBadge } from '@/lib/record/badge'
+import PendingSetsModal from '@/components/record/PendingSetsModal'
 
 export type { PrefillSet }
 
-type Props = {
-  planExerciseId: string
-  name: string
-  note: string | null
-  day: number
-  isBodyweight: boolean
-  prefill: PrefillSet[]
-  alreadyRecorded: boolean
-}
+type Props = CoachingRecordData
 
 // コーチングモードの1種目の記録。プランの目標セットを初期値にして、実際の重量・回数を記録する。
 // 保存した記録はプランの種目（plan_exercise_id）と紐付き、トレーナーの画面に反映される。
-export default function CoachingRecordClient({ planExerciseId, name, note, day, isBodyweight, prefill, alreadyRecorded }: Props) {
+export default function CoachingRecordClient({ planExerciseId, name, note, day, isBodyweight, prefill, alreadyRecorded, prevBest, beforeWeekStart }: Props) {
   const router = useRouter()
   const { setIsDirty } = useNavigationGuard()
   const [sets, setSets] = useState<SetData[]>(() =>
@@ -59,12 +53,32 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
     })
 
   const doneSets = sets.filter(s => s.done && s.reps !== '' && parseInt(s.reps) > 0)
+  // チェックしていないセットがある時の「このまま保存しますか？」（セルフモードと同じ）
+  const [confirmingPending, setConfirmingPending] = useState(false)
 
-  const save = async () => {
+  // 記録中の「Record! / Vol Up!」と「前回 ▶ 今回」の総挙上量（セルフモードと同じ）
+  const workingSets = sets.filter(s => !s.is_warmup)
+  const badge = calcBadge(workingSets, workingSets.length > 0 && workingSets.every(s => s.done), prevBest ?? undefined)
+  const doneWorking = workingSets.filter(s => s.done)
+  const kg = (s: { weight_kg: string }) => (s.weight_kg === '' ? 0 : parseFloat(s.weight_kg))
+  const doneVolume = doneWorking.reduce((sum, s) => sum + kg(s) * (parseInt(s.reps) || 0), 0)
+  const doneTotalReps = sets.filter(s => s.done).reduce((sum, s) => sum + (parseInt(s.reps) || 0), 0)
+  const bodyweightNoLoad = isBodyweight && sets.filter(s => s.done).every(s => kg(s) === 0)
+
+  const requestSave = () => {
     if (doneSets.length === 0) {
       setError('実施したセットにチェックを入れてください')
       return
     }
+    if (sets.some(s => !s.done)) {
+      setConfirmingPending(true)
+      return
+    }
+    save()
+  }
+
+  const save = async () => {
+    setConfirmingPending(false)
     setSaving(true)
     setError(null)
     try {
@@ -125,6 +139,16 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
         </div>
       ) : (
         <div className="px-6 py-6 space-y-6 max-w-lg">
+          {/* 週を予定より早く進めた時の注意（セルフモードと同じ。記録はそのまま保存できる） */}
+          {beforeWeekStart && (
+            <div className="px-4 py-3 rounded-2xl bg-zinc-50 dark:bg-zinc-900 space-y-1">
+              <p className="text-sm font-semibold text-black dark:text-white">オーバーワークの可能性があります</p>
+              <p className="text-[12px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                前の週を予定より早く終えたため、回復期間が足りていない可能性があります。体調を見ながら無理のない重さで行ってください。
+              </p>
+            </div>
+          )}
+
           {note && (
             <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900 px-4 py-3">
               <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">トレーナーからのメモ</p>
@@ -141,6 +165,18 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
           )}
 
           <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              {badge && (
+                <span className={`text-xs font-bold animate-pulse shrink-0 ${badge === 'record' ? 'px-2 py-0.5 rounded-full bg-pr text-on-pr' : 'text-emerald-500'}`}>
+                  {badge === 'record' ? 'Record!' : badge === 'volume_up' ? 'Vol Up!' : 'GOOD!'}
+                </span>
+              )}
+              <span className="ml-auto text-xs text-zinc-400 tabular-nums">
+                {bodyweightNoLoad
+                  ? `${(prevBest?.totalReps ?? 0).toLocaleString()}回 ▶︎ ${doneTotalReps.toLocaleString()}回`
+                  : `${Math.round(prevBest?.volume ?? 0).toLocaleString()}kg ▶︎ ${Math.round(doneVolume).toLocaleString()}kg`}
+              </span>
+            </div>
             {sets.map((s, i) => (
               <div key={i}>
                 {/* 目標の回数・重量は入力欄に最初から入っているので、上に目標は書かない（2026-10-25） */}
@@ -188,7 +224,7 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
           style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
         >
           <button
-            onClick={save}
+            onClick={requestSave}
             disabled={saving}
             className="w-full max-w-lg mx-auto block py-4 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-40 transition-opacity shadow-lg"
           >
@@ -197,6 +233,8 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
           {error && <p className="text-center text-xs text-red-500 mt-2">{error}</p>}
         </div>
       )}
+
+      {confirmingPending && <PendingSetsModal onClose={() => setConfirmingPending(false)} onConfirm={save} />}
 
       {saveResult && (
         <SaveComplete

@@ -14,6 +14,7 @@ import { todayLocalDate } from '@/lib/utils/date'
 import SaveComplete from '@/components/ui/SaveComplete'
 import { useNavigationGuard } from '@/lib/contexts/NavigationGuard'
 import { buildProgramGuidance, type ProgramSetMeta } from '@/lib/utils/set_guidance'
+import { calcBadge } from '@/lib/record/badge'
 
 type ExerciseSets = {
   exercise: UserExercise
@@ -29,35 +30,8 @@ type ProgramSetPayload = ProgramSetMeta & {
   is_warmup: boolean
 }
 
-type Badge = 'record' | 'volume_up' | 'done'
 
 const makeSet = (partial: Omit<SetData, 'done'>): SetData => ({ ...partial, done: false })
-
-function calcBadge(
-  workingSets: SetData[],
-  allDone: boolean,
-  prev: { weight: number; reps: number; volume: number } | undefined,
-): Badge | null {
-  if (!allDone) return null
-  const done = workingSets.filter(s => s.done)
-  if (done.length === 0) return 'done'
-  if (!prev || prev.weight === 0) return 'done'
-
-  const currWeight = Math.max(...done.map(s => s.weight_kg === '' ? 0 : parseFloat(s.weight_kg)))
-  const currReps = Math.max(
-    ...done
-      .filter(s => (s.weight_kg === '' ? 0 : parseFloat(s.weight_kg)) === currWeight)
-      .map(s => parseInt(s.reps) || 0)
-  )
-  const currVolume = done.reduce(
-    (sum, s) => sum + (s.weight_kg === '' ? 0 : parseFloat(s.weight_kg)) * (parseInt(s.reps) || 0),
-    0,
-  )
-
-  if (currWeight > prev.weight || (currWeight === prev.weight && currReps > prev.reps)) return 'record'
-  if (currVolume > prev.volume) return 'volume_up'
-  return 'done'
-}
 
 function RecordContent() {
   const router = useRouter()
