@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { BASE_CATEGORIES_BY_RANK, LEG_DEFAULT_CATEGORY } from '@/lib/constants/program_composition'
+import { MUSCLE_ORDER, type TargetMuscle } from '@/types'
 import { selectInChunks } from '@/lib/supabase/chunk'
 import { parseTraineeActivity, traineeAlerts, weekProgress, type TraineeAlert, type WeekProgress } from './traineeStatus'
 
@@ -123,7 +124,8 @@ const SLOT_LABELS = new Map([...BASE_CATEGORIES_BY_RANK.values(), LEG_DEFAULT_CA
 
 export type TraineeDetail = {
   sessions: { id: string; trainedOn: string; exercises: { name: string; sets: { weightKg: number; reps: number; isWarmup: boolean }[] }[] }[]
-  bests: { name: string; weightKg: number; reps: number }[]
+  /** 部位の順（胸 → 背中 → 肩 → 腕 → 脚 → 体幹 → その他）、同じ部位は重量の重い順（2026-10-25 オーナー決定） */
+  bests: { name: string; targetMuscle: TargetMuscle | null; weightKg: number; reps: number }[]
   oneRms: { label: string; oneRmKg: number; recordedAt: string }[]
 }
 
@@ -148,10 +150,23 @@ export async function loadTraineeDetail(supabase: SupabaseClient, traineeId: str
 
   const bestIds = (bests ?? []).map(b => b.exercise_id as string)
   const { data: bestNames } = bestIds.length > 0
-    ? await supabase.from('user_exercises').select('id, custom_name, exercise_master(name)').in('id', bestIds)
+    ? await supabase.from('user_exercises').select('id, custom_name, custom_target_muscle, exercise_master(name, target_muscle), trainer_exercises(name, target_muscle)').in('id', bestIds)
     : { data: [] }
-  const nameById = new Map(((bestNames ?? []) as unknown as { id: string; custom_name: string | null; exercise_master: { name: string } | null }[])
-    .map(e => [e.id, e.exercise_master?.name ?? e.custom_name ?? '']))
+  type BestExercise = {
+    id: string
+    custom_name: string | null
+    custom_target_muscle: string | null
+    exercise_master: { name: string; target_muscle: string | null } | null
+    trainer_exercises: { name: string; target_muscle: string | null } | null
+  }
+  const exerciseById = new Map(((bestNames ?? []) as unknown as BestExercise[]).map(e => {
+    const muscle = e.exercise_master?.target_muscle ?? e.trainer_exercises?.target_muscle ?? e.custom_target_muscle
+    return [e.id, {
+      name: e.exercise_master?.name ?? e.trainer_exercises?.name ?? e.custom_name ?? '',
+      targetMuscle: MUSCLE_ORDER.includes(muscle as TargetMuscle) ? (muscle as TargetMuscle) : null,
+    }]
+  }))
+  const muscleRank = (m: TargetMuscle | null) => (m ? MUSCLE_ORDER.indexOf(m) : MUSCLE_ORDER.length)
 
   const latestOneRm = new Map<string, { one_rm_kg: number; recorded_at: string }>()
   for (const r of oneRms ?? []) if (!latestOneRm.has(r.slot_id)) latestOneRm.set(r.slot_id, r)
@@ -174,9 +189,12 @@ export async function loadTraineeDetail(supabase: SupabaseClient, traineeId: str
       }
     }),
     bests: (bests ?? [])
-      .map(b => ({ name: nameById.get(b.exercise_id as string) ?? '', weightKg: Number(b.best_weight_kg), reps: b.best_reps as number }))
+      .map(b => {
+        const ex = exerciseById.get(b.exercise_id as string)
+        return { name: ex?.name ?? '', targetMuscle: ex?.targetMuscle ?? null, weightKg: Number(b.best_weight_kg), reps: b.best_reps as number }
+      })
       .filter(b => b.name && b.weightKg > 0)
-      .sort((a, b) => b.weightKg - a.weightKg),
+      .sort((a, b) => muscleRank(a.targetMuscle) - muscleRank(b.targetMuscle) || b.weightKg - a.weightKg || a.name.localeCompare(b.name, 'ja')),
     oneRms: [...latestOneRm.entries()].map(([slotId, r]) => ({ label: SLOT_LABELS.get(slotId) ?? slotId, oneRmKg: Number(r.one_rm_kg), recordedAt: r.recorded_at })),
   }
 }

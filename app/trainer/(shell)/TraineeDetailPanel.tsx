@@ -1,4 +1,5 @@
 import { CircleAlert } from 'lucide-react'
+import { TARGET_MUSCLE_LABELS } from '@/types'
 import { createClient } from '@/lib/supabase/server'
 import { loadTraineeDetail, type TraineeRow } from '@/lib/trainer/trainees'
 import { ProgressBar, STATUS_LABELS } from './TraineeListItem'
@@ -80,9 +81,11 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
           {detail.bests.length > 0 && (
             <div className="px-5 py-4 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-2">
               <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">自己ベスト</p>
-              {detail.bests.slice(0, 10).map(b => (
-                <div key={b.name} className="flex justify-between text-sm">
-                  <span className="text-black dark:text-white truncate pr-2">{b.name}</span>
+              {/* 部位の順（胸 → 背中 → 肩 → 腕 → 脚 → 体幹）。件数は絞らずすべて出す */}
+              {detail.bests.map(b => (
+                <div key={b.name} className="flex items-baseline gap-2 text-sm">
+                  <span className="w-7 shrink-0 text-[11px] text-zinc-400">{b.targetMuscle ? TARGET_MUSCLE_LABELS[b.targetMuscle] : ''}</span>
+                  <span className="flex-1 min-w-0 text-black dark:text-white truncate pr-2">{b.name}</span>
                   <span className="tabular-nums text-zinc-500 shrink-0">{b.weightKg}kg × {b.reps}回</span>
                 </div>
               ))}
