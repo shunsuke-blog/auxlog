@@ -19,8 +19,9 @@ update _cl set uid = gen_random_uuid() where email is not null;
 update _cl set start_date = (select today from _cfg) - (cw - 1) * 7 - k where mode <> 'invited';
 
 set local session_replication_role = replica;
-insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
-select uid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', email, '', now(), now(), now(),
+-- トークン類の列は空文字にする（NULL だと Supabase のログインが「Database error finding user」で失敗する）
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, confirmation_token, recovery_token, email_change_token_new, email_change, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+select uid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', email, '', '', '', '', '', now(), now(), now(),
        '{"provider":"email","providers":["email"]}'::jsonb, jsonb_build_object('demo', true)
 from _cl where uid is not null;
 insert into public.users (id, email) select uid, email from _cl where uid is not null;
