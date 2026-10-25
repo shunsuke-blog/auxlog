@@ -6,6 +6,8 @@ type TemplateRow = {
   name: string
   total_weeks: number
   updated_at: string
+  source: 'engine' | 'template' | 'blank'
+  generation_inputs: TemplateSummary['inputs']
   plan_days: { day_number: number; week_number: number }[]
 }
 
@@ -16,7 +18,7 @@ export default async function TrainerProgramsPage() {
   const [{ data: templates }, { data: shared }] = await Promise.all([
     supabase
       .from('coaching_plans')
-      .select('id, name, total_weeks, updated_at, plan_days(day_number, week_number)')
+      .select('id, name, total_weeks, updated_at, source, generation_inputs, plan_days(day_number, week_number)')
       .is('link_id', null)
       .order('updated_at', { ascending: false }),
     supabase.from('coaching_plans').select('based_on_plan_id').not('link_id', 'is', null),
@@ -33,6 +35,8 @@ export default async function TrainerProgramsPage() {
     totalWeeks: t.total_weeks,
     daysPerWeek: Math.max(0, ...t.plan_days.filter(d => d.week_number === 1).map(d => d.day_number)),
     traineeCount: usage.get(t.id) ?? 0,
+    source: t.source,
+    inputs: t.generation_inputs,
     updatedAt: t.updated_at,
   }))
 

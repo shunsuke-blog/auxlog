@@ -84,19 +84,22 @@ body {
   --brand-soft: #E7F3F2;
   --brand-text: #0B7A75;
   --color-black: oklch(20.8% 0.042 265.755);
-  /* グレーはスレートグレー（2026-10-22 オーナー指定）。トレーナー画面の zinc-* をすべて slate の値にする */
-  --color-zinc-50: oklch(98.4% 0.003 247.858);
-  --color-zinc-100: oklch(96.8% 0.007 247.896);
-  --color-zinc-200: oklch(92.9% 0.013 255.508);
-  --color-zinc-300: oklch(86.9% 0.022 252.894);
-  --color-zinc-400: oklch(70.4% 0.04 256.788);
-  --color-zinc-500: oklch(55.4% 0.046 257.417);
-  --color-zinc-600: oklch(44.6% 0.043 257.281);
-  --color-zinc-700: oklch(37.2% 0.044 257.287);
+  /* グレーはスレートグレー（2026-10-22 オーナー指定）。白と区別しやすいよう、Tailwind の slate より
+     1段濃い値を割り当てる（2026-10-25 オーナー指摘「グレーが見づらい」）。
+     例: 補助領域の背景 zinc-50 → slate-100、枠線 zinc-100 → slate-200、薄い文字 zinc-400 → slate-500
+     （白地とのコントラスト比 約4.8、WCAG AA） */
+  --color-zinc-50: oklch(96.8% 0.007 247.896);
+  --color-zinc-100: oklch(92.9% 0.013 255.508);
+  --color-zinc-200: oklch(86.9% 0.022 252.894);
+  --color-zinc-300: oklch(70.4% 0.04 256.788);
+  --color-zinc-400: oklch(55.4% 0.046 257.417);
+  --color-zinc-500: oklch(44.6% 0.043 257.281);
+  --color-zinc-600: oklch(37.2% 0.044 257.287);
+  --color-zinc-700: oklch(27.9% 0.041 260.031);
   --color-zinc-800: oklch(27.9% 0.041 260.031);
   --color-zinc-900: oklch(20.8% 0.042 265.755);
   --color-zinc-950: oklch(12.9% 0.042 264.695);
-  background: var(--background);
+  /* 背景は付けない（body 直下に出すダイアログの全画面の枠にも使うため。画面の白は TrainerShell の bg-white） */
   color: var(--foreground);
 }
 body:has(.light-only) {

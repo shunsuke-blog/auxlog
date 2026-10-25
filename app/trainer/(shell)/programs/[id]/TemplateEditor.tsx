@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowDown, ArrowUp, ChevronLeft, Copy, GripVertical, Plus, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, Copy, GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { MUSCLE_ORDER, TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
 import ExercisePicker from './ExercisePicker'
 import ExerciseLibrary, { LIBRARY_DRAG_TYPE, catalogKey } from './ExerciseLibrary'
@@ -99,6 +99,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   const router = useRouter()
   const [name, setName] = useState(initialName)
   const [savedName, setSavedName] = useState(initialName)
+  const nameRef = useRef<HTMLInputElement>(null)
   // 最後に保存した内容（「保存しない」を選んだときの戻り先）と、編集中の内容
   const [savedByDay, setSavedByDay] = useState<Record<string, EditorExercise[]>>(() => Object.fromEntries(days.map(d => [d.id, d.exercises])))
   const [byDay, setByDay] = useState<Record<string, EditorExercise[]>>(savedByDay)
@@ -339,13 +340,22 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           <Link href="/trainer/programs" className="p-1 -ml-1 text-zinc-400 hover:text-black dark:hover:text-white">
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            onBlur={saveName}
-            maxLength={60}
-            className="flex-1 min-w-0 text-lg font-semibold bg-transparent text-black dark:text-white focus:outline-none"
-          />
+          {/* 名前はその場で変えられる（ペンを押すと入力欄にカーソルが入る。欄の外に出ると保存） */}
+          <div className="flex-1 min-w-0 flex items-center gap-1.5">
+            <input
+              ref={nameRef}
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onBlur={saveName}
+              onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+              maxLength={60}
+              size={Math.max(4, name.length + 2)}
+              className="min-w-0 max-w-full text-lg font-semibold bg-transparent text-black dark:text-white rounded-md px-1 -ml-1 focus:outline-none focus:bg-zinc-50 focus:ring-1 focus:ring-zinc-300"
+            />
+            <button type="button" onClick={() => nameRef.current?.focus()} title="名前を変更" aria-label="名前を変更" className="shrink-0 p-1 rounded-md text-zinc-400 hover:text-black hover:bg-zinc-100">
+              <Pencil className="w-4 h-4" />
+            </button>
+          </div>
           <div className="shrink-0 flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl">
             {([['day', 'Dayごと'], ['exercise', '種目ごと']] as const).map(([v, text]) => (
               <button

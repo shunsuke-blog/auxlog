@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Check, Copy, Plus } from 'lucide-react'
@@ -90,9 +91,12 @@ export default function AddTraineeButton({ templates }: { templates: TemplateOpt
         追加
       </button>
 
-      {open && (
+      {open && createPortal(
+        // ボタンは一覧の見出し（backdrop-blur 付きの sticky）の中にあり、その中の fixed は見出しの範囲に
+        // 閉じ込められてしまうため、画面全体に出すよう body 直下に描画する（2026-10-25 不具合修正）。
+        // トレーナー画面の配色（light-only）は body 直下には効かないので、ここでも付ける。
         // 上揃え: 入力 → 招待コードの表示で高さが変わっても上端（見出し）の位置を動かさない
-        <div className="fixed inset-0 z-50 flex items-start justify-center px-6 pt-[10vh] pb-6 overflow-y-auto">
+        <div className="light-only fixed inset-0 z-50 flex items-start justify-center px-6 pt-[10vh] pb-6 overflow-y-auto">
           <div className="fixed inset-0 bg-black/60" onClick={close} />
           <div className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
             <p className="text-base font-semibold text-black dark:text-white">トレーニーを追加</p>
@@ -169,7 +173,8 @@ export default function AddTraineeButton({ templates }: { templates: TemplateOpt
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   )

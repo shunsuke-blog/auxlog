@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronRight, Copy, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { ChevronRight, Copy, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { MAX_PRIORITY_MUSCLES, PRIORITY_MUSCLE_OPTION_LABELS, PRIORITY_MUSCLE_OPTION_ORDER, type PriorityMuscleOption } from '@/types'
 import { availableDays, resolveProgramType, type ProgramGender, type ProgramLevel } from '@/lib/coaching/base_templates'
 
@@ -31,6 +31,85 @@ export type TemplateSummary = {
   daysPerWeek: number
   traineeCount: number
   updatedAt: string
+  /** engine = Auxlogで作成、blank = 白紙から作成、template = 複製 */
+  source: 'engine' | 'template' | 'blank'
+  /** Auxlogで作成した時の条件（複製は複製元の条件を引き継ぐ）。白紙から作成は null */
+  inputs: {
+    session_minutes?: 60 | 75 | 90
+    priority_muscles?: PriorityMuscleOption[]
+    gender?: ProgramGender
+    level?: ProgramLevel
+  } | null
+}
+
+/** 一覧に出す条件の行（ラベル・値）。gender・level が無いのは対象・レベルを選べるようになる前
+ *  （2026-10-25 より前）に作ったもので、当時は男性向け・中級者以上のテンプレートだけだった */
+function templateDetails(t: TemplateSummary): [string, string][] {
+  const base: [string, string][] = [['期間', `${t.totalWeeks}週間`], ['頻度', `週${t.daysPerWeek}日`]]
+  if (!t.inputs) return [['作成方法', '白紙から作成'], ...base]
+  const minutes = SESSION_OPTIONS.find(o => o.value === t.inputs?.session_minutes)?.label ?? '—'
+  const priorities = t.inputs.priority_muscles?.length ? t.inputs.priority_muscles.map(m => PRIORITY_MUSCLE_OPTION_LABELS[m]).join('・') : 'なし'
+  return [
+    ['レベル', LEVEL_OPTIONS.find(o => o.value === (t.inputs?.level ?? 'intermediate'))!.label],
+    ['対象', GENDER_OPTIONS.find(o => o.value === (t.inputs?.gender ?? 'male'))!.label],
+    ...base,
+    ['時間', minutes],
+    ['重点部位', priorities],
+  ]
+}
+
+// テンプレート名の変更（ペンのボタン → その場で入力。Enter・欄の外で保存、Esc で取り消し）
+function TemplateName({ id, name }: { id: string; name: string }) {
+  const router = useRouter()
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(name)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const save = async () => {
+    const trimmed = value.trim()
+    if (!trimmed || trimmed === name) { setValue(name); setEditing(false); setError(null); return }
+    setSaving(true)
+    try {
+      await postJson(`/api/trainer/templates/${id}`, { name: trimmed }, 'PATCH')
+      setEditing(false)
+      setError(null)
+      router.refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '名前の変更に失敗しました')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="space-y-1">
+        <input
+          autoFocus
+          value={value}
+          maxLength={60}
+          disabled={saving}
+          onChange={e => setValue(e.target.value)}
+          onBlur={save}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
+            if (e.key === 'Escape') { setValue(name); setEditing(false); setError(null) }
+          }}
+          className="w-full max-w-md px-2 py-1 -ml-2 rounded-lg border border-zinc-300 bg-white text-sm font-semibold text-black focus:outline-none"
+        />
+        {error && <p className="text-xs text-red-500">{error}</p>}
+      </div>
+    )
+  }
+  return (
+    <div className="flex items-center gap-1.5 min-w-0">
+      <Link href={`/trainer/programs/${id}`} className="text-sm font-semibold text-black dark:text-white truncate hover:underline">{name}</Link>
+      <button type="button" onClick={() => setEditing(true)} title="名前を変更" aria-label="名前を変更" className="shrink-0 p-1 rounded-md text-zinc-400 hover:text-black hover:bg-zinc-100">
+        <Pencil className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  )
 }
 
 async function postJson(url: string, body: unknown, method = 'POST') {
@@ -123,13 +202,23 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
           </p>
         ) : (
           templates.map(t => (
-            <div key={t.id} className="flex items-center gap-2 px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
-              <Link href={`/trainer/programs/${t.id}`} className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-black dark:text-white truncate">{t.name}</p>
-                <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                  {t.totalWeeks}週間 · 週{t.daysPerWeek}日 · 使用中のトレーニー {t.traineeCount}人
-                </p>
-              </Link>
+            <div key={t.id} className="flex items-center gap-4 px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
+              <div className="flex-1 min-w-0 space-y-2">
+                <TemplateName id={t.id} name={t.name} />
+                {/* 条件は1行に1つずつ縦に並べる（2026-10-25 オーナー依頼） */}
+                <Link href={`/trainer/programs/${t.id}`} className="block space-y-0.5">
+                  {templateDetails(t).map(([label, value]) => (
+                    <p key={label} className="text-xs text-zinc-500 dark:text-zinc-400">
+                      <span className="inline-block w-16 text-zinc-400 dark:text-zinc-500">{label}</span>
+                      {value}
+                    </p>
+                  ))}
+                </Link>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-[11px] text-zinc-400 dark:text-zinc-500">使用中のトレーニー</p>
+                <p className="text-lg font-semibold text-black dark:text-white tabular-nums">{t.traineeCount}<span className="ml-0.5 text-xs font-normal text-zinc-500">人</span></p>
+              </div>
               <button onClick={() => handleDuplicate(t)} disabled={busy} title="複製" className="p-2 text-zinc-400 hover:text-black dark:hover:text-white disabled:opacity-50">
                 <Copy className="w-4 h-4" />
               </button>
