@@ -190,7 +190,7 @@ export default function TemplateList({ templates, initialCreating = false }: { t
 
   return (
     <div>
-      <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-4 md:px-6 py-3 md:py-5 flex items-center justify-between">
+      <div className="sticky top-0 z-10 trainer-header px-4 md:px-6 py-3 md:py-5 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-black dark:text-white">プログラム</h1>
         <button
           onClick={() => setCreating(true)}
@@ -210,7 +210,7 @@ export default function TemplateList({ templates, initialCreating = false }: { t
         ) : (
           templates.map(t => (
             // スマホは縦に積む（名前 → 条件を2列 → 使用中の人数と操作）。PC（md以上）は1行に横並び（2026-10-25）
-            <div key={t.id} className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 px-4 md:px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
+            <div key={t.id} className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 px-4 md:px-5 py-4 rounded-2xl trainer-card">
               <div className="flex-1 min-w-0 space-y-2">
                 <TemplateName id={t.id} name={t.name} />
                 {/* 条件は1行に1つずつ縦に並べる（2026-10-25 オーナー依頼）。スマホは2列にして縦に伸びすぎないようにする */}

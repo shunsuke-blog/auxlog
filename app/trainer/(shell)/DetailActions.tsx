@@ -50,7 +50,7 @@ export default function DetailActions({ linkId, status, invite }: Props) {
   return (
     <div className="space-y-3">
       {status === 'invited' && (
-        <div className="px-5 py-4 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
+        <div className="px-5 py-4 rounded-2xl trainer-card space-y-3">
           <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">招待コード</p>
           {invite && !invite.expired ? (
             <>

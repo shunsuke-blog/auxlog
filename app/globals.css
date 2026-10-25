@@ -130,7 +130,21 @@ body {
   color: var(--foreground);
 }
 body:has(.light-only) {
-  background: #ffffff;
+  background: #F4F7F6;
+}
+
+/* トレーナー画面の地と図（2026-10-25 オーナー指定）: 長時間の作業で目が疲れないよう、一番まぶしい純白の面積を減らす。
+   画面の地は彩度を落としたグレー #F4F7F6、カードは白＋極薄い枠線＋薄い影（地のグレーとカードの白が同化しないように）。
+   見出しの帯は白で、下に極細の線と薄い影を敷いて地から浮かせる（モダンSaaS型。ブランド色で塗らない） */
+@utility trainer-card {
+  background-color: #ffffff;
+  border: 1px solid #E5E7EB;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+@utility trainer-header {
+  background-color: #ffffff;
+  border-bottom: 1px solid #E5E7EB;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
 }
 
 /* トレーナー画面のセレクトボックスの矢印（2026-10-25 オーナー指摘）。ブラウザ標準の矢印は右端に

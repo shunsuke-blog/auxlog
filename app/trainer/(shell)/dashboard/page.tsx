@@ -38,7 +38,7 @@ export default async function TrainerDashboardPage() {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-3">
+      <div className="sticky top-0 z-10 trainer-header px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-black dark:text-white whitespace-nowrap">ダッシュボード</h1>
         <div className="flex items-center gap-2">
           <AddTraineeButton templates={templateOptions} label="契約者を追加" iconOnlyOnMobile />
@@ -171,7 +171,7 @@ export default async function TrainerDashboardPage() {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="px-4 md:px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
+    <section className="px-4 md:px-5 py-4 rounded-2xl trainer-card space-y-3">
       <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">{title}</h2>
       {children}
     </section>
@@ -180,7 +180,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 
 function Stat({ label, value, unit, note }: { label: string; value: string; unit?: string; note?: string }) {
   return (
-    <div className="px-3 md:px-4 py-3 md:py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
+    <div className="px-3 md:px-4 py-3 md:py-4 rounded-2xl trainer-card">
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
         {label}:{note && <span className="hidden md:inline text-zinc-400">（{note}）</span>}
       </p>

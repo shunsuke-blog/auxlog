@@ -37,7 +37,7 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
       )}
 
       {row.plan && (
-        <div className="px-5 py-4 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-2">
+        <div className="px-5 py-4 rounded-2xl trainer-card space-y-2">
           <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">プラン</p>
           <p className="text-sm font-semibold text-black dark:text-white">{row.plan.name}</p>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -68,7 +68,7 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
       {detail && (detail.oneRms.length > 0 || detail.bests.length > 0) && (
         <div className="grid md:grid-cols-2 gap-4">
           {detail.oneRms.length > 0 && (
-            <div className="px-5 py-4 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-2">
+            <div className="px-5 py-4 rounded-2xl trainer-card space-y-2">
               <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">1RM</p>
               {detail.oneRms.map(o => (
                 <div key={o.label} className="flex justify-between text-sm">
@@ -79,7 +79,7 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
             </div>
           )}
           {detail.bests.length > 0 && (
-            <div className="px-5 py-4 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-2">
+            <div className="px-5 py-4 rounded-2xl trainer-card space-y-2">
               <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">自己ベスト</p>
               {/* 部位の順（胸 → 背中 → 肩 → 腕 → 脚 → 体幹）。件数は絞らずすべて出す */}
               {detail.bests.map(b => (
@@ -101,7 +101,7 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
             <p className="text-sm text-zinc-400 dark:text-zinc-500 py-4">まだ記録がありません。</p>
           ) : (
             detail.sessions.map(s => (
-              <div key={s.id} className="px-5 py-4 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-2">
+              <div key={s.id} className="px-5 py-4 rounded-2xl trainer-card space-y-2">
                 <p className="text-sm font-semibold text-black dark:text-white">{fmtDate(s.trainedOn)}</p>
                 {s.exercises.map((e, i) => (
                   <div key={i} className="text-sm">

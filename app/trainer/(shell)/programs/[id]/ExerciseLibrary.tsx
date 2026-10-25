@@ -68,7 +68,7 @@ export default function ExerciseLibrary({ catalog, onAdd, onCreate, disabled }: 
         {groups.map(g => {
           const open = q !== '' || !closed.has(g.key)
           return (
-            <div key={g.key} className="rounded-2xl border border-zinc-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 overflow-hidden">
+            <div key={g.key} className="rounded-2xl trainer-card bg-white dark:bg-zinc-950 overflow-hidden">
               <button
                 onClick={() => toggle(g.key)}
                 className="w-full flex items-center justify-between px-4 py-2.5 text-left"

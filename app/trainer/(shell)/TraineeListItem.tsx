@@ -27,8 +27,8 @@ export default function TraineeListItem({ row, selected }: { row: TraineeRow; se
   return (
     <Link
       href={`/trainer?id=${row.linkId}`}
-      className={`block px-4 py-3.5 rounded-2xl border transition-colors ${
-        selected ? 'border-brand bg-brand-soft' : 'border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-950'
+      className={`block px-4 py-3.5 rounded-2xl transition-colors ${
+        selected ? 'border border-brand bg-brand-soft' : 'trainer-card hover:bg-zinc-50'
       } ${ended ? 'opacity-50' : ''}`}
     >
       <div className="flex items-start gap-3">
