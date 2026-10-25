@@ -172,9 +172,10 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
               ))}
             </div>
             {mode === 'auxlog' && (
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Auxlog の9週間プログラムと同じ考え方で、週数・日数に合わせて種目・%1RM・回数を自動で組みます。作成後に自由に編集できます。
-              </p>
+              <div className="space-y-1 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                <p>週数・日数に合わせて種目・%1RM・回数を自動で組みます。</p>
+                <p>作成後に自由に編集できます。</p>
+              </div>
             )}
 
             <input
