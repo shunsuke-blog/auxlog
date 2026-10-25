@@ -86,10 +86,10 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
         body: JSON.stringify({ display_name: name, template_id: template.id, one_rms: payload }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error((data as { error?: string }).error ?? '契約者の追加に失敗しました')
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? 'クライアントの追加に失敗しました')
       setIssued(data as Issued)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '契約者の追加に失敗しました')
+      setError(e instanceof Error ? e.message : 'クライアントの追加に失敗しました')
     } finally {
       setBusy(false)
     }
@@ -131,7 +131,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
         <div className="light-only fixed inset-0 z-50 flex items-start justify-center px-6 pt-[10vh] pb-6 overflow-y-auto">
           <div className="fixed inset-0 bg-black/60" onClick={close} />
           <div className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
-            <p className="text-base font-semibold text-black dark:text-white">契約者を追加</p>
+            <p className="text-base font-semibold text-black dark:text-white">クライアントを追加</p>
 
             {issued ? (
               <div className="space-y-4">
@@ -144,7 +144,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                   {new Date(issued.expires_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} まで（7日間）有効です。
-                  契約者に伝えて、Auxlog で入力してもらってください。一覧からいつでも確認・再発行できます。
+                  クライアントに伝えて、Auxlog で入力してもらってください。一覧からいつでも確認・再発行できます。
                 </p>
                 <button onClick={close} className="w-full py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white">閉じる</button>
               </div>
@@ -160,7 +160,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
                   maxLength={40}
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  placeholder="契約者の名前"
+                  placeholder="クライアントの名前"
                   className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm text-black dark:text-white placeholder:text-zinc-400 focus:outline-none"
                 />
                 <label className="block text-xs text-zinc-500 dark:text-zinc-400 space-y-1">
@@ -179,7 +179,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
                 {template && !loadingExercises && oneRmExercises.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                      1RM（任意）: 入力すると %1RM のセットに重量が入ります。空欄の種目は、契約者の初回の記録から1RMを推定して、次回から重量を自動で入れます。
+                      1RM（任意）: 入力すると %1RM のセットに重量が入ります。空欄の種目は、クライアントの初回の記録から1RMを推定して、次回から重量を自動で入れます。
                     </p>
                     {oneRmExercises.map(ex => (
                       <label key={keyOf(ex)} className="flex items-center gap-2 text-sm text-black dark:text-white">

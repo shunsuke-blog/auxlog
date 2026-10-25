@@ -384,7 +384,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           </button>
 
           <p className="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">
-            重量の「%1RM」は契約者を追加するときに入力する1RMから kg を計算します。「自動」は前回の記録から重量を提案します（アイソレーション種目向け）。
+            重量の「%1RM」はクライアントを追加するときに入力する1RMから kg を計算します。「自動」は前回の記録から重量を提案します（アイソレーション種目向け）。
           </p>
         </div>
       ) : (

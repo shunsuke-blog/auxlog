@@ -9,7 +9,7 @@ import { Users, ClipboardList, LayoutDashboard, Settings, PanelLeftClose, PanelL
 // PC（md以上）は左のサイドバー、スマホは下部のタブで表示する。
 const tabs = [
   { href: '/trainer/dashboard', label: 'ダッシュボード', icon: LayoutDashboard },
-  { href: '/trainer', label: '契約者一覧', icon: Users },
+  { href: '/trainer', label: 'クライアント一覧', icon: Users },
   { href: '/trainer/programs', label: 'プログラム', icon: ClipboardList },
   { href: '/trainer/settings', label: '設定', icon: Settings },
 ]

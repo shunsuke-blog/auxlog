@@ -35,7 +35,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
     // それぞれをスクロールさせる。スマホで詳細を開いている時は帯を出さない（詳細に「一覧」へ戻るリンクがある）
     <div className="md:h-screen md:flex md:flex-col">
       <div className={`sticky top-0 z-10 shrink-0 trainer-header h-14 md:h-[72px] px-4 md:px-6 items-center justify-between ${selected ? 'hidden md:flex' : 'flex'}`}>
-        <h1 className="text-xl font-semibold text-black dark:text-white">契約者一覧</h1>
+        <h1 className="text-xl font-semibold text-black dark:text-white">クライアント一覧</h1>
         <AddTraineeButton templates={templateOptions} />
       </div>
       <div className="md:flex md:flex-1 md:min-h-0">
@@ -60,7 +60,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
           ))}
           {rows.filter(r => !r.isSelf).length === 0 ? (
             <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-10">
-              「追加」から契約者を招待できます。
+              「追加」からクライアントを招待できます。
             </p>
           ) : (
             rows.filter(r => !r.isSelf).map(r => <TraineeListItem key={r.linkId} row={r} selected={r.linkId === selected?.linkId} />)
@@ -79,7 +79,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
           </>
         ) : (
           <div className="flex items-center justify-center h-full py-24 text-sm text-zinc-400 dark:text-zinc-500">
-            契約者を選ぶと、ここに詳細が表示されます
+            クライアントを選ぶと、ここに詳細が表示されます
           </div>
         )}
       </section>

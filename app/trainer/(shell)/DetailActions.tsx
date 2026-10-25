@@ -43,7 +43,7 @@ export default function DetailActions({ linkId, status, invite }: Props) {
   const endContract = () => {
     const message = status === 'invited'
       ? 'この招待を取り消しますか？発行した招待コードは使えなくなります。'
-      : '契約を終了しますか？\n契約者はこのプランを続けられなくなります。契約期間内の記録はこれまでどおり閲覧できます。'
+      : '契約を終了しますか？\nクライアントはこのプランを続けられなくなります。契約期間内の記録はこれまでどおり閲覧できます。'
     if (window.confirm(message)) post(`/api/contracts/${linkId}/end`).then(ok => { if (ok && status === 'invited') router.push('/trainer') })
   }
 
@@ -60,7 +60,7 @@ export default function DetailActions({ linkId, status, invite }: Props) {
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">{fmt(invite.expiresAt)} まで有効。契約者に伝えて、Auxlog で入力してもらってください。</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">{fmt(invite.expiresAt)} まで有効。クライアントに伝えて、Auxlog で入力してもらってください。</p>
             </>
           ) : (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">招待コードの有効期限が切れています。</p>

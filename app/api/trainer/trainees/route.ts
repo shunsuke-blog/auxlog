@@ -30,6 +30,6 @@ export async function POST(request: Request) {
     p_template_id: parsed.data.template_id,
     p_one_rms: parsed.data.one_rms,
   })
-  if (error) return trainerRpcError(error, '契約者の追加に失敗しました')
+  if (error) return trainerRpcError(error, 'クライアントの追加に失敗しました')
   return NextResponse.json(data)
 }

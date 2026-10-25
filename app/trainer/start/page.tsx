@@ -21,9 +21,9 @@ export default async function TrainerStartPage() {
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-white">トレーナーとして始める</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-            契約者に表示される名前を入力してください。
+            クライアントに表示される名前を入力してください。
             <br />
-            契約者3人までは無料で使えます。
+            クライアント3人までは無料で使えます。
           </p>
         </div>
         {isGymOwner ? (

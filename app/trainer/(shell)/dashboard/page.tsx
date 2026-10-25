@@ -41,7 +41,7 @@ export default async function TrainerDashboardPage() {
       <div className="sticky top-0 z-10 trainer-header h-14 md:h-[72px] px-4 md:px-6 flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-black dark:text-white whitespace-nowrap">ダッシュボード</h1>
         <div className="flex items-center gap-2">
-          <AddTraineeButton templates={templateOptions} label="契約者を追加" iconOnlyOnMobile />
+          <AddTraineeButton templates={templateOptions} label="クライアントを追加" iconOnlyOnMobile />
           <Link
             href="/trainer/programs?create=1"
             aria-label="プログラムを作成"
@@ -142,7 +142,7 @@ export default async function TrainerDashboardPage() {
             </Card>
             <Card title="今週の進捗" className="max-lg:order-5">
               {week.people.length === 0 ? (
-                <Empty>進行中のプランがある契約者はいません。</Empty>
+                <Empty>進行中のプランがあるクライアントはいません。</Empty>
               ) : (
                 <ul className="space-y-4">
                   {week.people.map(p => {
