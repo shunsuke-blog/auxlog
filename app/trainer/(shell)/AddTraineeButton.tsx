@@ -15,7 +15,15 @@ type Issued = { code: string; expires_at: string; link_id: string }
 // トレーニーの追加（2026-10-19 決定）: 共有するテンプレートを選ぶ → 招待コードを発行する。
 // テンプレートの %1RM の種目は、ここで入力した1RMから kg を計算する（未入力なら重量は自動提案）。
 // iconOnlyOnMobile: スマホでは人のマーク（＋）だけにする（ダッシュボードの見出しでボタンが大きくならないように、2026-10-25）
-export default function AddTraineeButton({ templates, label = '追加', iconOnlyOnMobile = false }: { templates: TemplateOption[]; label?: string; iconOnlyOnMobile?: boolean }) {
+// limitReached: 無料枠の上限（クライアント3名）に達している。追加を押した時点で上限の案内を出し、名前や1RMを
+// 入力した後で断らない（2026-10-25 オーナー指摘「入力した後でエラーになると萎える」）
+export default function AddTraineeButton({ templates, label = '追加', iconOnlyOnMobile = false, limitReached = false, limit = 3 }: {
+  templates: TemplateOption[]
+  label?: string
+  iconOnlyOnMobile?: boolean
+  limitReached?: boolean
+  limit?: number
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -133,7 +141,17 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
           <div className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
             <p className="text-base font-semibold text-black dark:text-white">クライアントを追加</p>
 
-            {issued ? (
+            {limitReached && !issued ? (
+              <div className="space-y-4">
+                <p className="text-sm text-black dark:text-white leading-relaxed">
+                  無料プランで招待できるクライアントは{limit}人までです。
+                </p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  今は招待中・契約中のクライアントが{limit}人います。新しく招待するには、使っていない招待を取り消すか、終わったクライアントとの契約を終了してください（終了した契約は数えません）。
+                </p>
+                <button onClick={close} className="w-full py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white cursor-pointer hover:bg-zinc-50">閉じる</button>
+              </div>
+            ) : issued ? (
               <div className="space-y-4">
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">{name} さんの招待コードを発行しました。</p>
                 <div className="flex items-center gap-3">

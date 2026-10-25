@@ -41,7 +41,7 @@ export default async function TrainerDashboardPage() {
       <div className="sticky top-0 z-10 trainer-header h-14 md:h-[72px] px-4 md:px-6 flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-black dark:text-white whitespace-nowrap">ダッシュボード</h1>
         <div className="flex items-center gap-2">
-          <AddTraineeButton templates={templateOptions} label="クライアントを追加" iconOnlyOnMobile />
+          <AddTraineeButton templates={templateOptions} label="クライアントを追加" iconOnlyOnMobile limitReached={data.usedSlots >= FREE_TRAINEE_LIMIT} limit={FREE_TRAINEE_LIMIT} />
           <Link
             href="/trainer/programs?create=1"
             aria-label="プログラムを作成"
