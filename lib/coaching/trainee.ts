@@ -281,3 +281,23 @@ export async function loadPlanOverview(supabase: SupabaseClient, plan: LivePlan)
     weightHistory,
   }
 }
+
+/**
+ * 進行中のプランの種目に対応する、トレーニー自身の種目（user_exercises）の ID。
+ * 履歴のグラフの種目選択を「今のプログラムの種目」に絞るのに使う（セルフモードのスロット割り当てと同じ役割、2026-10-25）
+ */
+export async function planUserExerciseIds(supabase: SupabaseClient, userId: string, planId: string): Promise<string[]> {
+  const { data: rows } = await supabase
+    .from('plan_exercises')
+    .select('exercise_master_id, trainer_exercise_id, plan_days!inner(plan_id)')
+    .eq('plan_days.plan_id', planId)
+  const masterIds = [...new Set((rows ?? []).map(r => r.exercise_master_id as string | null).filter((id): id is string => !!id))]
+  const trainerIds = [...new Set((rows ?? []).map(r => r.trainer_exercise_id as string | null).filter((id): id is string => !!id))]
+  const filters = [
+    ...(masterIds.length > 0 ? [`exercise_master_id.in.(${masterIds.join(',')})`] : []),
+    ...(trainerIds.length > 0 ? [`trainer_exercise_id.in.(${trainerIds.join(',')})`] : []),
+  ]
+  if (filters.length === 0) return []
+  const { data: own } = await supabase.from('user_exercises').select('id').eq('user_id', userId).or(filters.join(','))
+  return (own ?? []).map(e => e.id as string)
+}

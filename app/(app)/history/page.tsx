@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import HistoryClient from '@/components/history/HistoryClient'
 import { normalizeExercises } from '@/lib/normalize/exercises'
 import type { TrainingSet } from '@/types'
+import { getLivePlan, getTraineeLink, planUserExerciseIds } from '@/lib/coaching/trainee'
 
 export default async function HistoryPage() {
   const supabase = await createClient()
@@ -32,9 +33,14 @@ export default async function HistoryPage() {
   const exercises = normalizeExercises(exercisesData ?? [])
 
   // グラフの種目選択を「現在のプログラムに組み込まれている種目」に絞るための一覧
-  // （スロット割り当て＋Day追加種目）。プログラム未加入時は空のまま→VolumeChart側で全件表示にフォールバック。
+  // （スロット割り当て＋Day追加種目、コーチングモードはプランの種目）。どちらも無い時は空のまま→VolumeChart側で全件表示にフォールバック。
   let programExerciseIds: string[] = []
-  if (enrollment) {
+  // トレーナーのプラン（コーチングモード）なら、そのプランの種目に絞る（セルフモードのプログラムは無いため）
+  const link = await getTraineeLink(supabase, user.id)
+  const livePlan = link?.status === 'active' ? await getLivePlan(supabase, link.linkId) : null
+  if (livePlan) {
+    programExerciseIds = await planUserExerciseIds(supabase, user.id, livePlan.id)
+  } else if (enrollment) {
     const [{ data: slotAssignments }, { data: dayExtras }] = await Promise.all([
       supabase
         .from('user_slot_assignments')
