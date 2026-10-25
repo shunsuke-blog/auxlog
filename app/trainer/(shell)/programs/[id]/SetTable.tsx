@@ -24,35 +24,35 @@ export default function SetTable({ sets, onChange, onRemove, onAdd }: {
         <table className="w-full max-w-2xl text-sm">
           <thead>
             <tr className="text-[11px] text-zinc-400 text-left">
-              <th className="font-medium py-1 pr-2 w-10">セット</th>
-              <th className="font-medium py-1 pr-2">W-UP</th>
-              <th className="font-medium py-1 pr-2">重量</th>
-              <th className="font-medium py-1 pr-2 w-20">回数</th>
-              <th className="font-medium py-1 pr-2 w-16">RIR</th>
+              <th className="font-medium py-1 pr-1.5 md:pr-2 w-8 md:w-10">セット</th>
+              <th className="font-medium py-1 pr-1.5 md:pr-2">W-UP</th>
+              <th className="font-medium py-1 pr-1.5 md:pr-2">重量</th>
+              <th className="font-medium py-1 pr-1.5 md:pr-2 w-14 md:w-20">回数</th>
+              <th className="font-medium py-1 pr-1.5 md:pr-2 w-12 md:w-16">RIR</th>
               <th className="w-8" />
             </tr>
           </thead>
           <tbody>
             {sets.map((s, i) => (
               <tr key={i} className="align-middle">
-                <td className="py-1 pr-2 text-zinc-500 tabular-nums">{i + 1}</td>
-                <td className="py-1 pr-2">
+                <td className="py-1 pr-1.5 md:pr-2 text-zinc-500 tabular-nums">{i + 1}</td>
+                <td className="py-1 pr-1.5 md:pr-2">
                   <input type="checkbox" tabIndex={-1} aria-label={`${i + 1}セット目をウォームアップにする`} checked={s.isWarmup} onChange={e => onChange(i, { isWarmup: e.target.checked })} />
                 </td>
-                <td className="py-1 pr-2">
+                <td className="py-1 pr-1.5 md:pr-2">
                   <div className="flex items-center gap-1">
                     <select tabIndex={-1} aria-label={`${i + 1}セット目の重量の種類`} value={s.mode} onChange={e => onChange(i, { mode: e.target.value as WeightMode, value: '' })} className={`${inputClass} text-xs`}>
                       {(Object.keys(MODE_LABELS) as WeightMode[]).map(m => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}
                     </select>
                     {s.mode !== 'auto' && (
-                      <input inputMode="decimal" aria-label={`${i + 1}セット目の重量`} value={s.value} onChange={e => onChange(i, { value: e.target.value })} placeholder={s.mode === 'pct' ? '75' : '60'} className={`${inputClass} w-16`} />
+                      <input inputMode="decimal" aria-label={`${i + 1}セット目の重量`} value={s.value} onChange={e => onChange(i, { value: e.target.value })} placeholder={s.mode === 'pct' ? '75' : '60'} className={`${inputClass} w-14 md:w-16`} />
                     )}
                   </div>
                 </td>
-                <td className="py-1 pr-2">
-                  <input inputMode="numeric" aria-label={`${i + 1}セット目の回数`} value={s.reps} onChange={e => onChange(i, { reps: e.target.value })} className={`${inputClass} w-16`} />
+                <td className="py-1 pr-1.5 md:pr-2">
+                  <input inputMode="numeric" aria-label={`${i + 1}セット目の回数`} value={s.reps} onChange={e => onChange(i, { reps: e.target.value })} className={`${inputClass} w-12 md:w-16`} />
                 </td>
-                <td className="py-1 pr-2">
+                <td className="py-1 pr-1.5 md:pr-2">
                   <input inputMode="numeric" aria-label={`${i + 1}セット目のRIR`} value={s.rir} onChange={e => onChange(i, { rir: e.target.value })} placeholder="-" className={`${inputClass} w-12`} />
                 </td>
                 <td className="py-1">

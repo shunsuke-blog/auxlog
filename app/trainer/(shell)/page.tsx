@@ -33,7 +33,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
   return (
     <div className="md:flex md:h-screen">
       <section className={`md:w-[420px] md:shrink-0 md:border-r border-zinc-100 dark:border-zinc-900 md:overflow-y-auto ${selected ? 'hidden md:block' : ''}`}>
-        <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 flex items-center justify-between">
+        <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-4 md:px-6 py-3 md:py-5 flex items-center justify-between">
           <h1 className="text-xl font-semibold text-black dark:text-white">契約者一覧</h1>
           <AddTraineeButton templates={templateOptions} />
         </div>

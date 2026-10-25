@@ -260,7 +260,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   return (
     // PC（lg以上）は画面の高さに固定し、編集欄と右の種目一覧をそれぞれスクロールさせる
     <div className="lg:h-screen lg:flex lg:flex-col">
-      <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-4 space-y-3">
+      <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-4 md:px-6 py-3 md:py-4 space-y-2 md:space-y-3">
         {/* 1行目は表示を切り替えても高さ・位置が変わらない（切り替えボタンの位置を固定する） */}
         <div className="flex items-center gap-2">
           <Link href="/trainer/programs" className="p-1 -ml-1 text-zinc-400 hover:text-black dark:hover:text-white">
@@ -312,7 +312,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
         onDragLeave={view === 'day' ? e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropIndex(null) } : undefined}
       >
       {view === 'day' ? (
-        <div className="px-6 py-6 space-y-4">
+        <div className="px-4 md:px-6 py-4 md:py-6 space-y-4">
           {week > 1 && week1SameDay && (
             <button onClick={copyFromWeek1} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900">
               <Copy className="w-4 h-4" />
@@ -325,8 +325,8 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           {exercises.map((ex, exIdx) => (
             <div key={ex.key} className="relative" onDragOver={e => { e.stopPropagation(); onDragOverCard(e, exIdx) }} onDrop={e => { e.stopPropagation(); onDropAt(e, dropIndex ?? exIdx) }}>
             {dropIndex === exIdx && <div className="absolute -top-2.5 left-0 right-0 h-1 rounded-full bg-zinc-500 dark:bg-zinc-400" />}
-            <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
-              <div className="flex items-start gap-2">
+            <div className="px-4 md:px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
+              <div className="flex items-start gap-1 md:gap-2">
                 <div
                   draggable
                   onDragStart={e => { e.dataTransfer.setData(CARD_DRAG_TYPE, ex.key); e.dataTransfer.effectAllowed = 'move' }}
@@ -386,15 +386,15 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           </p>
         </div>
       ) : (
-        <div className="px-6 py-6 space-y-4">
+        <div className="px-4 md:px-6 py-4 md:py-6 space-y-4">
           {activeExercise && (
-            <div className="flex items-start gap-3">
+            <div className="flex flex-col md:flex-row md:items-start gap-3">
               <p className="flex-1 text-sm text-zinc-500 dark:text-zinc-400">
                 {activeExercise.name}（{muscleLabel(activeExercise.targetMuscle)}）が出てくる {occurrences.length} 回分。週ごとの重量・回数の流れを見ながら直せます。
               </p>
               <button
                 onClick={() => setSwap({ kind: 'exercise', exerciseId: activeExercise.id })}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-black dark:text-white hover:bg-zinc-50"
+                className="shrink-0 self-start flex items-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-black dark:text-white hover:bg-zinc-50"
               >
                 <ArrowLeftRight className="w-4 h-4" />
                 この種目を入れ替え（{occurrences.length}回分）
@@ -402,7 +402,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
             </div>
           )}
           {occurrences.map(({ day, ex }) => (
-            <div key={`${day.id}-${ex.key}`} className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
+            <div key={`${day.id}-${ex.key}`} className="px-4 md:px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
               <p className="text-sm font-semibold text-black dark:text-white">
                 Week {day.weekNumber} · Day {day.dayNumber}{dirty.has(day.id) ? ' ●' : ''}
               </p>
@@ -436,8 +436,8 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       )}
       </div>
 
-      <div className="sticky bottom-16 md:bottom-0 z-10 px-6 py-3 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900 flex items-center gap-3">
-        <p className={`flex-1 text-sm ${message?.kind === 'error' ? 'text-red-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
+      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 z-10 px-4 md:px-6 py-3 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900 flex items-center gap-3">
+        <p className={`flex-1 text-xs md:text-sm ${message?.kind === 'error' ? 'text-red-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
           {message?.text ?? (dirty.size > 0 ? `未保存の変更が ${dirty.size} 日分あります` : '')}
         </p>
         <button onClick={() => saveDays([...dirty])} disabled={dirty.size === 0 || saving} className="px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-40">

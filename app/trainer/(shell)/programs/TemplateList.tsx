@@ -189,7 +189,7 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
 
   return (
     <div>
-      <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 flex items-center justify-between">
+      <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-4 md:px-6 py-3 md:py-5 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-black dark:text-white">プログラム</h1>
         <button
           onClick={() => setCreating(true)}
@@ -200,7 +200,7 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
         </button>
       </div>
 
-      <div className="px-6 py-6 space-y-3">
+      <div className="px-4 md:px-6 py-4 md:py-6 space-y-3">
         {error && <p className="text-sm text-red-500">{error}</p>}
         {templates.length === 0 ? (
           <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-16">
@@ -208,40 +208,43 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
           </p>
         ) : (
           templates.map(t => (
-            <div key={t.id} className="flex items-center gap-4 px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
+            // スマホは縦に積む（名前 → 条件を2列 → 使用中の人数と操作）。PC（md以上）は1行に横並び（2026-10-25）
+            <div key={t.id} className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 px-4 md:px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
               <div className="flex-1 min-w-0 space-y-2">
                 <TemplateName id={t.id} name={t.name} />
-                {/* 条件は1行に1つずつ縦に並べる（2026-10-25 オーナー依頼） */}
-                <Link href={`/trainer/programs/${t.id}`} className="block space-y-0.5">
+                {/* 条件は1行に1つずつ縦に並べる（2026-10-25 オーナー依頼）。スマホは2列にして縦に伸びすぎないようにする */}
+                <Link href={`/trainer/programs/${t.id}`} className="grid grid-cols-2 md:grid-cols-1 gap-x-3 gap-y-1 md:gap-y-0.5">
                   {templateDetails(t).map(([label, value]) => (
-                    <p key={label} className="text-xs text-zinc-500 dark:text-zinc-400">
-                      <span className="inline-block w-16 text-zinc-400 dark:text-zinc-500">{label}</span>
-                      {value}
+                    <p key={label} className="flex min-w-0 text-xs text-zinc-500 dark:text-zinc-400">
+                      <span className="shrink-0 w-14 md:w-16 text-zinc-400 dark:text-zinc-500">{label}</span>
+                      <span className="min-w-0">{value}</span>
                     </p>
                   ))}
                 </Link>
               </div>
-              {/* 人数を押すと、このプランを使っているトレーニーをポップアップで出す（2026-10-25） */}
-              <button
-                type="button"
-                onClick={() => setUsersOf(t)}
-                disabled={t.traineeCount === 0}
-                className="shrink-0 text-right px-2 py-1 -mr-2 rounded-lg enabled:hover:bg-zinc-50 disabled:cursor-default"
-              >
-                <p className="text-[11px] text-zinc-400 dark:text-zinc-500">使用中のトレーニー</p>
-                <p className={`text-lg font-semibold tabular-nums ${t.traineeCount > 0 ? 'text-brand-text underline decoration-dotted underline-offset-4' : 'text-black dark:text-white'}`}>
-                  {t.traineeCount}<span className="ml-0.5 text-xs font-normal text-zinc-500 no-underline">人</span>
-                </p>
-              </button>
-              <button onClick={() => handleDuplicate(t)} disabled={busy} title="複製" className="p-2 text-zinc-400 hover:text-black dark:hover:text-white disabled:opacity-50">
-                <Copy className="w-4 h-4" />
-              </button>
-              <button onClick={() => handleDelete(t)} disabled={busy} title="削除" className="p-2 text-zinc-400 hover:text-red-500 disabled:opacity-50">
-                <Trash2 className="w-4 h-4" />
-              </button>
-              <Link href={`/trainer/programs/${t.id}`} className="p-1 text-zinc-300 dark:text-zinc-700">
-                <ChevronRight className="w-4 h-4" />
-              </Link>
+              <div className="flex items-center gap-1 md:gap-4 pt-3 md:pt-0 border-t md:border-0 border-zinc-100 dark:border-zinc-900">
+                {/* 人数を押すと、このプランを使っているトレーニーをポップアップで出す（2026-10-25） */}
+                <button
+                  type="button"
+                  onClick={() => setUsersOf(t)}
+                  disabled={t.traineeCount === 0}
+                  className="mr-auto md:-mr-2 flex md:block items-baseline gap-2 text-left md:text-right px-2 py-1 -ml-2 md:ml-0 rounded-lg enabled:hover:bg-zinc-50 disabled:cursor-default"
+                >
+                  <p className="text-[11px] text-zinc-400 dark:text-zinc-500">使用中のトレーニー</p>
+                  <p className={`text-lg font-semibold tabular-nums ${t.traineeCount > 0 ? 'text-brand-text underline decoration-dotted underline-offset-4' : 'text-black dark:text-white'}`}>
+                    {t.traineeCount}<span className="ml-0.5 text-xs font-normal text-zinc-500 no-underline">人</span>
+                  </p>
+                </button>
+                <button onClick={() => handleDuplicate(t)} disabled={busy} title="複製" aria-label="複製" className="p-2.5 md:p-2 text-zinc-400 hover:text-black dark:hover:text-white disabled:opacity-50">
+                  <Copy className="w-4 h-4" />
+                </button>
+                <button onClick={() => handleDelete(t)} disabled={busy} title="削除" aria-label="削除" className="p-2.5 md:p-2 text-zinc-400 hover:text-red-500 disabled:opacity-50">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <Link href={`/trainer/programs/${t.id}`} aria-label="編集" className="p-2.5 md:p-1 text-zinc-300 dark:text-zinc-700">
+                  <ChevronRight className="w-4 h-4" />
+                </Link>
+              </div>
             </div>
           ))
         )}
