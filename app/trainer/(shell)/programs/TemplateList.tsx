@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, Copy, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { MAX_PRIORITY_MUSCLES, PRIORITY_MUSCLE_OPTION_LABELS, PRIORITY_MUSCLE_OPTION_ORDER, type PriorityMuscleOption } from '@/types'
+import { availableDays, resolveProgramType, type ProgramGender, type ProgramLevel } from '@/lib/coaching/base_templates'
 
 // セッション時間はオンボーディングと同じ帯の選択肢（60/75/90 は帯の内部代表値）
 const SESSION_OPTIONS = [
@@ -12,6 +13,16 @@ const SESSION_OPTIONS = [
   { value: 75, label: '60〜90分' },
   { value: 90, label: '90分〜' },
 ] as const
+
+// 性別・レベルの選択肢（2026-10-25）。初心者は性別に関係なく初心者向けのテンプレートを使う
+const GENDER_OPTIONS: { value: ProgramGender; label: string }[] = [
+  { value: 'male', label: '男性向け' },
+  { value: 'female', label: '女性向け' },
+]
+const LEVEL_OPTIONS: { value: ProgramLevel; label: string }[] = [
+  { value: 'beginner', label: '初心者' },
+  { value: 'intermediate', label: '中級者以上' },
+]
 
 export type TemplateSummary = {
   id: string
@@ -38,6 +49,16 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
   const [days, setDays] = useState(3)
   const [sessionMinutes, setSessionMinutes] = useState<60 | 75 | 90>(75)
   const [priorities, setPriorities] = useState<PriorityMuscleOption[]>([])
+  const [gender, setGender] = useState<ProgramGender>('male')
+  const [level, setLevel] = useState<ProgramLevel>('intermediate')
+  // Auxlog で作成は、性別・レベルのテンプレートがある日数だけ選べる
+  const auxlogDays = availableDays(resolveProgramType(gender, level))
+  const changeProgram = (g: ProgramGender, l: ProgramLevel) => {
+    setGender(g)
+    setLevel(l)
+    const allowed = availableDays(resolveProgramType(g, l))
+    if (!allowed.includes(days)) setDays(allowed.filter(d => d <= days).pop() ?? allowed[0])
+  }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -59,6 +80,7 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
       const { id } = mode === 'auxlog'
         ? await postJson('/api/trainer/templates/generate', {
             name, total_weeks: weeks, days_per_week: days, session_minutes: sessionMinutes, priority_muscles: priorities,
+            gender, level,
           })
         : await postJson('/api/trainer/templates', { name, total_weeks: weeks, days_per_week: days })
       router.push(`/trainer/programs/${id}`)
@@ -137,8 +159,8 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
                   type="button"
                   onClick={() => {
                     setMode(m)
-                    // Auxlog で作成は週2〜7日（週1日は白紙からのみ）
-                    if (m === 'auxlog' && days < 2) setDays(2)
+                    // Auxlog で作成は、性別・レベルのテンプレートがある日数だけ（週1日は白紙からのみ）
+                    if (m === 'auxlog' && !auxlogDays.includes(days)) setDays(auxlogDays.filter(d => d <= days).pop() ?? auxlogDays[0])
                   }}
                   className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-lg ${
                     mode === m ? 'bg-white dark:bg-zinc-800 text-brand-text font-semibold shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white'
@@ -164,6 +186,30 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
               placeholder="テンプレート名（例：初心者向け 週3日）"
               className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm text-black dark:text-white placeholder:text-zinc-400 focus:outline-none"
             />
+            {mode === 'auxlog' && (
+              <div className="flex gap-3">
+                {([
+                  ['対象', GENDER_OPTIONS, gender, (v: string) => changeProgram(v as ProgramGender, level)],
+                  ['レベル', LEVEL_OPTIONS, level, (v: string) => changeProgram(gender, v as ProgramLevel)],
+                ] as const).map(([label, options, value, onPick]) => (
+                  <div key={label} className="flex-1 space-y-1">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
+                    <div className="flex gap-1">
+                      {options.map(o => (
+                        <button
+                          key={o.value}
+                          type="button"
+                          onClick={() => onPick(o.value)}
+                          className={`flex-1 py-2 rounded-lg border text-xs ${value === o.value ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex gap-3">
               <label className="flex-1 text-xs text-zinc-500 dark:text-zinc-400 space-y-1">
                 <span>週数</span>
@@ -175,11 +221,16 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
                 <span>週の日数</span>
                 <select value={days} onChange={e => setDays(Number(e.target.value))} className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm text-black dark:text-white">
                   {Array.from({ length: 7 }, (_, i) => i + 1)
-                    .filter(d => mode === 'blank' || d >= 2)
+                    .filter(d => mode === 'blank' || auxlogDays.includes(d))
                     .map(d => <option key={d} value={d}>週{d}日</option>)}
                 </select>
               </label>
             </div>
+            {mode === 'auxlog' && auxlogDays.length < 6 && (
+              <p className="-mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                {level === 'beginner' ? '初心者' : '女性向け'}のプログラムは週{auxlogDays[0]}〜{auxlogDays[auxlogDays.length - 1]}日で作れます。
+              </p>
+            )}
             {mode === 'auxlog' && (
               <>
                 <div className="space-y-1">

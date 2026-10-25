@@ -25,7 +25,7 @@ import {
   type SessionDurationMinutes,
 } from '@/lib/suggest/generate_program_composition'
 import { buildSlotSelections, type ExerciseMasterRow } from '@/lib/onboarding/exercise_matching'
-import { BASE_TEMPLATES, applyTemplate } from './base_templates'
+import { TEMPLATE_SETS, applyTemplate, type ProgramType } from './base_templates'
 import {
   COMPOUND_VOLUME_PHASE_RPE_CEILING,
   effortRampTargetRpe,
@@ -221,12 +221,13 @@ function buildOneRmSets(o: {
     // 途中の回復週: 直前の週の重量・回数を基準に約1割軽く、バックオフは W8 と同じセット数
     const prev = o.movementBy.get(`${o.lastHardSourceWeek}:${o.pattern}`)
     if (!prev || prev.top_set_pct_rm == null || prev.top_set_reps == null) return null
-    const topPct = Math.min(prev.top_set_pct_rm + o.pctOffset, 1) * MID_DELOAD.pctFactor
+    // DB の numeric は文字列で返ることがあるため数値にしてから計算する
+    const topPct = Math.min(Number(prev.top_set_pct_rm) + o.pctOffset, 1) * MID_DELOAD.pctFactor
     sets.push({ target_pct_1rm: roundPct(topPct), target_weight_kg: null, target_reps: prev.top_set_reps, target_rir: MID_DELOAD.rir + o.rirBonus, is_warmup: false })
     const count = o.backoffSets(o.movementBy.get(`8:${o.pattern}`), true)
     if (prev.backoff_pct_of_top != null && prev.backoff_reps) {
       for (let i = 0; i < count; i++) {
-        sets.push({ target_pct_1rm: roundPct(topPct * prev.backoff_pct_of_top), target_weight_kg: null, target_reps: prev.backoff_reps, target_rir: MID_DELOAD.rir + o.rirBonus, is_warmup: false })
+        sets.push({ target_pct_1rm: roundPct(topPct * Number(prev.backoff_pct_of_top)), target_weight_kg: null, target_reps: prev.backoff_reps, target_rir: MID_DELOAD.rir + o.rirBonus, is_warmup: false })
       }
     }
     notes.push(MID_DELOAD.note)
@@ -234,14 +235,14 @@ function buildOneRmSets(o: {
   }
   const mp = o.movementBy.get(`${o.sourceWeek}:${o.pattern}`)
   if (!mp || mp.top_set_pct_rm == null || (mp.top_set_reps == null && !mp.top_set_is_amrap)) return null
-  const topPct = Math.min(mp.top_set_pct_rm + o.pctOffset, 1)
-  const rawRpe = mp.top_set_rpe ?? 9
+  const topPct = Math.min(Number(mp.top_set_pct_rm) + o.pctOffset, 1)
+  const rawRpe = Number(mp.top_set_rpe ?? 9)
   const topRpe = mp.phase === 'volume' ? Math.min(rawRpe, COMPOUND_VOLUME_PHASE_RPE_CEILING) : rawRpe
   sets.push({ target_pct_1rm: roundPct(topPct), target_weight_kg: null, target_reps: mp.top_set_reps ?? 1, target_rir: rpeToRir(topRpe) + o.rirBonus, is_warmup: false })
   const count = o.backoffSets(mp, false)
   if (mp.backoff_pct_of_top != null && mp.backoff_reps) {
     for (let i = 0; i < count; i++) {
-      sets.push({ target_pct_1rm: roundPct(topPct * mp.backoff_pct_of_top), target_weight_kg: null, target_reps: mp.backoff_reps, target_rir: rpeToRir(8) + o.rirBonus, is_warmup: false })
+      sets.push({ target_pct_1rm: roundPct(topPct * Number(mp.backoff_pct_of_top)), target_weight_kg: null, target_reps: mp.backoff_reps, target_rir: rpeToRir(8) + o.rirBonus, is_warmup: false })
     }
   }
   const phaseNote = slotNotes(mp)
@@ -363,16 +364,18 @@ export function generateTemplate(input: GenerateTemplateInput): GeneratedDay[] {
 
 export type TemplateGenerateInput = Omit<GenerateTemplateInput, 'exercises'> & {
   exercises: (ExerciseMasterRow & { id: string; code: string })[]
+  /** プログラムの種類（通常・初心者向け・女性向け）。省略時は通常 */
+  programType?: ProgramType
 }
 
-export function hasBaseTemplate(daysPerWeek: number): boolean {
-  return BASE_TEMPLATES[daysPerWeek] != null
+export function hasBaseTemplate(daysPerWeek: number, programType: ProgramType = 'standard'): boolean {
+  return TEMPLATE_SETS[programType][daysPerWeek] != null
 }
 
 export function generateFromBaseTemplate(input: TemplateGenerateInput): GeneratedDay[] {
   const { totalWeeks, daysPerWeek, sessionMinutes: minutes, priorities, exercises, weeklyParams, movementParams } = input
-  const template = BASE_TEMPLATES[daysPerWeek]
-  if (!template) throw new Error(`no base template for ${daysPerWeek} days`)
+  const template = TEMPLATE_SETS[input.programType ?? 'standard'][daysPerWeek]
+  if (!template) throw new Error(`no base template for ${input.programType ?? 'standard'} ${daysPerWeek} days`)
 
   const days = applyTemplate(template, minutes, priorities)
   const byCode = new Map(exercises.map(e => [e.code, e]))
@@ -394,8 +397,8 @@ export function generateFromBaseTemplate(input: TemplateGenerateInput): Generate
       for (const item of day.exercises) {
         const exercise = byCode.get(item.code)
         if (!exercise) continue
-        // テンプレートで1RM管理しないと指定した種目（oneRm: false）は補助種目として扱う
-        const oneRm = exercise.requires_one_rm && item.oneRm !== false
+        // 1RM管理かどうかはテンプレートの指定（oneRm）を優先し、無ければ種目マスタの登録に従う
+        const oneRm = item.oneRm ?? exercise.requires_one_rm
         // MaxOut週はメインリフトの実力測定週なので、1RM管理種目以外は外す
         if (phase === 'maxout' && !oneRm) continue
 
@@ -414,14 +417,17 @@ export function generateFromBaseTemplate(input: TemplateGenerateInput): Generate
         const params = weeklyBy.get(`${isMidDeload ? lastHardSourceWeek : sourceWeek}:${item.params}`)
         if (!params || !params.working_sets) continue
         const count = isMidDeload ? Math.max(1, Math.ceil(params.working_sets * MID_DELOAD.setsFactor)) : params.working_sets
-        const rir = (isMidDeload ? MID_DELOAD.rir : rpeToRir(params.rpe ?? 8)) + rirBonus
+        const rir = (isMidDeload ? MID_DELOAD.rir : rpeToRir(Number(params.rpe ?? 8))) + rirBonus
+        // 時間で行う種目（プランク）は、回数の欄に秒数を入れる
+        const reps = item.timed ? item.timed.minSec : params.rep_range_min ?? 10
         const sets: GeneratedSet[] = Array.from({ length: count }, () => ({
-          target_pct_1rm: null, target_weight_kg: null, target_reps: params.rep_range_min ?? 10, target_rir: rir, is_warmup: false,
+          target_pct_1rm: null, target_weight_kg: null, target_reps: reps, target_rir: rir, is_warmup: false,
         }))
         const notes: string[] = []
         const phaseNote = isMidDeload ? MID_DELOAD.note : slotNotes(params)
         if (phaseNote) notes.push(phaseNote)
-        if (params.rep_range_min != null && params.rep_range_max != null) notes.push(`${params.rep_range_min}〜${params.rep_range_max}回の範囲で`)
+        if (item.timed) notes.push(`${item.timed.minSec}〜${item.timed.maxSec}秒キープ（回数の欄に秒数を入力）`)
+        else if (params.rep_range_min != null && params.rep_range_max != null) notes.push(`${params.rep_range_min}〜${params.rep_range_max}回の範囲で`)
         generated.push({ exercise_master_id: exercise.id, trainer_exercise_id: null, note: notes.join(' ／ ') || null, sets })
       }
       out.push({ week, day: day.day, exercises: generated })

@@ -3,7 +3,13 @@
 // 動的な割り振り（generate_program_composition.ts）をやめ、プロが組んだ分割法の骨組みを定数で持つ。
 // テンプレートは枠組みだけ（種目・並び順・何分コースから含めるか）で、重量・強度・セット数・回数は
 // 生成時に DB の週ごとの値（movement_pattern_weekly_params / program_weekly_params）から入れる。
-// 元データ: オーナー作成の「AUXLOG Base Templates」（週2〜4日、2026-10-24）と「週5~7.ts」（2026-10-24）。
+// 元データ: オーナー作成の「AUXLOG Base Templates」（週2〜4日、2026-10-24）と「週5~7.ts」（2026-10-24）、
+// 初心者向け・女性向け（「AUXLOG Base Templates (1)」、2026-10-25）。
+//
+// プログラムの種類（2026-10-25 オーナー決定）:
+//   - 初心者を選んだら、性別に関係なく初心者向け（週2・3日）
+//   - 中級者以上で女性向けなら女性向け（週2〜4日）、男性向けなら通常（週2〜7日）
+//   - テンプレートが無い日数は選べない
 //
 // 種目は exercise_master.code で指定する（名前を直してもテンプレートが壊れない）。
 
@@ -32,17 +38,23 @@ export type TemplateExercise = {
    *  1RM管理の種目は種目の動き（movement_pattern）で movement_pattern_weekly_params を引く */
   params: string
   role?: SwapRole
-  /** false: 種目マスタでは1RM管理の種目でも、このテンプレートでは%で出さず補助種目として扱う
-   *  （例: 週5〜7日のダンベルショルダープレス。テンプレートの is1RM: false に合わせる） */
-  oneRm?: false
+  /** 1RM管理（重量を%で出す）かどうかをテンプレートで指定する。省略時は種目マスタの登録に従う。
+   *  false: 週5〜7日のダンベルショルダープレスなど。true: 初心者向けのマシンチェストプレスなど */
+  oneRm?: boolean
+  /** 時間で行う種目（プランク）。回数の欄に秒数を入れる（2026-10-25 オーナー決定） */
+  timed?: { minSec: number; maxSec: number }
 }
 
 export type TemplateDay = { day: number; name: string; kind: DayKind; exercises: TemplateExercise[] }
 
 export type BaseTemplate = { daysPerWeek: number; name: string; days: TemplateDay[] }
 
-const ex = (slot: string, code: string, muscle: TemplateMuscle, minMinutes: SessionMinutes, params: string, role?: SwapRole, oneRm?: false): TemplateExercise =>
-  ({ slot, code, muscle, minMinutes, params, role, ...(oneRm === false ? { oneRm } : {}) })
+const ex = (slot: string, code: string, muscle: TemplateMuscle, minMinutes: SessionMinutes, params: string, role?: SwapRole, oneRm?: boolean): TemplateExercise =>
+  ({ slot, code, muscle, minMinutes, params, ...(role ? { role } : {}), ...(oneRm !== undefined ? { oneRm } : {}) })
+
+/** プランク（30〜60秒キープ）。セット数・努力度は腹筋の枠の値を使う */
+const plank = (slot: string, minMinutes: SessionMinutes): TemplateExercise =>
+  ({ slot, code: 'plank', muscle: 'core', minMinutes, params: 'core', timed: { minSec: 30, maxSec: 60 } })
 
 // 全身 A / B（週2日・週3日で共通）
 const FULL_A: TemplateExercise[] = [
@@ -257,6 +269,165 @@ export const BASE_TEMPLATES: Record<number, BaseTemplate> = {
       },
     ],
   },
+}
+
+// ── 初心者向け（週2・3日、性別に関係なく使う） ──
+const BEGINNER_A: TemplateDay = {
+  day: 1, name: 'Beginner Full A（マシン胸・脚・背中・腕）', kind: 'full', exercises: [
+    ex('chest_press', 'chest_press_machine', 'chest', 60, 'chest_press', undefined, true),
+    ex('squat', 'leg_press', 'legs', 60, 'leg_2'),
+    ex('back_horizontal_pull', 'seated_cable_row', 'back', 60, 'back_horizontal_pull'),
+    ex('triceps', 'triceps_pushdown', 'triceps', 75, 'triceps', 'triceps'),
+    ex('core', 'ab_roller', 'core', 60, 'core'),
+  ],
+}
+const BEGINNER_B: TemplateDay = {
+  day: 2, name: 'Beginner Full B（肩・尻・背中上部・腹）', kind: 'full', exercises: [
+    ex('shoulder_press', 'machine_shoulder_press', 'shoulders', 60, 'shoulder_press', undefined, true),
+    ex('hip_hinge', 'dumbbell_romanian_deadlift', 'legs', 60, 'hamstring_glute', undefined, true),
+    ex('back_vertical_pull', 'lat_pulldown', 'back', 60, 'back_vertical_pull'),
+    ex('biceps', 'dumbbell_curl', 'biceps', 75, 'biceps', 'biceps'),
+    ex('calf', 'seated_calf_raise', 'legs', 90, 'calves_seated', 'calf'),
+  ],
+}
+const BEGINNER_C: TemplateDay = {
+  day: 3, name: 'Beginner Full C（ゴブレット・胸フライ・背中・肩）', kind: 'full', exercises: [
+    ex('squat2', 'goblet_squat', 'legs', 60, 'leg_2', undefined, true),
+    ex('chest_fly', 'pec_deck_fly', 'chest', 60, 'chest_isolation'),
+    ex('back_vertical_pull2', 'assisted_pull_up', 'back', 60, 'back_vertical_pull'),
+    ex('shoulder_side', 'side_raise', 'shoulders', 75, 'shoulder_lateral'),
+    plank('core2', 60),
+  ],
+}
+
+export const BEGINNER_TEMPLATES: Record<number, BaseTemplate> = {
+  2: { daysPerWeek: 2, name: '初心者 全身 A / B', days: [BEGINNER_A, BEGINNER_B] },
+  3: { daysPerWeek: 3, name: '初心者 全身 A / B / C', days: [BEGINNER_A, BEGINNER_B, BEGINNER_C] },
+}
+
+// ── 女性向け（中級者以上、週2〜4日） ──
+export const WOMEN_TEMPLATES: Record<number, BaseTemplate> = {
+  2: {
+    daysPerWeek: 2,
+    name: '女性向け 下半身フォーカス A / B',
+    days: [
+      {
+        day: 1, name: 'Lower Focus A（ヒップ・背中・肩・腹）', kind: 'full', exercises: [
+          ex('hip_hinge', 'hip_thrust', 'legs', 60, 'hamstring_glute', undefined, true),
+          ex('back_vertical_pull', 'lat_pulldown', 'back', 60, 'back_vertical_pull'),
+          ex('leg_single', 'bulgarian_split_squat', 'legs', 60, 'quad_glute_secondary'),
+          ex('shoulder_press', 'dumbbell_shoulder_press', 'shoulders', 75, 'shoulder_press_2', undefined, false),
+          plank('core', 60),
+        ],
+      },
+      {
+        day: 2, name: 'Lower Focus B（裏モモ・上部胸・中殿筋・腹）', kind: 'full', exercises: [
+          ex('hip_hinge2', 'romanian_deadlift', 'legs', 60, 'hamstring_glute', undefined, true),
+          ex('chest_press', 'incline_dumbbell_press', 'chest', 60, 'chest_press'),
+          ex('back_horizontal_pull', 'seated_cable_row', 'back', 60, 'back_horizontal_pull'),
+          ex('hip_abduction', 'hip_abduction', 'legs', 75, 'hip_abduction'),
+          ex('core2', 'cable_crunch', 'core', 60, 'core_alt'),
+        ],
+      },
+    ],
+  },
+  3: {
+    daysPerWeek: 3,
+    name: '女性向け お尻・上半身・前モモ',
+    days: [
+      {
+        day: 1, name: 'Glute & Hamstrings（お尻・裏モモメイン）', kind: 'legs', exercises: [
+          ex('hip_hinge', 'hip_thrust', 'legs', 60, 'hamstring_glute', undefined, true),
+          ex('hip_hinge2', 'romanian_deadlift', 'legs', 60, 'hamstring_glute', undefined, false),
+          ex('leg_curl', 'leg_curl', 'legs', 60, 'leg_curl'),
+          ex('hip_abduction', 'hip_abduction', 'legs', 75, 'hip_abduction'),
+          plank('core', 60),
+        ],
+      },
+      {
+        day: 2, name: 'Upper Body（背中・肩・バストアップ）', kind: 'upper', exercises: [
+          ex('back_vertical_pull', 'lat_pulldown', 'back', 60, 'back_vertical_pull'),
+          ex('chest_press', 'incline_dumbbell_press', 'chest', 60, 'chest_press'),
+          ex('shoulder_press', 'dumbbell_shoulder_press', 'shoulders', 60, 'shoulder_press_2', undefined, false),
+          ex('back_horizontal_pull', 'seated_cable_row', 'back', 75, 'back_horizontal_pull'),
+          ex('shoulder_side', 'cable_side_raise', 'shoulders', 75, 'shoulder_lateral_cable'),
+          ex('triceps', 'triceps_pushdown', 'triceps', 90, 'triceps', 'triceps'),
+        ],
+      },
+      {
+        day: 3, name: 'Quads & Glutes（前モモ・お尻メイン）', kind: 'legs', exercises: [
+          ex('squat', 'bulgarian_split_squat', 'legs', 60, 'quad_glute_secondary', undefined, true),
+          ex('squat2', 'leg_press', 'legs', 60, 'quad_glute_secondary', undefined, false),
+          ex('leg_extension', 'leg_extension', 'legs', 60, 'leg_curl'),
+          ex('hip_hinge3', 'dumbbell_hip_thrust', 'legs', 75, 'hamstring_glute_alt'),
+          ex('core2', 'cable_crunch', 'core', 60, 'core_alt'),
+        ],
+      },
+    ],
+  },
+  4: {
+    daysPerWeek: 4,
+    name: '女性向け Upper / Lower × 2',
+    days: [
+      {
+        day: 1, name: 'Upper A（背中・肩メイン）', kind: 'upper', exercises: [
+          ex('back_vertical_pull', 'lat_pulldown', 'back', 60, 'back_vertical_pull'),
+          ex('shoulder_press', 'dumbbell_shoulder_press', 'shoulders', 60, 'shoulder_press', undefined, true),
+          ex('back_horizontal_pull', 'seated_cable_row', 'back', 60, 'back_horizontal_pull'),
+          ex('shoulder_side', 'side_raise', 'shoulders', 75, 'shoulder_lateral'),
+          ex('triceps', 'triceps_pushdown', 'triceps', 75, 'triceps', 'triceps'),
+        ],
+      },
+      {
+        day: 2, name: 'Lower A（お尻・裏モモ）', kind: 'lower', exercises: [
+          ex('hip_hinge', 'hip_thrust', 'legs', 60, 'hamstring_glute', undefined, true),
+          ex('hip_hinge2', 'romanian_deadlift', 'legs', 60, 'hamstring_glute', undefined, false),
+          ex('leg_curl', 'leg_curl', 'legs', 75, 'leg_curl'),
+          ex('hip_abduction', 'hip_abduction', 'legs', 75, 'hip_abduction'),
+          plank('core', 60),
+        ],
+      },
+      {
+        day: 3, name: 'Upper B（バストアップ・背中）', kind: 'upper', exercises: [
+          ex('chest_press', 'incline_dumbbell_press', 'chest', 60, 'chest_press'),
+          ex('back_vertical_pull2', 'assisted_pull_up', 'back', 60, 'back_vertical_pull'),
+          ex('shoulder_side2', 'cable_side_raise', 'shoulders', 75, 'shoulder_lateral_cable'),
+          ex('back_pullover', 'straight_arm_pulldown', 'back', 75, 'back_vertical_pull'),
+          ex('biceps', 'dumbbell_curl', 'biceps', 90, 'biceps', 'biceps'),
+        ],
+      },
+      {
+        day: 4, name: 'Lower B（お尻・前モモ）', kind: 'lower', exercises: [
+          ex('squat', 'bulgarian_split_squat', 'legs', 60, 'quad_glute_secondary', undefined, true),
+          ex('squat2', 'leg_press', 'legs', 60, 'quad_glute_secondary', undefined, false),
+          ex('leg_extension', 'leg_extension', 'legs', 75, 'leg_curl'),
+          ex('core2', 'cable_crunch', 'core', 60, 'core_alt'),
+        ],
+      },
+    ],
+  },
+}
+
+// ── プログラムの種類の選び方 ──
+export type ProgramGender = 'male' | 'female'
+export type ProgramLevel = 'beginner' | 'intermediate'
+export type ProgramType = 'standard' | 'beginner' | 'women'
+
+export const TEMPLATE_SETS: Record<ProgramType, Record<number, BaseTemplate>> = {
+  standard: BASE_TEMPLATES,
+  beginner: BEGINNER_TEMPLATES,
+  women: WOMEN_TEMPLATES,
+}
+
+/** 初心者を選んだら性別に関係なく初心者向け、それ以外は女性向け／通常（2026-10-25 オーナー決定） */
+export function resolveProgramType(gender: ProgramGender, level: ProgramLevel): ProgramType {
+  if (level === 'beginner') return 'beginner'
+  return gender === 'female' ? 'women' : 'standard'
+}
+
+/** その種類で選べる週の日数（テンプレートがある日数だけ） */
+export function availableDays(type: ProgramType): number[] {
+  return Object.keys(TEMPLATE_SETS[type]).map(Number).sort((a, b) => a - b)
 }
 
 // ── 改定ルール③：重点部位の差し替え（2026-10-24 オーナー決定） ──
