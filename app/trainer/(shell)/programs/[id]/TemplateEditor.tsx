@@ -348,12 +348,14 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
                 <button onClick={() => move(ex.key, 1)} disabled={exIdx === exercises.length - 1} title="下へ" className="p-1.5 text-zinc-400 disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
                 <button onClick={() => updateDay(dayId, list => list.filter(e => e.key !== ex.key))} title="種目を外す" className="p-1.5 text-zinc-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
               </div>
-              <input
+              {/* メモは「回数：」「重量：」のように1項目1行で書くので、複数行で入力できるようにする（2026-10-25） */}
+              <textarea
                 value={ex.note}
                 onChange={e => patchExercise(dayId, ex.key, x => ({ ...x, note: e.target.value }))}
                 maxLength={200}
+                rows={Math.max(1, ex.note.split('\n').length)}
                 placeholder="トレーナーからのコメント（任意）"
-                className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-900 text-sm text-black dark:text-white placeholder:text-zinc-400 focus:outline-none"
+                className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-900 text-sm text-black dark:text-white placeholder:text-zinc-400 focus:outline-none resize-none"
               />
               <SetTable
                 sets={ex.sets}
@@ -406,12 +408,14 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
               <p className="text-sm font-semibold text-black dark:text-white">
                 Week {day.weekNumber} · Day {day.dayNumber}{dirty.has(day.id) ? ' ●' : ''}
               </p>
-              <input
+              {/* メモは「回数：」「重量：」のように1項目1行で書くので、複数行で入力できるようにする（2026-10-25） */}
+              <textarea
                 value={ex.note}
                 onChange={e => patchExercise(day.id, ex.key, x => ({ ...x, note: e.target.value }))}
                 maxLength={200}
+                rows={Math.max(1, ex.note.split('\n').length)}
                 placeholder="トレーナーからのコメント（任意）"
-                className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-900 text-sm text-black dark:text-white placeholder:text-zinc-400 focus:outline-none"
+                className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-900 text-sm text-black dark:text-white placeholder:text-zinc-400 focus:outline-none resize-none"
               />
               <SetTable
                 sets={ex.sets}

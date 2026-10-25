@@ -26,11 +26,12 @@ export function weekPurpose(weekPhases: unknown, week: number): { label: string;
   return typeof code === 'string' && code in WEEK_PHASE_MESSAGES ? WEEK_PHASE_MESSAGES[code as WeekPhaseCode] : null
 }
 
-/** 努力度（RIR）を、アプリと同じ平易な言葉にする（「あと◯回はできる、くらいの重さで」） */
+/** 努力度（RIR）を、アプリと同じ平易な言葉にする（「あと◯回はできる、くらいの重さ」）。
+ *  トレーナーからのメモの「重量：」の行に使う（2026-10-25 オーナー指定の書き方） */
 export function effortText(rir: number): string {
-  if (rir <= 0) return 'あと1回が限界、くらいの重さで'
-  if (rir === 1) return 'あと1〜2回はできる、くらいの重さで'
-  if (rir === 2) return 'あと2〜3回はできる、くらいの重さで'
-  if (rir === 3) return 'あと3〜4回はできる、くらいの重さで'
-  return '余裕を持ってできる重さで'
+  if (rir <= 0) return 'あと1回が限界、くらいの重さ'
+  if (rir === 1) return 'あと1〜2回はできる、くらいの重さ'
+  if (rir === 2) return 'あと2〜3回はできる、くらいの重さ'
+  if (rir === 3) return 'あと3〜4回はできる、くらいの重さ'
+  return '余裕を持ってできる重さ'
 }

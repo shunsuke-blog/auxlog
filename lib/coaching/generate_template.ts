@@ -35,6 +35,9 @@ import {
   volumeRampsForCategory,
 } from '@/lib/suggest/program_engine'
 
+/** トレーナーからのメモの行の区切り（1項目1行。画面は改行をそのまま表示する） */
+export const NOTE_SEPARATOR = '\n'
+
 export const MAX_TEMPLATE_WEEKS = 16
 export const MIN_GENERATED_DAYS = 2
 export const MAX_GENERATED_DAYS = 7
@@ -348,11 +351,11 @@ export function generateTemplate(input: GenerateTemplateInput): GeneratedDay[] {
           const phaseNote = isMidDeload ? MID_DELOAD.note : slotNotes(params)
           if (phaseNote) notes.push(phaseNote)
           const range = isMidDeload ? prevParams : params
-          if (range.rep_range_min != null && range.rep_range_max != null) notes.push(`${range.rep_range_min}〜${range.rep_range_max}回の範囲で`)
+          if (range.rep_range_min != null && range.rep_range_max != null) notes.push(`回数：${range.rep_range_min}〜${range.rep_range_max}回`)
         }
 
         if (sets.length === 0) continue
-        generated.push({ exercise_master_id: exercise.id, trainer_exercise_id: null, note: notes.length > 0 ? notes.join(' ／ ') : null, sets })
+        generated.push({ exercise_master_id: exercise.id, trainer_exercise_id: null, note: notes.length > 0 ? notes.join(NOTE_SEPARATOR) : null, sets })
       }
       out.push({ week, day, exercises: generated })
     }
@@ -412,7 +415,7 @@ export function generateFromBaseTemplate(input: TemplateGenerateInput): Generate
             pctOffset, rirBonus, backoffSets: (mp, mid) => mp?.backoff_sets ?? (mid ? 2 : 0),
           })
           if (!built) continue
-          generated.push({ exercise_master_id: exercise.id, trainer_exercise_id: null, note: built.notes.join(' ／ ') || null, sets: built.sets })
+          generated.push({ exercise_master_id: exercise.id, trainer_exercise_id: null, note: built.notes.join(NOTE_SEPARATOR) || null, sets: built.sets })
           continue
         }
 
@@ -434,11 +437,12 @@ export function generateFromBaseTemplate(input: TemplateGenerateInput): Generate
         if (phaseNote) notes.push(phaseNote)
         if (item.timed) notes.push(`${item.timed.minSec}〜${item.timed.maxSec}秒キープ（回数の欄に秒数を入力）`)
         else {
-          // 重量は前回の記録から提案する種目なので、どのくらいの重さにするかを平易な言葉で書く（RIR はトレーニーに見せない）
-          const range = params.rep_range_min != null && params.rep_range_max != null ? `${params.rep_range_min}〜${params.rep_range_max}回の範囲で、` : ''
-          notes.push(`${range}${effortText(rir)}`)
+          // 重量は前回の記録から提案する種目なので、どのくらいの重さにするかを平易な言葉で書く（RIR はトレーニーに見せない）。
+          // 「回数：9〜11回」「重量：あと3〜4回はできる、くらいの重さ」の2行にする（2026-10-25 オーナー指定）
+          if (params.rep_range_min != null && params.rep_range_max != null) notes.push(`回数：${params.rep_range_min}〜${params.rep_range_max}回`)
+          notes.push(`重量：${effortText(rir)}`)
         }
-        generated.push({ exercise_master_id: exercise.id, trainer_exercise_id: null, note: notes.join(' ／ ') || null, sets })
+        generated.push({ exercise_master_id: exercise.id, trainer_exercise_id: null, note: notes.join(NOTE_SEPARATOR) || null, sets })
       }
       out.push({ week, day: day.day, exercises: generated })
     }
