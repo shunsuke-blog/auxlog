@@ -38,6 +38,22 @@
   --color-brand-text: var(--brand-text);
 }
 
+/* トレーニー画面（ライトモード）のグレーを1段濃くする（2026-10-25 オーナー指摘「見やすく」）。
+   補助の背景・枠線・薄い文字を白と区別しやすくする。トレーナー画面（.light-only）は独自のスレートグレー。
+   ダークモードは対象外（暗い背景用の色のまま） */
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-zinc-50: oklch(96.7% 0.001 286.375);
+    --color-zinc-100: oklch(92% 0.004 286.32);
+    --color-zinc-200: oklch(87.1% 0.006 286.286);
+    --color-zinc-300: oklch(70.5% 0.015 286.067);
+    --color-zinc-400: oklch(55.2% 0.016 285.938);
+    --color-zinc-500: oklch(44.2% 0.017 285.786);
+    --color-zinc-600: oklch(37% 0.013 285.805);
+    --color-zinc-700: oklch(27.4% 0.006 286.033);
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0A0A0A;
