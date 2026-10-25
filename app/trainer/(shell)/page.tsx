@@ -79,7 +79,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
           </>
         ) : (
           <div className="flex items-center justify-center h-full py-24 text-sm text-zinc-400 dark:text-zinc-500">
-            トレーニーを選ぶと、ここに詳細が表示されます
+            契約者を選ぶと、ここに詳細が表示されます
           </div>
         )}
       </section>
