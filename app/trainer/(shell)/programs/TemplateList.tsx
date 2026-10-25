@@ -180,7 +180,7 @@ export default function TemplateList({ templates, initialCreating = false }: { t
     })
 
   const handleDelete = (t: TemplateSummary) => {
-    const note = t.traineeCount > 0 ? '\n共有済みのトレーニーのプランはそのまま残ります。' : ''
+    const note = t.traineeCount > 0 ? '\n共有済みの契約者のプランはそのまま残ります。' : ''
     if (!window.confirm(`「${t.name}」を削除しますか？${note}`)) return
     run(async () => {
       await postJson(`/api/trainer/templates/${t.id}`, {}, 'DELETE')
@@ -231,7 +231,7 @@ export default function TemplateList({ templates, initialCreating = false }: { t
                   disabled={t.traineeCount === 0}
                   className="mr-auto md:-mr-2 flex md:block items-baseline gap-2 text-left md:text-right px-2 py-1 -ml-2 md:ml-0 rounded-lg enabled:hover:bg-zinc-50 disabled:cursor-default"
                 >
-                  <p className="text-[11px] text-zinc-400 dark:text-zinc-500">使用中のトレーニー</p>
+                  <p className="text-[11px] text-zinc-400 dark:text-zinc-500">使用中の契約者</p>
                   <p className={`text-lg font-semibold tabular-nums ${t.traineeCount > 0 ? 'text-brand-text underline decoration-dotted underline-offset-4' : 'text-black dark:text-white'}`}>
                     {t.traineeCount}<span className="ml-0.5 text-xs font-normal text-zinc-500 no-underline">人</span>
                   </p>
@@ -257,7 +257,7 @@ export default function TemplateList({ templates, initialCreating = false }: { t
           <div className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
             <div className="flex items-start gap-3">
               <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold text-black dark:text-white">使用中のトレーニー</p>
+                <p className="text-base font-semibold text-black dark:text-white">使用中の契約者</p>
                 <p className="text-xs text-zinc-500 truncate">{usersOf.name}</p>
               </div>
               <button onClick={() => setUsersOf(null)} aria-label="閉じる" className="text-zinc-400"><X className="w-5 h-5" /></button>

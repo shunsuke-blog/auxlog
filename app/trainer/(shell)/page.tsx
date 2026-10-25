@@ -60,7 +60,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
           ))}
           {rows.filter(r => !r.isSelf).length === 0 ? (
             <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-10">
-              「追加」からトレーニーを招待できます。
+              「追加」から契約者を招待できます。
             </p>
           ) : (
             rows.filter(r => !r.isSelf).map(r => <TraineeListItem key={r.linkId} row={r} selected={r.linkId === selected?.linkId} />)
