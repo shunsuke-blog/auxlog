@@ -76,7 +76,7 @@ test('重点部位の種目は〜60分でも残る（改定ルール③ Priority
   }
 })
 
-test('週4日で胸を選ぶと、Upper A の三頭がペックデックフライになる（改定ルール③ Slot Swap）', () => {
+test('週4日で胸を選ぶと、Upper A の三頭がペックフライになる（改定ルール③ Slot Swap）', () => {
   const days = applyTemplate(BASE_TEMPLATES[4], 60, ['chest'])
   const upperA = days.find(d => d.day === 1)!
   assert.ok(upperA.exercises.some(e => e.code === 'pec_deck_fly'))
