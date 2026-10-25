@@ -399,6 +399,8 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
                 onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
                 maxLength={60}
                 placeholder="テンプレート名"
+                // 入力欄の既定の幅（約20文字分）が幅を決めないよう最小にし、重ねた名前の幅に合わせる
+                size={1}
                 className="[grid-area:1/1] w-full min-w-0 bg-transparent text-black dark:text-white rounded-md px-1 -ml-1 focus:outline-none focus:bg-zinc-50 focus:ring-1 focus:ring-zinc-300"
               />
             </span>
