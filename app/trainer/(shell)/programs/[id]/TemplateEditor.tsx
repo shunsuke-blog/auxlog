@@ -436,11 +436,13 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       )}
       </div>
 
-      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 z-10 px-4 md:px-6 py-3 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900 flex items-center gap-3">
-        <p className={`flex-1 text-xs md:text-sm ${message?.kind === 'error' ? 'text-red-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
+      {/* スマホは帯を出さず、保存ボタンだけを右下に浮かせる（2026-10-25 オーナー依頼）。メッセージがある時だけ
+          ボタンの左に小さく出す。下の種目を触れるよう、ボタンとメッセージ以外はタップを通す。PC は今までどおり帯 */}
+      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 z-10 px-4 md:px-6 py-3 pointer-events-none md:pointer-events-auto md:bg-white/90 md:dark:bg-black/90 md:backdrop-blur-md md:border-t border-zinc-100 dark:border-zinc-900 flex items-center justify-end gap-3">
+        <p className={`pointer-events-auto md:flex-1 text-xs md:text-sm max-md:px-3 max-md:py-2 max-md:rounded-xl max-md:bg-white/95 max-md:shadow-md max-md:border max-md:border-zinc-100 ${message?.kind === 'error' ? 'text-red-500' : 'text-zinc-500 dark:text-zinc-400'} ${message?.text || dirty.size > 0 ? '' : 'max-md:hidden'}`}>
           {message?.text ?? (dirty.size > 0 ? `未保存の変更が ${dirty.size} 日分あります` : '')}
         </p>
-        <button onClick={() => saveDays([...dirty])} disabled={dirty.size === 0 || saving} className="px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-40">
+        <button onClick={() => saveDays([...dirty])} disabled={dirty.size === 0 || saving} className="pointer-events-auto shrink-0 px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-40 max-md:shadow-lg max-md:disabled:opacity-100 max-md:disabled:bg-zinc-200 max-md:disabled:text-zinc-500">
           {saving ? '保存中...' : dirty.size > 0 ? `変更を保存（${dirty.size}日分）` : '保存済み'}
         </button>
       </div>

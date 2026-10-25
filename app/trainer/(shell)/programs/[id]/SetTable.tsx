@@ -23,7 +23,7 @@ export default function SetTable({ sets, onChange, onRemove, onAdd }: {
       <div className="overflow-x-auto">
         <table className="w-full max-w-2xl text-sm">
           <thead>
-            <tr className="text-[11px] text-zinc-400 text-left">
+            <tr className="text-[11px] text-zinc-400 text-left whitespace-nowrap">
               <th className="font-medium py-1 pr-1.5 md:pr-2 w-8 md:w-10">セット</th>
               <th className="font-medium py-1 pr-1.5 md:pr-2">W-UP</th>
               <th className="font-medium py-1 pr-1.5 md:pr-2">重量</th>
