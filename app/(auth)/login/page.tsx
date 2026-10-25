@@ -19,8 +19,6 @@ function LoginContent() {
   const next = safeNextPath(searchParams.get('next'))
   const isTrainerEntry = next.startsWith('/trainer')
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
-
   // メールアドレスでのログイン。メールに届く数字のコードを入力する方式（リンク方式だと、PCで待っている
   // のにスマホでメールを開くとスマホ側でログインしてしまうため。2026-10-19 決定）
   // コードを送った先は URL（?sent=）に持たせる。スマホでメールアプリに切り替えると Safari がページを
@@ -33,6 +31,9 @@ function LoginContent() {
   const [emailError, setEmailError] = useState<string | null>(null)
 
   const handleGoogleLogin = async () => {
+    // 戻り先はボタンを押した時に決める（描画中に window を読むと、サーバー側の描画でエラーになる。
+    // 本番は NEXT_PUBLIC_APP_URL があるので起きないが、ローカルでは「window is not defined」になっていた）
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
     const supabase = createClient()
     await supabase.auth.signInWithOAuth({
       provider: 'google',
