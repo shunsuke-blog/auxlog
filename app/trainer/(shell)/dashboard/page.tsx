@@ -58,7 +58,7 @@ export default async function TrainerDashboardPage() {
 
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-4">
         <section className="space-y-3">
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">クイック統計</h2>
+          <h2 className="text-xs font-semibold text-zinc-400 tracking-wider">クイック統計</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {/* 契約中と無料枠の残りは経営の数字なので隣に並べる（スマホは1段目、2026-10-25 オーナー指摘） */}
             <Stat label="契約中" value={`${data.activeCount}`} unit="名" />
@@ -174,7 +174,7 @@ export default async function TrainerDashboardPage() {
 function Card({ title, className = '', children }: { title: string; className?: string; children: React.ReactNode }) {
   return (
     <section className={`px-4 md:px-5 py-4 rounded-2xl trainer-card space-y-3 ${className}`}>
-      <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">{title}</h2>
+      <h2 className="text-xs font-semibold text-zinc-400 tracking-wider">{title}</h2>
       {children}
     </section>
   )
