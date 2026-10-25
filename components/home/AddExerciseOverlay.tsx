@@ -6,6 +6,13 @@ import { MUSCLE_ORDER, TARGET_MUSCLE_LABELS } from '@/types'
 
 type MasterExercise = { id: string; name: string; target_muscle: string }
 
+function groupByMuscle(list: MasterExercise[]) {
+  return [
+    ...MUSCLE_ORDER.map(m => ({ key: m as string, label: TARGET_MUSCLE_LABELS[m], items: list.filter(e => e.target_muscle === m) })),
+    { key: 'other', label: 'その他', items: list.filter(e => !(MUSCLE_ORDER as string[]).includes(e.target_muscle)) },
+  ].filter(g => g.items.length > 0)
+}
+
 type Props = {
   /** すでにメニューにある種目（候補から外す） */
   excludedNames: ReadonlySet<string>
@@ -76,7 +83,9 @@ export default function AddExerciseOverlay({ excludedNames, note, onPicked, onCl
   const filteredMaster = trimmedQuery ? masterExercises.filter(e => e.name.includes(trimmedQuery)) : masterExercises
 
   return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-black">
+      // 下のタブ（z-50）より前面に出す。高さは見えている画面（dvh）に合わせ、iPhone の Safari でキーボードを閉じた後に
+      // 一覧がスクロールできなくなる不具合を防ぐ（2026-10-25）
+      <div className="fixed inset-x-0 top-0 h-dvh z-[60] flex flex-col bg-white dark:bg-black">
         {/* ヘッダー */}
         <div className="flex items-center gap-3 px-5 pt-14 pb-4 border-b border-zinc-100 dark:border-zinc-900">
           {pendingCustomName ? (
@@ -96,7 +105,8 @@ export default function AddExerciseOverlay({ excludedNames, note, onPicked, onCl
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="種目名で検索..."
-              autoFocus
+              enterKeyHint="search"
+              onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) e.currentTarget.blur() }}
               className="flex-1 text-[15px] text-black dark:text-white bg-transparent placeholder:text-zinc-400 focus:outline-none"
             />
             {searchQuery && (
@@ -119,7 +129,7 @@ export default function AddExerciseOverlay({ excludedNames, note, onPicked, onCl
         </p>
 
         {/* リスト */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
           {pendingCustomName ? (
             <div className="grid grid-cols-2 gap-2 p-5">
               {MUSCLE_ORDER.map(m => (
@@ -137,9 +147,11 @@ export default function AddExerciseOverlay({ excludedNames, note, onPicked, onCl
             <p className="text-sm text-zinc-400 text-center py-12">読み込み中...</p>
           ) : (
             <>
-              {filteredMaster
-                .filter(e => !excludedNames.has(e.name))
-                .map(ex => (
+              {/* 部位ごとに分けて並べる（胸 → 背中 → 肩 → 腕 → 脚 → 体幹 → その他、2026-10-25 オーナー指摘） */}
+              {groupByMuscle(filteredMaster.filter(e => !excludedNames.has(e.name))).map(g => (
+                <div key={g.key}>
+                  <p className="sticky top-0 z-10 px-5 pt-4 pb-1.5 text-xs font-semibold text-zinc-400 bg-white dark:bg-black">{g.label}</p>
+                  {g.items.map(ex => (
                   <button
                     key={ex.id}
                     onClick={() => pick({
@@ -153,7 +165,9 @@ export default function AddExerciseOverlay({ excludedNames, note, onPicked, onCl
                   >
                     <span className="text-[15px] text-black dark:text-white">{ex.name}</span>
                   </button>
-                ))}
+                  ))}
+                </div>
+              ))}
 
               {/* DBにない場合は自由入力で追加 */}
               {trimmedQuery && !filteredMaster.some(e => e.name === trimmedQuery) && (
