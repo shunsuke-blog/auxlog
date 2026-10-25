@@ -69,9 +69,11 @@ export default async function TrainerDashboardPage() {
           </div>
         </section>
 
-        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-          <div className="space-y-4">
-            <Card title="最近のアクティビティ">
+        {/* PC は左に「アクティビティ・ハイライト」、右に「ToDo・アラート・今週の進捗」の2列。スマホは1列で、最初に見るべき
+            ToDo・アラートをクイック統計の直後に出す（列の囲みを display: contents にして order で並べる、2026-10-25） */}
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start">
+          <div className="max-lg:contents lg:space-y-4">
+            <Card title="最近のアクティビティ" className="max-lg:order-3">
               {activity.length === 0 ? (
                 <Empty>まだアクティビティはありません。</Empty>
               ) : (
@@ -99,7 +101,7 @@ export default async function TrainerDashboardPage() {
               )}
             </Card>
 
-            <Card title="成果のハイライト">
+            <Card title="成果のハイライト" className="max-lg:order-4">
               {highlights.length === 0 ? (
                 <Empty>直近{HIGHLIGHT_DAYS / 7}週間で推定1RMを更新した種目はまだありません。</Empty>
               ) : (
@@ -120,8 +122,25 @@ export default async function TrainerDashboardPage() {
             </Card>
           </div>
 
-          <div className="space-y-4">
-            <Card title="今週の進捗">
+          <div className="max-lg:contents lg:space-y-4">
+            {/* ToDo（トレーナーがやる作業）とアラート（トレーニーの様子の異変）を分ける（2026-10-25 オーナー決定）。
+                該当者がいない項目は出さない */}
+            <Card title="ToDo" className="max-lg:order-1">
+              {todoItems.length === 0 ? (
+                <Empty>ToDoはありません。</Empty>
+              ) : (
+                <ItemList items={todoItems} />
+              )}
+            </Card>
+
+            <Card title="アラート" className="max-lg:order-2">
+              {alertItems.length === 0 ? (
+                <Empty>アラートはありません。</Empty>
+              ) : (
+                <ItemList items={alertItems} urgent />
+              )}
+            </Card>
+            <Card title="今週の進捗" className="max-lg:order-5">
               {week.people.length === 0 ? (
                 <Empty>進行中のプランがある契約者はいません。</Empty>
               ) : (
@@ -145,23 +164,6 @@ export default async function TrainerDashboardPage() {
               )}
             </Card>
 
-            {/* ToDo（トレーナーがやる作業）とアラート（トレーニーの様子の異変）を分ける（2026-10-25 オーナー決定）。
-                該当者がいない項目は出さない */}
-            <Card title="ToDo">
-              {todoItems.length === 0 ? (
-                <Empty>ToDoはありません。</Empty>
-              ) : (
-                <ItemList items={todoItems} />
-              )}
-            </Card>
-
-            <Card title="アラート">
-              {alertItems.length === 0 ? (
-                <Empty>アラートはありません。</Empty>
-              ) : (
-                <ItemList items={alertItems} urgent />
-              )}
-            </Card>
           </div>
         </div>
       </div>
@@ -169,9 +171,9 @@ export default async function TrainerDashboardPage() {
   )
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({ title, className = '', children }: { title: string; className?: string; children: React.ReactNode }) {
   return (
-    <section className="px-4 md:px-5 py-4 rounded-2xl trainer-card space-y-3">
+    <section className={`px-4 md:px-5 py-4 rounded-2xl trainer-card space-y-3 ${className}`}>
       <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">{title}</h2>
       {children}
     </section>

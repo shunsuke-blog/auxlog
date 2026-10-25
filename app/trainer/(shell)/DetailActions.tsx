@@ -72,7 +72,7 @@ export default function DetailActions({ linkId, status, invite }: Props) {
       )}
 
       {status !== 'ended' && (
-        <button onClick={endContract} disabled={busy} className="w-full py-3 rounded-xl border border-red-200 dark:border-red-900/50 text-sm font-medium text-red-500 disabled:opacity-50">
+        <button onClick={endContract} disabled={busy} className="w-full py-3 rounded-xl border border-red-200 bg-white text-sm font-medium text-red-500 cursor-pointer transition-colors hover:bg-red-50 hover:border-red-400 hover:text-red-600 active:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed">
           {status === 'invited' ? '招待を取り消す' : '契約を終了する'}
         </button>
       )}
