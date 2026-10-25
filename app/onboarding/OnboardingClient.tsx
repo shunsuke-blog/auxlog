@@ -38,7 +38,7 @@ const MUSCLE_LABELS: Record<string, string> = {
   core:      '腕・コア',
 }
 
-const MUSCLE_ORDER = ['chest', 'back', 'shoulders', 'legs', 'arms', 'core']
+const MUSCLE_ORDER = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core']
 
 // ──────────────────────────────────────────────────────────
 // カテゴリ一覧（lib/constants/program_composition.ts が単一情報源）

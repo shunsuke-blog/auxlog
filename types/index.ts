@@ -15,7 +15,8 @@ export const TARGET_MUSCLE_LABELS: Record<TargetMuscle, string> = {
   core: '体幹',
 };
 
-export const MUSCLE_ORDER: TargetMuscle[] = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core'];
+// 部位の並びは体の上から（胸 → 背中 → 肩 → 腕 → 脚 → 体幹、2026-10-25 オーナー指定）
+export const MUSCLE_ORDER: TargetMuscle[] = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core'];
 
 /**
  * priority_musclesとして選択可能な部位。TargetMuscleと違い二頭・三頭を別に選べる

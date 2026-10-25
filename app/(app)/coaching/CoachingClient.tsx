@@ -53,9 +53,10 @@ const PHASE_CONFIG: Record<Phase, {
   },
   deload: {
     label: 'Deload Week',
-    description: '疲労を抜き、次の全力に備える大切な週。重量を落とすほど強くなります。',
+    // W8 は重量を保ってセット数と努力度を下げる週（2026-10-24 決定）。アプリの phase-config.ts と同じ文言
+    description: '疲労を抜き、次の全力に備える大切な週。重量は維持したまま、セット数を減らして負荷をコントロールします。',
     focus: [
-      '重量はいつもの60%で十分',
+      '重量はそのまま、セット数だけ減らして調整',
       '体をリセットする週と割り切る',
       '睡眠・栄養を意識して回復を最大化',
     ],
@@ -430,7 +431,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
             {/* Weight progress chart */}
             <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
               <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-0.5">使用重量の推移</h3>
-              <p className="text-[10px] text-zinc-400 dark:text-zinc-600 mb-3">W8（Deload）は回復のため意図的に重量を落とします</p>
+              <p className="text-[10px] text-zinc-400 dark:text-zinc-600 mb-3">W8（Deload）は重量を保ったまま、セット数を減らして回復します</p>
               <WeightProgressChart exercises={weightHistory} currentWeek={currentWeek} />
             </div>
           </>

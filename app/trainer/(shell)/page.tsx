@@ -59,7 +59,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
         }
       }
     }
-    // 部位別（胸・背中・脚・肩・腕・体幹）に並べ、同じ部位の中は種目マスタの並び順（2026-10-25）
+    // 部位別（体の上から 胸・背中・肩・腕・脚・体幹）に並べ、同じ部位の中は種目マスタの並び順（2026-10-25）
     const muscleRank = (m: string | null) => { const i = MUSCLE_ORDER.indexOf(m as TargetMuscle); return i < 0 ? MUSCLE_ORDER.length : i }
     const oneRmExercises = [...seen.values()].sort((a, b) => muscleRank(a.targetMuscle) - muscleRank(b.targetMuscle) || a.sortOrder - b.sortOrder)
     return { id: t.id, name: t.name, oneRmExercises }
