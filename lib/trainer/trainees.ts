@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { BASE_CATEGORIES_BY_RANK, LEG_DEFAULT_CATEGORY } from '@/lib/constants/program_composition'
 import { selectInChunks } from '@/lib/supabase/chunk'
-import { traineeAlerts, weekProgress, type OneRmSetSample, type TraineeAlert, type WeekProgress } from './traineeStatus'
+import { parseTraineeActivity, traineeAlerts, weekProgress, type TraineeAlert, type WeekProgress } from './traineeStatus'
 
 // トレーナー画面の一覧・詳細のデータ読み込み。すべてトレーナー本人のセッション（RLS）で読むため、
 // 契約期間外の記録や他人のトレーニーのデータはDB側で除外される（can_trainer_view 等）。
@@ -40,12 +40,12 @@ export async function loadTraineeRows(supabase: SupabaseClient, trainerId: strin
   const traineeIds = [...new Set(linkRows.map(l => l.trainee_id).filter((id): id is string => id != null))]
   const since = new Date(now.getTime() - 120 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-  const [{ data: plans }, { data: invites }, { data: sessions }] = await Promise.all([
+  const [{ data: plans }, { data: invites }, { data: activity }] = await Promise.all([
     supabase.from('coaching_plans').select('id, link_id, name, status, current_week, total_weeks, created_at').in('link_id', linkIds).order('created_at', { ascending: false }),
     supabase.from('trainer_invites').select('link_id, code, expires_at, created_at').in('link_id', linkIds).is('used_at', null).is('revoked_at', null).order('created_at', { ascending: false }),
-    traineeIds.length > 0
-      ? supabase.from('training_sessions').select('id, user_id, trained_at').in('user_id', traineeIds).gte('trained_at', since).order('trained_at', { ascending: false })
-      : Promise.resolve({ data: [] as { id: string; user_id: string; trained_at: string }[] }),
+    // 最後の記録日と停滞アラート用のセットは DB で集計して1つの値で受け取る（行のまま読むと
+    // 1000行の上限で黙って切れるため）。契約期間外の記録は RLS で除かれる
+    traineeIds.length > 0 ? supabase.rpc('trainer_trainee_activity', { p_since: since }) : Promise.resolve({ data: null }),
   ])
 
   // 契約ごとに表示するプラン: 進行中（共有済み・開始済み）を優先し、無ければ最新
@@ -59,32 +59,7 @@ export async function loadTraineeRows(supabase: SupabaseClient, trainerId: strin
   const inviteByLink = new Map<string, { code: string; expires_at: string }>()
   for (const i of invites ?? []) if (!inviteByLink.has(i.link_id)) inviteByLink.set(i.link_id, i)
 
-  const sessionRows = (sessions ?? []) as { id: string; user_id: string; trained_at: string }[]
-  const lastByUser = new Map<string, string>()
-  for (const s of sessionRows) if (!lastByUser.has(s.user_id)) lastByUser.set(s.user_id, s.trained_at)
-  const sessionById = new Map(sessionRows.map(s => [s.id, s]))
-
-  // 停滞アラート用: 1RM管理種目のワーキングセット
-  const oneRmByUser = new Map<string, OneRmSetSample[]>()
-  if (sessionRows.length > 0) {
-    // セッションIDの一覧を URL に並べると件数が多い時に HTTP 400 になるため、結合でトレーニーと期間を条件にする（H1）
-    const { data: sets } = await supabase
-      .from('training_sets')
-      .select('session_id, weight_kg, reps, exercise_id, user_exercises(exercise_master(id, requires_one_rm)), training_sessions!inner(user_id, trained_at)')
-      .in('training_sessions.user_id', traineeIds)
-      .gte('training_sessions.trained_at', since)
-      .eq('is_warmup', false)
-    type SetRow = { session_id: string; weight_kg: number; reps: number; exercise_id: string; user_exercises: { exercise_master: { id: string; requires_one_rm: boolean } | null } | null }
-    for (const s of (sets ?? []) as unknown as SetRow[]) {
-      const master = s.user_exercises?.exercise_master
-      if (!master?.requires_one_rm) continue
-      const session = sessionById.get(s.session_id)
-      if (!session) continue
-      const list = oneRmByUser.get(session.user_id) ?? []
-      list.push({ exerciseKey: master.id, trainedOn: session.trained_at, weightKg: Number(s.weight_kg), reps: s.reps })
-      oneRmByUser.set(session.user_id, list)
-    }
-  }
+  const { lastByUser, oneRmByUser } = parseTraineeActivity(activity)
 
   // 今週の進み具合: 進行中のプランの、現在の週の種目
   const livePlans = [...planByLink.values()].filter(p => p.status === 'shared' || p.status === 'active')

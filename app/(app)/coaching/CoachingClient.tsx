@@ -7,6 +7,8 @@ import { ChevronRight, Plus, Trash2, Undo2 } from 'lucide-react'
 import SlotExerciseModal from './SlotExerciseModal'
 import AddCustomSlotModal from './AddCustomSlotModal'
 import { PRIORITY_MUSCLE_OPTION_LABELS, type PriorityMuscleOption } from '@/types'
+import { PHASE_STYLE } from '@/lib/coaching/phase_style'
+import type { WeekPhaseCode } from '@/lib/coaching/week_phases'
 
 const WeightProgressChart = dynamic(() => import('./WeightProgressChart'), { ssr: false })
 
@@ -20,39 +22,31 @@ function getPhase(week: number): Phase {
 }
 
 const PHASE_CONFIG: Record<Phase, {
-  label: string
   description: string
   focus: string[]
-  badgeClass: string
-  barClass: string
-  dotClass: string
+  /** 色は lib/coaching/phase_style.ts（トレーナーのプランの画面と共通） */
+  style: (typeof PHASE_STYLE)[WeekPhaseCode]
 }> = {
   volume: {
-    label: 'Volume Phase',
+    style: PHASE_STYLE.V,
     description: '筋肉に刺激を積み上げる期間。セット数を週ごとに増やし、適応の土台を作ります。',
     focus: [
       'セット数が多い週。最後まで丁寧に',
       '重量より回数の質を優先',
       '毎セット同じフォームを心がける',
     ],
-    badgeClass: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
-    barClass: 'bg-blue-500',
-    dotClass: 'bg-blue-500',
   },
   intensity: {
-    label: 'Intensity Phase',
+    style: PHASE_STYLE.I,
     description: 'ここからが本番。セット数を絞り、より重い重量で体を限界まで追い込みます。',
     focus: [
       'メインセットは決めた重量から逃げない',
       '残りのセットは少し重量を落として丁寧に',
       'セット間の休息は3分以上取る',
     ],
-    badgeClass: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
-    barClass: 'bg-amber-500',
-    dotClass: 'bg-amber-500',
   },
   deload: {
-    label: 'Deload Week',
+    style: PHASE_STYLE.D,
     // W8 は重量を保ってセット数と努力度を下げる週（2026-10-24 決定）。アプリの phase-config.ts と同じ文言
     description: '疲労を抜き、次の全力に備える大切な週。重量は維持したまま、セット数を減らして負荷をコントロールします。',
     focus: [
@@ -60,21 +54,15 @@ const PHASE_CONFIG: Record<Phase, {
       '体をリセットする週と割り切る',
       '睡眠・栄養を意識して回復を最大化',
     ],
-    badgeClass: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
-    barClass: 'bg-emerald-500',
-    dotClass: 'bg-emerald-500',
   },
   maxout: {
-    label: 'MaxOut Week',
+    style: PHASE_STYLE.M,
     description: '9週間の集大成。できる限り多くの回数をこなし、次のプログラムの基準重量を更新します。',
     focus: [
       '9週間の積み上げを全て出し切る',
       '全力でできる限り多くの回数に挑戦する',
       'ここで出した回数が次のプログラムの基準になる',
     ],
-    badgeClass: 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400',
-    barClass: 'bg-red-500',
-    dotClass: 'bg-red-500',
   },
 }
 
@@ -285,9 +273,9 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
               <h2 className="text-base font-bold text-black dark:text-white mb-4">9週間ボリューム＆強度プログラム</h2>
 
               {/* Phase badge */}
-              <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold mb-5 ${config.badgeClass}`}>
-                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${config.dotClass} ${phase === 'maxout' ? 'animate-pulse' : ''}`} />
-                {config.label}
+              <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold mb-5 ${config.style.badge}`}>
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${config.style.dot} ${phase === 'maxout' ? 'animate-pulse' : ''}`} />
+                {config.style.name}
               </div>
 
               {/* Progress bar */}
@@ -298,7 +286,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
                 </div>
                 <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-700 ease-out ${config.barClass}`}
+                    className={`h-full rounded-full transition-all duration-700 ease-out ${config.style.bar}`}
                     style={{ width: `${progressWidth}%` }}
                   />
                 </div>
@@ -361,7 +349,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
                       onClick={() => setSelectedWeek(isSelected ? null : week)}
                       className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-lg transition-all ${
                         isCurrent
-                          ? `${wConfig.badgeClass} ring-1 ring-current`
+                          ? `${wConfig.style.badge} ring-1 ring-current`
                           : isSelected
                             ? 'bg-zinc-800 dark:bg-zinc-200 ring-1 ring-zinc-800 dark:ring-zinc-200'
                             : isPast
@@ -395,8 +383,8 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
                 <div className="mt-3 p-3.5 bg-zinc-50 dark:bg-zinc-900 rounded-xl">
                   <div className="flex items-center justify-between mb-2.5">
                     <span className="text-sm font-semibold text-black dark:text-white">Week {selectedWeek}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PHASE_CONFIG[WEEK_PHASE[selectedWeek]].badgeClass}`}>
-                      {PHASE_CONFIG[WEEK_PHASE[selectedWeek]].label}
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PHASE_CONFIG[WEEK_PHASE[selectedWeek]].style.badge}`}>
+                      {PHASE_CONFIG[WEEK_PHASE[selectedWeek]].style.name}
                     </span>
                   </div>
                   <div className="space-y-1.5">
@@ -421,7 +409,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
               <ul className="space-y-2.5">
                 {config.focus.map((point, i) => (
                   <li key={i} className="flex items-start gap-2.5">
-                    <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${config.dotClass}`} />
+                    <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${config.style.dot}`} />
                     <span className="text-sm text-black dark:text-white leading-relaxed">{point}</span>
                   </li>
                 ))}

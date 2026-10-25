@@ -19,6 +19,24 @@ export function weekProgress(planExerciseIds: string[], recordedIds: ReadonlySet
 
 export type OneRmSetSample = { exerciseKey: string; trainedOn: string; weightKg: number; reps: number }
 
+// DB関数 trainer_trainee_activity の戻り値（lib/sql/review_followups_2026-10-25.sql）を、
+// トレーニーごとの最後の記録日と停滞判定用のセットに分ける
+export type TraineeActivity = {
+  last: Record<string, string>
+  samples: { user_id: string; exercise: string; trained_on: string; weight_kg: number | string; reps: number }[]
+}
+
+export function parseTraineeActivity(activity: TraineeActivity | null | undefined) {
+  const lastByUser = new Map(Object.entries(activity?.last ?? {}))
+  const oneRmByUser = new Map<string, OneRmSetSample[]>()
+  for (const s of activity?.samples ?? []) {
+    const list = oneRmByUser.get(s.user_id) ?? []
+    list.push({ exerciseKey: s.exercise, trainedOn: s.trained_on, weightKg: Number(s.weight_kg), reps: Number(s.reps) })
+    oneRmByUser.set(s.user_id, list)
+  }
+  return { lastByUser, oneRmByUser }
+}
+
 export type TraineeAlert = { kind: 'no_record' | 'stalled'; message: string }
 
 const DAY_MS = 24 * 60 * 60 * 1000

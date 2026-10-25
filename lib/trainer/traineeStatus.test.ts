@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { traineeAlerts, weekProgress } from './traineeStatus'
+import { parseTraineeActivity, traineeAlerts, weekProgress } from './traineeStatus'
 
 const today = new Date('2026-10-20T03:00:00Z')
 
@@ -45,4 +45,18 @@ test('traineeAlerts: 契約から3週間未満、比較できる記録が無い�
   assert.equal(traineeAlerts({ status: 'active', startedAt: '2026-10-05', lastTrainedOn: '2026-10-15', oneRmSets: sets, today }).length, 0)
   assert.equal(traineeAlerts({ status: 'active', startedAt: '2026-09-01', lastTrainedOn: '2026-10-15', oneRmSets: sets, today }).length, 0)
   assert.equal(traineeAlerts({ status: 'ended', startedAt: '2026-09-01', lastTrainedOn: '2026-09-02', oneRmSets: [], today }).length, 0)
+})
+
+test('parseTraineeActivity: DBの集計をトレーニーごとに分け、numeric の文字列も数値にする', () => {
+  const { lastByUser, oneRmByUser } = parseTraineeActivity({
+    last: { u1: '2026-10-15' },
+    samples: [
+      { user_id: 'u1', exercise: 'bench', trained_on: '2026-10-15', weight_kg: '82.5', reps: 5 },
+      { user_id: 'u2', exercise: 'squat', trained_on: '2026-10-14', weight_kg: 100, reps: 3 },
+    ],
+  })
+  assert.equal(lastByUser.get('u1'), '2026-10-15')
+  assert.equal(lastByUser.get('u2'), undefined)
+  assert.deepEqual(oneRmByUser.get('u1'), [{ exerciseKey: 'bench', trainedOn: '2026-10-15', weightKg: 82.5, reps: 5 }])
+  assert.equal(parseTraineeActivity(null).oneRmByUser.size, 0)
 })

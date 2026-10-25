@@ -3,9 +3,10 @@ import type { PostgrestError } from '@supabase/supabase-js'
 import { dbError } from '@/lib/api/errors'
 
 // 業務ルールで拒否した場合（RPCが errcode P0001 + hint で投げる）の表示メッセージ
-const RULE_MESSAGES: Record<string, string> = {
+export const RULE_MESSAGES: Record<string, string> = {
   trainee_limit: '無料プランで招待できるトレーニーは3人までです',
   invalid_code: '招待コードが正しくないか、有効期限が切れています',
+  too_many_attempts: '招待コードの入力が続けて間違っています。15分ほど待ってから、もう一度入力してください',
   own_invite: '自分が発行した招待コードは入力できません',
   already_linked: 'すでに担当のトレーナーがいます。今の契約を終了してから入力してください',
   already_recorded: '記録済みの種目はスキップできません',

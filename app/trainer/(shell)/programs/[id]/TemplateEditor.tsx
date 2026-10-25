@@ -1,106 +1,36 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { ArrowDown, ArrowLeftRight, ArrowUp, ChevronLeft, Copy, GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react'
-import { MUSCLE_ORDER, TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
+import { ArrowDown, ArrowLeftRight, ArrowUp, ChevronLeft, Copy, GripVertical, Plus, Trash2 } from 'lucide-react'
+import { TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
 import ExercisePicker from './ExercisePicker'
 import SwapPicker, { type SwapScope } from './SwapPicker'
 import ExerciseLibrary, { LIBRARY_DRAG_TYPE, catalogKey } from './ExerciseLibrary'
+import ExerciseIndex, { type ExerciseOption } from './ExerciseIndex'
+import SetTable, { blankSet } from './SetTable'
+import TemplateNameInput from './TemplateNameInput'
+import { UnsavedLeaveDialog, useUnsavedLeaveGuard } from './UnsavedLeaveGuard'
 import {
   newKey, toSavePayload,
-  type CatalogExercise, type EditorExercise, type EditorSet, type WeightMode,
+  type CatalogExercise, type EditorExercise, type EditorSet,
 } from '@/lib/trainer/templateEditor'
 
 export type EditorDay = { id: string; weekNumber: number; dayNumber: number; exercises: EditorExercise[] }
 
 type Props = { planId: string; initialName: string; totalWeeks: number; days: EditorDay[]; catalog: CatalogExercise[] }
 type View = 'day' | 'exercise'
-// 未保存の変更があるまま移動しようとした時の確認（保存する／保存しない／キャンセル）
-type PendingLeave = { saveIds: string[]; proceed: () => void }
 
-const MODE_LABELS: Record<WeightMode, string> = { pct: '%1RM', kg: 'kg', auto: '自動' }
-const blankSet = (): EditorSet => ({ mode: 'auto', value: '', reps: '10', rir: '2', isWarmup: false })
 /** Day の中の種目カードを並べ替えるときの dataTransfer の型名 */
 const CARD_DRAG_TYPE = 'application/x-auxlog-card'
 const exerciseId = (ex: Pick<EditorExercise, 'exerciseMasterId' | 'trainerExerciseId'>) =>
   ex.exerciseMasterId ? `m:${ex.exerciseMasterId}` : `t:${ex.trainerExerciseId}`
 const muscleLabel = (m: string | null) => (m ? TARGET_MUSCLE_LABELS[m as TargetMuscle] ?? m : '')
 
-const inputClass = 'px-2 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm tabular-nums text-black dark:text-white'
-
-function SetTable({ sets, onChange, onRemove, onAdd }: {
-  sets: EditorSet[]
-  onChange: (idx: number, patch: Partial<EditorSet>) => void
-  onRemove: (idx: number) => void
-  onAdd: () => void
-}) {
-  // Tab キーは 重量 → 回数 → RIR → 次のセットの重量… の順に進む（2026-10-22 オーナー依頼）。
-  // W-UP・重量の種類・セットの削除は tabIndex={-1} で Tab の移動先から外す（マウスでは今までどおり操作できる）。
-  // 重量が「自動」のセットは重量の入力欄が無いので、回数から始まる。
-  return (
-    <>
-      <div className="overflow-x-auto">
-        <table className="w-full max-w-2xl text-sm">
-          <thead>
-            <tr className="text-[11px] text-zinc-400 text-left">
-              <th className="font-medium py-1 pr-2 w-10">セット</th>
-              <th className="font-medium py-1 pr-2">W-UP</th>
-              <th className="font-medium py-1 pr-2">重量</th>
-              <th className="font-medium py-1 pr-2 w-20">回数</th>
-              <th className="font-medium py-1 pr-2 w-16">RIR</th>
-              <th className="w-8" />
-            </tr>
-          </thead>
-          <tbody>
-            {sets.map((s, i) => (
-              <tr key={i} className="align-middle">
-                <td className="py-1 pr-2 text-zinc-500 tabular-nums">{i + 1}</td>
-                <td className="py-1 pr-2">
-                  <input type="checkbox" tabIndex={-1} aria-label={`${i + 1}セット目をウォームアップにする`} checked={s.isWarmup} onChange={e => onChange(i, { isWarmup: e.target.checked })} />
-                </td>
-                <td className="py-1 pr-2">
-                  <div className="flex items-center gap-1">
-                    <select tabIndex={-1} aria-label={`${i + 1}セット目の重量の種類`} value={s.mode} onChange={e => onChange(i, { mode: e.target.value as WeightMode, value: '' })} className={`${inputClass} text-xs`}>
-                      {(Object.keys(MODE_LABELS) as WeightMode[]).map(m => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}
-                    </select>
-                    {s.mode !== 'auto' && (
-                      <input inputMode="decimal" aria-label={`${i + 1}セット目の重量`} value={s.value} onChange={e => onChange(i, { value: e.target.value })} placeholder={s.mode === 'pct' ? '75' : '60'} className={`${inputClass} w-16`} />
-                    )}
-                  </div>
-                </td>
-                <td className="py-1 pr-2">
-                  <input inputMode="numeric" aria-label={`${i + 1}セット目の回数`} value={s.reps} onChange={e => onChange(i, { reps: e.target.value })} className={`${inputClass} w-16`} />
-                </td>
-                <td className="py-1 pr-2">
-                  <input inputMode="numeric" aria-label={`${i + 1}セット目のRIR`} value={s.rir} onChange={e => onChange(i, { rir: e.target.value })} placeholder="-" className={`${inputClass} w-12`} />
-                </td>
-                <td className="py-1">
-                  <button tabIndex={-1} onClick={() => onRemove(i)} disabled={sets.length <= 1} title="セットを削除" className="p-1 text-zinc-300 hover:text-red-500 disabled:opacity-30">
-                    <X className="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={onAdd} disabled={sets.length >= 20} className="text-xs text-zinc-500 hover:text-black dark:hover:text-white disabled:opacity-30">
-        + セットを追加
-      </button>
-    </>
-  )
-}
-
 // テンプレートの編集。表示は「Day ごと」（週 → Day を選んでその日の種目を編集）と「種目ごと」
 // （種目を選んで、その種目が出てくる全週・全Dayのセットを並べて編集）を切り替えられる（2026-10-19 オーナー依頼）。
 // 重量は %1RM（トレーニー追加時に1RMから kg を計算）・kg（固定）・自動（前回記録から提案）のどれか。
 export default function TemplateEditor({ planId, initialName, totalWeeks, days, catalog: initialCatalog }: Props) {
-  const router = useRouter()
-  const [name, setName] = useState(initialName)
-  const [savedName, setSavedName] = useState(initialName)
-  const nameRef = useRef<HTMLInputElement>(null)
   // 最後に保存した内容（「保存しない」を選んだときの戻り先）と、編集中の内容
   const [savedByDay, setSavedByDay] = useState<Record<string, EditorExercise[]>>(() => Object.fromEntries(days.map(d => [d.id, d.exercises])))
   const [byDay, setByDay] = useState<Record<string, EditorExercise[]>>(savedByDay)
@@ -118,7 +48,6 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   // ドラッグ中に挿入位置として示す Day の種目の位置（list.length なら最後）
   const [dropIndex, setDropIndex] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
-  const [pending, setPending] = useState<PendingLeave | null>(null)
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
 
   const sortedDays = [...days].sort((a, b) => a.weekNumber - b.weekNumber || a.dayNumber - b.dayNumber)
@@ -131,7 +60,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   }
 
   // テンプレートに出てくる種目（種目ごと表示の選択肢）。最初に出てくる順。
-  const exerciseOptions: { id: string; name: string; targetMuscle: string | null; count: number }[] = []
+  const exerciseOptions: ExerciseOption[] = []
   for (const d of sortedDays) {
     for (const ex of byDay[d.id] ?? []) {
       const id = exerciseId(ex)
@@ -140,11 +69,6 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       else exerciseOptions.push({ id, name: ex.name, targetMuscle: ex.targetMuscle, count: 1 })
     }
   }
-  // 種目ごと表示のカードは部位ごとに分ける（部位の並びは種目一覧と同じ）
-  const exerciseGroups = [
-    ...MUSCLE_ORDER.map(m => ({ key: m as string, label: TARGET_MUSCLE_LABELS[m], items: exerciseOptions.filter(o => o.targetMuscle === m) })),
-    { key: 'other', label: 'その他', items: exerciseOptions.filter(o => !MUSCLE_ORDER.includes(o.targetMuscle as TargetMuscle)) },
-  ].filter(g => g.items.length > 0)
   const activeExercise = exerciseOptions.find(o => o.id === selectedExercise) ?? exerciseOptions[0] ?? null
 
   const updateDay = (id: string, fn: (list: EditorExercise[]) => EditorExercise[]) => {
@@ -211,41 +135,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     if (target && target.id !== dayId) { setMessage(null); setWeek(w); setDayId(target.id) }
   }
 
-  // 未保存のまま画面内のリンク（サイドバーのタブなど）で離れようとしたら確認する。
-  // タブを閉じる・読み込み直す時はブラウザ標準の確認を出す。
-  useEffect(() => {
-    if (dirty.size === 0) return
-    const onClick = (e: MouseEvent) => {
-      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
-      const a = (e.target as HTMLElement | null)?.closest('a')
-      const href = a?.getAttribute('href')
-      if (!a || !href || !href.startsWith('/') || a.target === '_blank') return
-      e.preventDefault()
-      e.stopPropagation()
-      setPending({ saveIds: [...dirty], proceed: () => router.push(href) })
-    }
-    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault() }
-    document.addEventListener('click', onClick, true)
-    window.addEventListener('beforeunload', onBeforeUnload)
-    return () => {
-      document.removeEventListener('click', onClick, true)
-      window.removeEventListener('beforeunload', onBeforeUnload)
-    }
-  }, [dirty, router])
-
-  const resolvePending = async (choice: 'save' | 'discard' | 'cancel') => {
-    if (!pending) return
-    if (choice === 'cancel') { setPending(null); return }
-    if (choice === 'save') {
-      const ok = await saveDays(pending.saveIds)
-      if (!ok) { setPending(null); return }
-    } else {
-      discardDays(pending.saveIds)
-    }
-    const { proceed } = pending
-    setPending(null)
-    proceed()
-  }
+  const { pending, resolvePending } = useUnsavedLeaveGuard(dirty, saveDays, discardDays)
 
   const move = (key: string, dir: -1 | 1) =>
     updateDay(dayId, list => {
@@ -359,18 +249,6 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     updateDay(dayId, () => source.map(ex => ({ ...ex, key: newKey(), sets: ex.sets.map(st => ({ ...st })) })))
   }
 
-  const saveName = async () => {
-    const trimmed = name.trim()
-    if (!trimmed || trimmed === savedName) { setName(savedName); return }
-    const res = await fetch(`/api/trainer/templates/${planId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: trimmed }),
-    }).catch(() => null)
-    if (res?.ok) setSavedName(trimmed)
-    else setName(savedName)
-  }
-
   const chip = (active: boolean) =>
     `shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold ${active ? 'bg-brand-soft text-brand-text' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-black dark:hover:text-white'}`
 
@@ -388,33 +266,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           <Link href="/trainer/programs" className="p-1 -ml-1 text-zinc-400 hover:text-black dark:hover:text-white">
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          {/* 名前はその場で変えられる（ペンを押すと入力欄にカーソルが入る。欄の外に出ると保存） */}
-          <div className="flex-1 min-w-0 flex items-center gap-1.5">
-            {/* 入力欄の幅を名前の表示幅に合わせる（見えない同じ文字列を重ねて幅を決める）。
-                size（文字数）だと全角文字の幅が足りず、名前が途中で切れていた（2026-10-25 修正） */}
-            <span className="inline-grid min-w-0 max-w-full text-lg font-semibold">
-              <span aria-hidden className="invisible whitespace-pre px-1 [grid-area:1/1] truncate">{name || 'テンプレート名'} </span>
-              <input
-                ref={nameRef}
-                value={name}
-                onChange={e => setName(e.target.value)}
-                onBlur={saveName}
-                onKeyDown={e => {
-                  // 日本語入力の変換を確定する Enter では保存しない（確定前に欄を離れると、入力中の文字が2重になる）。
-                  // Safari は変換確定の Enter で isComposing が false のことがあるため keyCode 229 も見る
-                  if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) e.currentTarget.blur()
-                }}
-                maxLength={60}
-                placeholder="テンプレート名"
-                // 入力欄の既定の幅（約20文字分）が幅を決めないよう最小にし、重ねた名前の幅に合わせる
-                size={1}
-                className="[grid-area:1/1] w-full min-w-0 bg-transparent text-black dark:text-white rounded-md px-1 -ml-1 focus:outline-none focus:bg-zinc-50 focus:ring-1 focus:ring-zinc-300"
-              />
-            </span>
-            <button type="button" onClick={() => nameRef.current?.focus()} title="名前を変更" aria-label="名前を変更" className="shrink-0 p-1 rounded-md text-zinc-400 hover:text-black hover:bg-zinc-100">
-              <Pencil className="w-4 h-4" />
-            </button>
-          </div>
+          <TemplateNameInput planId={planId} initialName={initialName} />
           <div className="shrink-0 flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl">
             {([['day', 'Dayごと'], ['exercise', '種目ごと']] as const).map(([v, text]) => (
               <button
@@ -451,36 +303,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       </div>
 
       <div className="lg:flex-1 lg:min-h-0 lg:flex">
-      {view === 'exercise' && (
-        // 種目ごと表示: テンプレートに出てくる種目を部位ごとのカードで並べ、選んだ種目の全週を右に出す
-        <aside className="px-6 pt-6 lg:p-4 lg:w-72 lg:shrink-0 lg:overflow-y-auto lg:border-r border-zinc-100 dark:border-zinc-900 lg:bg-zinc-50 lg:dark:bg-zinc-950 space-y-4">
-          {exerciseOptions.length === 0 && <p className="text-xs text-zinc-400">まだ種目がありません。Dayごとの表示で種目を追加してください。</p>}
-          {exerciseGroups.map(g => (
-            <div key={g.key} className="space-y-1.5">
-              <p className="text-[11px] font-semibold text-zinc-400">{g.label}</p>
-              <div className="grid grid-cols-2 lg:grid-cols-1 gap-1.5">
-                {g.items.map(o => {
-                  const active = o.id === activeExercise?.id
-                  return (
-                    <button
-                      key={o.id}
-                      onClick={() => setSelectedExercise(o.id)}
-                      className={`text-left px-3 py-2.5 rounded-xl border transition-colors ${
-                        active
-                          ? 'border-brand bg-brand-soft'
-                          : 'border-zinc-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-zinc-300 dark:hover:border-zinc-700'
-                      }`}
-                    >
-                      <p className={`text-[13px] font-semibold leading-snug ${active ? 'text-brand-text' : 'text-black dark:text-white'}`}>{o.name}</p>
-                      <p className={`text-[11px] ${active ? 'text-brand-text/70' : 'text-zinc-400'}`}>{o.count}回</p>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </aside>
-      )}
+      {view === 'exercise' && <ExerciseIndex options={exerciseOptions} activeId={activeExercise?.id ?? null} onSelect={setSelectedExercise} />}
       {/* Day ごと表示では、この列のどこに落としても追加できる（種目カードの上なら、その前後に入る） */}
       <div
         className="lg:flex-1 lg:min-w-0 lg:overflow-y-auto"
@@ -622,28 +445,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
         </button>
       </div>
 
-      {pending && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center px-6 pt-[20vh]">
-          <div className="fixed inset-0 bg-black/60" onClick={() => resolvePending('cancel')} />
-          <div className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
-            <p className="text-base font-semibold text-black dark:text-white">変更を保存しますか？</p>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {pending.saveIds.length === 1 ? `${label(pending.saveIds[0])} に未保存の変更があります。` : `${pending.saveIds.length}日分の未保存の変更があります。`}
-            </p>
-            <div className="flex flex-col gap-2">
-              <button onClick={() => resolvePending('save')} disabled={saving} className="w-full py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
-                {saving ? '保存中...' : '保存する'}
-              </button>
-              <button onClick={() => resolvePending('discard')} disabled={saving} className="w-full py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-red-500">
-                保存しない
-              </button>
-              <button onClick={() => resolvePending('cancel')} disabled={saving} className="w-full py-3 text-sm text-zinc-500">
-                キャンセル
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {pending && <UnsavedLeaveDialog pending={pending} saving={saving} label={label} onResolve={resolvePending} />}
 
       {swap && swapSource && (
         <SwapPicker
