@@ -107,7 +107,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
         onClick={() => setOpen(true)}
         aria-label={label}
         title={iconOnlyOnMobile ? label : undefined}
-        className={`flex items-center gap-1.5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium ${iconOnlyOnMobile ? 'px-2.5 md:px-4' : 'px-4'}`}
+        className={`h-10 flex items-center gap-1.5 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium ${iconOnlyOnMobile ? 'px-2.5 md:px-4' : 'px-4'}`}
       >
         {iconOnlyOnMobile ? (
           <>

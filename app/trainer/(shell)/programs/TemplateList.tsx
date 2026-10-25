@@ -190,11 +190,11 @@ export default function TemplateList({ templates, initialCreating = false }: { t
 
   return (
     <div>
-      <div className="sticky top-0 z-10 trainer-header px-4 md:px-6 py-3 md:py-5 flex items-center justify-between">
+      <div className="sticky top-0 z-10 trainer-header h-14 md:h-[72px] px-4 md:px-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-black dark:text-white">プログラム</h1>
         <button
           onClick={() => setCreating(true)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium"
+          className="h-10 flex items-center gap-1.5 px-4 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium"
         >
           <Plus className="w-4 h-4" />
           新しく作る

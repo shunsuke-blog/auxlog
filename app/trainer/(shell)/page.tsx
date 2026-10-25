@@ -31,12 +31,15 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
   const selected = rows.find(r => r.linkId === selectedId && !r.isSelf) ?? null
 
   return (
-    <div className="md:flex md:h-screen">
+    // 見出しの帯は一覧と詳細の両方の上に、右端まで伸ばす（2026-10-25 オーナー指摘）。PC は帯の下を一覧と詳細の2列にし、
+    // それぞれをスクロールさせる。スマホで詳細を開いている時は帯を出さない（詳細に「一覧」へ戻るリンクがある）
+    <div className="md:h-screen md:flex md:flex-col">
+      <div className={`sticky top-0 z-10 shrink-0 trainer-header h-14 md:h-[72px] px-4 md:px-6 items-center justify-between ${selected ? 'hidden md:flex' : 'flex'}`}>
+        <h1 className="text-xl font-semibold text-black dark:text-white">契約者一覧</h1>
+        <AddTraineeButton templates={templateOptions} />
+      </div>
+      <div className="md:flex md:flex-1 md:min-h-0">
       <section className={`md:w-[420px] md:shrink-0 md:border-r border-zinc-100 dark:border-zinc-900 md:overflow-y-auto ${selected ? 'hidden md:block' : ''}`}>
-        <div className="sticky top-0 z-10 trainer-header px-4 md:px-6 py-3 md:py-5 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-black dark:text-white">契約者一覧</h1>
-          <AddTraineeButton templates={templateOptions} />
-        </div>
         <div className="px-4 py-4 space-y-2">
           {rows.filter(r => r.isSelf).map(r => (
             // 自分の行はトレーニー用の画面へ切り替える（prefetch しない: Cookieを立てるルートのため）
@@ -80,6 +83,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
           </div>
         )}
       </section>
+      </div>
     </div>
   )
 }

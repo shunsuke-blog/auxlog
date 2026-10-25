@@ -2,7 +2,7 @@
 export default function ComingSoon({ title }: { title: string }) {
   return (
     <div>
-      <div className="sticky top-0 z-10 trainer-header px-4 md:px-6 py-3 md:py-5">
+      <div className="sticky top-0 z-10 trainer-header h-14 md:h-[72px] px-4 md:px-6 flex items-center">
         <h1 className="text-xl font-semibold text-black dark:text-white">{title}</h1>
       </div>
       <div className="flex flex-col items-center justify-center py-24 gap-2">

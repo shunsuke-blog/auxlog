@@ -38,7 +38,7 @@ export default async function TrainerDashboardPage() {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 trainer-header px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-3">
+      <div className="sticky top-0 z-10 trainer-header h-14 md:h-[72px] px-4 md:px-6 flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-black dark:text-white whitespace-nowrap">ダッシュボード</h1>
         <div className="flex items-center gap-2">
           <AddTraineeButton templates={templateOptions} label="契約者を追加" iconOnlyOnMobile />
@@ -46,7 +46,7 @@ export default async function TrainerDashboardPage() {
             href="/trainer/programs?create=1"
             aria-label="プログラムを作成"
             title="プログラムを作成"
-            className="flex items-center gap-1.5 px-2.5 md:px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium"
+            className="h-10 flex items-center gap-1.5 px-2.5 md:px-4 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium"
           >
             {/* スマホはプログラムのマーク（＋）だけ、PC は今までどおり文字付き */}
             <ClipboardPlus className="w-5 h-5 md:hidden" />
