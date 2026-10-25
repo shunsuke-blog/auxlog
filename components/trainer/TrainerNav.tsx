@@ -7,7 +7,7 @@ import { Users, ClipboardList, LayoutDashboard, Settings, PanelLeftClose, PanelL
 // トレーナー画面のタブ（2026-10-19 決定: 一覧／プログラム（テンプレート管理）／ダッシュボード／設定。2026-10-19 に管理画面から改名）。
 // PC（md以上）は左のサイドバー、スマホは下部のタブで表示する。
 const tabs = [
-  { href: '/trainer', label: '一覧', icon: Users },
+  { href: '/trainer', label: '契約者一覧', icon: Users },
   { href: '/trainer/programs', label: 'プログラム', icon: ClipboardList },
   { href: '/trainer/dashboard', label: 'ダッシュボード', icon: LayoutDashboard },
   { href: '/trainer/settings', label: '設定', icon: Settings },

@@ -21,12 +21,29 @@ export default async function TrainerProgramsPage() {
       .select('id, name, total_weeks, updated_at, source, generation_inputs, plan_days(day_number, week_number)')
       .is('link_id', null)
       .order('updated_at', { ascending: false }),
-    supabase.from('coaching_plans').select('based_on_plan_id').not('link_id', 'is', null),
+    // そのテンプレートから共有したプランのうち、進行中（共有済み・開始済み）で契約が続いているもの
+    supabase
+      .from('coaching_plans')
+      .select('based_on_plan_id, status, current_week, total_weeks, link_id, trainer_trainee_links(trainee_display_name, status)')
+      .not('link_id', 'is', null)
+      .in('status', ['shared', 'active']),
   ])
 
-  const usage = new Map<string, number>()
-  for (const p of shared ?? []) {
-    if (p.based_on_plan_id) usage.set(p.based_on_plan_id, (usage.get(p.based_on_plan_id) ?? 0) + 1)
+  type SharedRow = {
+    based_on_plan_id: string | null
+    status: 'shared' | 'active'
+    current_week: number
+    total_weeks: number
+    link_id: string
+    trainer_trainee_links: { trainee_display_name: string; status: 'invited' | 'active' | 'paused' | 'ended' } | null
+  }
+  const usage = new Map<string, TemplateSummary['trainees']>()
+  for (const p of (shared ?? []) as unknown as SharedRow[]) {
+    const link = p.trainer_trainee_links
+    if (!p.based_on_plan_id || !link || link.status === 'ended') continue
+    const list = usage.get(p.based_on_plan_id) ?? []
+    list.push({ linkId: p.link_id, name: link.trainee_display_name, linkStatus: link.status, planStatus: p.status, currentWeek: p.current_week, totalWeeks: p.total_weeks })
+    usage.set(p.based_on_plan_id, list)
   }
 
   const summaries: TemplateSummary[] = ((templates ?? []) as TemplateRow[]).map(t => ({
@@ -34,7 +51,8 @@ export default async function TrainerProgramsPage() {
     name: t.name,
     totalWeeks: t.total_weeks,
     daysPerWeek: Math.max(0, ...t.plan_days.filter(d => d.week_number === 1).map(d => d.day_number)),
-    traineeCount: usage.get(t.id) ?? 0,
+    traineeCount: usage.get(t.id)?.length ?? 0,
+    trainees: usage.get(t.id) ?? [],
     source: t.source,
     inputs: t.generation_inputs,
     updatedAt: t.updated_at,

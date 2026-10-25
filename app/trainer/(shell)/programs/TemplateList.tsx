@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronRight, Copy, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { ChevronRight, Copy, Pencil, Plus, Sparkles, Trash2, X } from 'lucide-react'
 import { MAX_PRIORITY_MUSCLES, PRIORITY_MUSCLE_OPTION_LABELS, PRIORITY_MUSCLE_OPTION_ORDER, type PriorityMuscleOption } from '@/types'
 import { availableDays, resolveProgramType, type ProgramGender, type ProgramLevel } from '@/lib/coaching/base_templates'
 
@@ -30,6 +30,8 @@ export type TemplateSummary = {
   totalWeeks: number
   daysPerWeek: number
   traineeCount: number
+  /** このテンプレートから共有したプランを、今使っている（進行中・契約中）トレーニー */
+  trainees: { linkId: string; name: string; linkStatus: 'invited' | 'active' | 'paused' | 'ended'; planStatus: 'shared' | 'active'; currentWeek: number; totalWeeks: number }[]
   updatedAt: string
   /** engine = Auxlogで作成、blank = 白紙から作成、template = 複製 */
   source: 'engine' | 'template' | 'blank'
@@ -141,6 +143,8 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
     if (!allowed.includes(days)) setDays(allowed.filter(d => d <= days).pop() ?? allowed[0])
   }
   const [busy, setBusy] = useState(false)
+  // 使用中のトレーニーのポップアップ
+  const [usersOf, setUsersOf] = useState<TemplateSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const run = async (fn: () => Promise<void>) => {
@@ -217,10 +221,18 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
                   ))}
                 </Link>
               </div>
-              <div className="shrink-0 text-right">
+              {/* 人数を押すと、このプランを使っているトレーニーをポップアップで出す（2026-10-25） */}
+              <button
+                type="button"
+                onClick={() => setUsersOf(t)}
+                disabled={t.traineeCount === 0}
+                className="shrink-0 text-right px-2 py-1 -mr-2 rounded-lg enabled:hover:bg-zinc-50 disabled:cursor-default"
+              >
                 <p className="text-[11px] text-zinc-400 dark:text-zinc-500">使用中のトレーニー</p>
-                <p className="text-lg font-semibold text-black dark:text-white tabular-nums">{t.traineeCount}<span className="ml-0.5 text-xs font-normal text-zinc-500">人</span></p>
-              </div>
+                <p className={`text-lg font-semibold tabular-nums ${t.traineeCount > 0 ? 'text-brand-text underline decoration-dotted underline-offset-4' : 'text-black dark:text-white'}`}>
+                  {t.traineeCount}<span className="ml-0.5 text-xs font-normal text-zinc-500 no-underline">人</span>
+                </p>
+              </button>
               <button onClick={() => handleDuplicate(t)} disabled={busy} title="複製" className="p-2 text-zinc-400 hover:text-black dark:hover:text-white disabled:opacity-50">
                 <Copy className="w-4 h-4" />
               </button>
@@ -234,6 +246,34 @@ export default function TemplateList({ templates }: { templates: TemplateSummary
           ))
         )}
       </div>
+
+      {usersOf && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center px-6 pt-[10vh] pb-6 overflow-y-auto">
+          <div className="fixed inset-0 bg-black/60" onClick={() => setUsersOf(null)} />
+          <div className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-semibold text-black dark:text-white">使用中のトレーニー</p>
+                <p className="text-xs text-zinc-500 truncate">{usersOf.name}</p>
+              </div>
+              <button onClick={() => setUsersOf(null)} aria-label="閉じる" className="text-zinc-400"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="divide-y divide-zinc-100 dark:divide-zinc-900">
+              {usersOf.trainees.map(tr => (
+                <Link key={tr.linkId} href={`/trainer?id=${tr.linkId}`} className="flex items-center justify-between gap-3 py-3 hover:bg-zinc-50 -mx-2 px-2 rounded-lg">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-black dark:text-white truncate">{tr.name}</p>
+                    <p className="text-xs text-zinc-500">
+                      {tr.linkStatus === 'invited' ? '招待中（コード未入力）' : tr.linkStatus === 'paused' ? '一時停止中' : tr.planStatus === 'shared' ? '未開始' : `Week ${tr.currentWeek} / ${tr.totalWeeks}`}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-zinc-300 shrink-0" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {creating && (
         // 上揃えにする: 「Auxlog で作成／白紙から作成」の切り替えで中身の高さが変わっても、
