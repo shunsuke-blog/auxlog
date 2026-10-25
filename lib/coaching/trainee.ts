@@ -249,7 +249,11 @@ export async function loadPlanOverview(supabase: SupabaseClient, plan: LivePlan)
   }
   const ids = [...weekOf.keys()]
   const { data: sets } = ids.length > 0
-    ? await supabase.from('training_sets').select('plan_exercise_id, weight_kg, is_warmup').in('plan_exercise_id', ids)
+    // 種目IDの一覧を URL に並べず、結合でプランを条件にする（件数が多いと HTTP 400 になるため、2026-10-25 レビュー対応 H1）
+    ? await supabase
+        .from('training_sets')
+        .select('plan_exercise_id, weight_kg, is_warmup, plan_exercises!inner(plan_days!inner(plan_id))')
+        .eq('plan_exercises.plan_days.plan_id', plan.id)
     : { data: [] }
   const history = new Map<string, { name: string; byWeek: Map<number, number> }>()
   for (const s of (sets ?? []) as { plan_exercise_id: string; weight_kg: number; is_warmup: boolean }[]) {

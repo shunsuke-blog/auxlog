@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildSlotSelections, exerciseRequiresOneRm, type ExerciseMasterRow } from '@/lib/onboarding/exercise_matching'
 import { buildExerciseCategories, type DaysPerWeek } from '@/lib/suggest/generate_program_composition'
 import type { PriorityMuscleOption } from '@/types'
-import { estimateOneRm } from '@/lib/utils/epley'
+import { estimateOneRmFromSets, isUsableForEstimate } from '@/lib/coaching/one_rm'
 import { createSelfEnrollment, type SelfEnrollmentInput } from './create_self_enrollment'
 
 // トレーナーとの契約が終わったトレーニーに、セルフモードのプログラムを自動で作る（2026-10-19 決定:
@@ -11,8 +11,6 @@ import { createSelfEnrollment, type SelfEnrollmentInput } from './create_self_en
 //   - 種目: 契約中に記録した種目と以前のセルフモードの種目から選び、足りない枠は既定の種目
 //   - 1RM: 契約期間の記録から推定（Epley）。記録が無い種目は以前の値（user_slot_one_rms の最新）のまま
 
-/** 1RMの推定に使うワーキングセットの回数の上限（回数が多いとEpleyの誤差が大きい） */
-const MAX_REPS_FOR_ESTIMATE = 12
 
 export type AutoSelfProgramResult = 'created' | 'not_needed' | { error: string }
 
@@ -49,8 +47,8 @@ export async function autoCreateSelfProgramAfterContract(supabase: SupabaseClien
   const bestOneRmByName = new Map<string, number>()
   for (const s of coachingSets) {
     const name = s.user_exercises?.exercise_master?.name
-    if (!name || s.is_warmup || !(Number(s.weight_kg) > 0) || s.reps < 1 || s.reps > MAX_REPS_FOR_ESTIMATE) continue
-    const est = estimateOneRm(Number(s.weight_kg), s.reps, 2.5)
+    if (!name || !isUsableForEstimate(s)) continue
+    const est = estimateOneRmFromSets([s], 2.5)!
     if (est > (bestOneRmByName.get(name) ?? 0)) bestOneRmByName.set(name, est)
   }
   const coachingNames = new Set(coachingSets.map(s => s.user_exercises?.exercise_master?.name).filter((n): n is string => !!n))

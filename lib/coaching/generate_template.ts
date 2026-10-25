@@ -282,6 +282,8 @@ export type GenerateTemplateInput = {
 const rpeToRir = (rpe: number) => Math.max(0, Math.round(10 - rpe))
 const roundPct = (pct: number) => Math.round(pct * 1000) / 1000
 
+/** @deprecated 2026-10-24 に固定テンプレート方式（generateFromBaseTemplate）へ移行し、トレーナー画面からは使っていない。
+ *  セルフモードを固定テンプレートに移すまでの比較用に残している（レビュー対応 L2） */
 export function generateTemplate(input: GenerateTemplateInput): GeneratedDay[] {
   const { totalWeeks, daysPerWeek, sessionMinutes: minutes, priorities, exercises, weeklyParams, movementParams } = input
   if (!Number.isInteger(daysPerWeek) || daysPerWeek < MIN_GENERATED_DAYS || daysPerWeek > MAX_GENERATED_DAYS) {
@@ -416,7 +418,10 @@ export function generateFromBaseTemplate(input: TemplateGenerateInput): Generate
 
         // 1RM管理でない種目: その週のセット数・回数の範囲・RPE を DB から（途中の回復週は直前の週の約6割・RIR3）
         const params = weeklyBy.get(`${isMidDeload ? lastHardSourceWeek : sourceWeek}:${item.params}`)
-        if (!params || !params.working_sets) continue
+        // 値が見つからない種目を黙って飛ばすと、プランから種目が消えても気づけないため、生成を失敗させる（レビュー対応 L1）
+        if (!params || !params.working_sets) {
+          throw new Error(`週ごとの値がありません: 枠 ${item.params}・元の週 W${isMidDeload ? lastHardSourceWeek : sourceWeek}（種目 ${item.code}）`)
+        }
         const count = isMidDeload ? Math.max(1, Math.ceil(params.working_sets * MID_DELOAD.setsFactor)) : params.working_sets
         const rir = (isMidDeload ? MID_DELOAD.rir : rpeToRir(Number(params.rpe ?? 8))) + rirBonus
         // 時間で行う種目（プランク）は、回数の欄に秒数を入れる

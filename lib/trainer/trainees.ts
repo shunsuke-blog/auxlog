@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { BASE_CATEGORIES_BY_RANK, LEG_DEFAULT_CATEGORY } from '@/lib/constants/program_composition'
+import { selectInChunks } from '@/lib/supabase/chunk'
 import { traineeAlerts, weekProgress, type OneRmSetSample, type TraineeAlert, type WeekProgress } from './traineeStatus'
 
 // トレーナー画面の一覧・詳細のデータ読み込み。すべてトレーナー本人のセッション（RLS）で読むため、
@@ -66,10 +67,12 @@ export async function loadTraineeRows(supabase: SupabaseClient, trainerId: strin
   // 停滞アラート用: 1RM管理種目のワーキングセット
   const oneRmByUser = new Map<string, OneRmSetSample[]>()
   if (sessionRows.length > 0) {
+    // セッションIDの一覧を URL に並べると件数が多い時に HTTP 400 になるため、結合でトレーニーと期間を条件にする（H1）
     const { data: sets } = await supabase
       .from('training_sets')
-      .select('session_id, weight_kg, reps, exercise_id, user_exercises(exercise_master(id, requires_one_rm))')
-      .in('session_id', sessionRows.map(s => s.id))
+      .select('session_id, weight_kg, reps, exercise_id, user_exercises(exercise_master(id, requires_one_rm)), training_sessions!inner(user_id, trained_at)')
+      .in('training_sessions.user_id', traineeIds)
+      .gte('training_sessions.trained_at', since)
       .eq('is_warmup', false)
     type SetRow = { session_id: string; weight_kg: number; reps: number; exercise_id: string; user_exercises: { exercise_master: { id: string; requires_one_rm: boolean } | null } | null }
     for (const s of (sets ?? []) as unknown as SetRow[]) {
@@ -87,10 +90,11 @@ export async function loadTraineeRows(supabase: SupabaseClient, trainerId: strin
   const livePlans = [...planByLink.values()].filter(p => p.status === 'shared' || p.status === 'active')
   const progressByPlan = new Map<string, WeekProgress>()
   if (livePlans.length > 0) {
+    // 各プランの今週の Day だけを読む（全週を読んでから絞らない、M5）
     const { data: days } = await supabase
       .from('plan_days')
       .select('plan_id, week_number, plan_exercises(id)')
-      .in('plan_id', livePlans.map(p => p.id))
+      .or(livePlans.map(p => `and(plan_id.eq.${p.id},week_number.eq.${p.current_week})`).join(','))
     const weekOf = new Map(livePlans.map(p => [p.id, p.current_week]))
     const exercisesByPlan = new Map<string, string[]>()
     for (const d of (days ?? []) as { plan_id: string; week_number: number; plan_exercises: { id: string }[] }[]) {
@@ -98,14 +102,13 @@ export async function loadTraineeRows(supabase: SupabaseClient, trainerId: strin
       exercisesByPlan.set(d.plan_id, [...(exercisesByPlan.get(d.plan_id) ?? []), ...d.plan_exercises.map(e => e.id)])
     }
     const allIds = [...exercisesByPlan.values()].flat()
-    const [{ data: recorded }, { data: skips }] = allIds.length > 0
-      ? await Promise.all([
-          supabase.from('training_sets').select('plan_exercise_id').in('plan_exercise_id', allIds),
-          supabase.from('plan_exercise_skips').select('plan_exercise_id').in('plan_exercise_id', allIds),
-        ])
-      : [{ data: [] }, { data: [] }]
-    const recordedIds = new Set((recorded ?? []).map(r => r.plan_exercise_id as string))
-    const skippedIds = new Set((skips ?? []).map(r => r.plan_exercise_id as string))
+    // トレーニーが多いと今週の種目IDも数百件になるため、分けて取得する（H1）
+    const [recorded, skips] = await Promise.all([
+      selectInChunks<{ plan_exercise_id: string }>(allIds, chunk => supabase.from('training_sets').select('plan_exercise_id').in('plan_exercise_id', chunk)),
+      selectInChunks<{ plan_exercise_id: string }>(allIds, chunk => supabase.from('plan_exercise_skips').select('plan_exercise_id').in('plan_exercise_id', chunk)),
+    ])
+    const recordedIds = new Set(recorded.map(r => r.plan_exercise_id))
+    const skippedIds = new Set(skips.map(r => r.plan_exercise_id))
     for (const [planId, ids] of exercisesByPlan) progressByPlan.set(planId, weekProgress(ids, recordedIds, skippedIds))
   }
 

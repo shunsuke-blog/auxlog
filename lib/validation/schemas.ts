@@ -4,8 +4,9 @@ import { TARGET_MUSCLE_LABELS } from '@/types'
 const SetSchema = z.object({
   exercise_id: z.string().uuid(),
   set_number: z.number().int().min(1).max(50),
-  weight_kg: z.number().min(0).max(999),
-  reps: z.number().int().min(0).max(999),
+  // DB の制約（training_sets_weight_range / reps_range、2026-10-25）と同じ範囲
+  weight_kg: z.number().min(0).max(500),
+  reps: z.number().int().min(0).max(200),
   rir: z.boolean(),
   is_warmup: z.boolean().optional().default(false),
   // コーチングモードの記録だけ。プランの種目と紐付ける（契約中のトレーニー本人かはDBのトリガーで検証）
@@ -20,6 +21,8 @@ export const CreateSessionSchema = z.object({
   // クライアント側で「本来のweekStartより前」と判定してオーバーワーク警告を出した上で
   // 保存されたセッションかどうかのフラグ（UI表示用、集計ロジックには影響しない）
   is_early: z.boolean().optional().default(false),
+  // 画面で作った記録のID（二重送信の防止、2026-10-25 レビュー対応 M2）。同じIDの再送は保存済みとして扱う
+  client_id: z.string().uuid().optional(),
 })
 
 export const UpdateSessionSchema = z.object({

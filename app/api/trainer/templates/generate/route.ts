@@ -5,7 +5,7 @@ import { dbError, validationError } from '@/lib/api/errors'
 import { trainerRpcError } from '@/lib/trainer/rpc'
 import { availableDays, resolveProgramType } from '@/lib/coaching/base_templates'
 import { weekPhaseCodes } from '@/lib/coaching/week_phases'
-import { generateFromBaseTemplate, generateTemplate, hasBaseTemplate, MAX_GENERATED_DAYS, MAX_TEMPLATE_WEEKS, MIN_GENERATED_DAYS } from '@/lib/coaching/generate_template'
+import { generateFromBaseTemplate, hasBaseTemplate, MAX_GENERATED_DAYS, MAX_TEMPLATE_WEEKS, MIN_GENERATED_DAYS } from '@/lib/coaching/generate_template'
 import { MAX_PRIORITY_MUSCLES, PRIORITY_MUSCLE_OPTION_ORDER } from '@/types'
 import type { MovementPatternWeeklyParams, ProgramWeeklyParams } from '@/types'
 import type { ExerciseMasterRow } from '@/lib/onboarding/exercise_matching'
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   const input = parsed.data
   // 初心者は週2・3日、女性向けは週2〜4日など、テンプレートが無い日数は作らない（2026-10-25 オーナー決定）
   const programType = resolveProgramType(input.gender, input.level)
-  if (programType !== 'standard' && !hasBaseTemplate(input.days_per_week, programType)) {
+  if (!hasBaseTemplate(input.days_per_week, programType)) {
     const days = availableDays(programType)
     return NextResponse.json({ error: `この条件で作れるのは週${days[0]}〜${days[days.length - 1]}日です` }, { status: 400 })
   }
@@ -47,8 +47,7 @@ export async function POST(request: Request) {
     return dbError('プログラムの元データの取得に失敗しました', exercisesRes.error ?? weeklyRes.error ?? movementRes.error)
   }
 
-  // 週2〜4日は固定テンプレート方式（2026-10-24）、テンプレートが無い週5〜7日は従来の動的生成
-  const useTemplate = hasBaseTemplate(input.days_per_week, programType)
+  // すべて固定テンプレート方式（2026-10-24〜）。以前の動的生成（generateTemplate）はトレーナー画面からは使わない（レビュー対応 L2）
   const generateInput = {
     totalWeeks: input.total_weeks,
     daysPerWeek: input.days_per_week,
@@ -59,7 +58,12 @@ export async function POST(request: Request) {
     movementParams: movementRes.data as MovementPatternWeeklyParams[],
     programType,
   }
-  const days = useTemplate ? generateFromBaseTemplate(generateInput) : generateTemplate(generateInput)
+  let days
+  try {
+    days = generateFromBaseTemplate(generateInput)
+  } catch (e) {
+    return dbError('プログラムの生成に失敗しました', e)
+  }
 
   const { data, error } = await supabase.rpc('create_generated_template', {
     p_name: input.name,
@@ -69,7 +73,7 @@ export async function POST(request: Request) {
       days_per_week: input.days_per_week,
       session_minutes: input.session_minutes,
       priority_muscles: input.priority_muscles,
-      method: useTemplate ? 'base_template' : 'dynamic',
+      method: 'base_template',
       gender: input.gender,
       level: input.level,
       program_type: programType,

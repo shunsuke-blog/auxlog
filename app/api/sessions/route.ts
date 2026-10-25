@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { CreateSessionSchema } from '@/lib/validation/schemas'
 import { validationError, dbError } from '@/lib/api/errors'
 import { API } from '@/lib/constants/api'
+import { estimateOneRmFromSets } from '@/lib/coaching/one_rm'
 
 export async function POST(request: Request) {
   const supabase = await createClient(request)
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
   const body = await request.json()
   const parsed = CreateSessionSchema.safeParse(body)
   if (!parsed.success) return validationError(parsed.error)
-  const { trained_at, fatigue_level, memo, sets, is_early } = parsed.data
+  const { trained_at, fatigue_level, memo, sets, is_early, client_id } = parsed.data
 
   const allExerciseIds = [...new Set(sets.map(s => s.exercise_id))]
   const { count: ownedCount } = await supabase
@@ -26,9 +27,15 @@ export async function POST(request: Request) {
 
   const { data: session, error: sessionError } = await supabase
     .from('training_sessions')
-    .insert({ user_id: user.id, trained_at, fatigue_level, memo: memo || null, is_early })
+    .insert({ ...(client_id ? { id: client_id } : {}), user_id: user.id, trained_at, fatigue_level, memo: memo || null, is_early })
     .select()
     .single()
+
+  // 同じ記録の再送（通信が切れて応答が届かなかった時の再保存・連打）は、保存済みとして返す（M2）
+  if (sessionError?.code === '23505' && client_id) {
+    const { data: existing } = await supabase.from('training_sessions').select('id, created_at').eq('id', client_id).eq('user_id', user.id).maybeSingle()
+    if (existing) return NextResponse.json({ session_id: existing.id, created_at: existing.created_at, is_improved: false, is_volume_up: false, duplicate: true })
+  }
 
   if (sessionError) return dbError('セッションの保存に失敗しました', sessionError)
 
@@ -53,11 +60,14 @@ export async function POST(request: Request) {
   }
 
   // コーチングモード: 1RMを入れずに共有された種目は、初回の記録から1RMを推定して、
-  // 次回以降の %1RM のセットに重量を入れる（2026-10-25。重量が入っていれば何もしない）
+  // 次回以降の %1RM のセットに重量を入れる（2026-10-25）。推定は lib/coaching/one_rm.ts（上限500kg）、
+  // 書き込みは DB 関数（重量が空のセットだけ・冪等）。失敗しても記録の保存は成功扱いで、次の保存で再試行される
   const planExerciseIds = [...new Set(sets.map(s => s.plan_exercise_id).filter((id): id is string => !!id))]
   for (const id of planExerciseIds) {
-    const { error: fillError } = await supabase.rpc('fill_plan_weights_from_record', { p_plan_exercise_id: id })
-    if (fillError) console.error('[fill_plan_weights_from_record]', fillError.message)
+    const oneRm = estimateOneRmFromSets(sets.filter(s => s.plan_exercise_id === id))
+    if (oneRm == null) continue
+    const { error: fillError } = await supabase.rpc('fill_plan_weights', { p_plan_exercise_id: id, p_one_rm_kg: oneRm })
+    if (fillError) console.error('[fill_plan_weights]', fillError.message)
   }
 
   // exercise_bests テーブルで自己最高記録と比較・更新

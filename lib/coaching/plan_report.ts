@@ -1,14 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { GrowthReport, OneRmGain } from '@/lib/program/week9-report'
-import { estimateOneRm } from '@/lib/utils/epley'
+import { estimateOneRmFromSets, isUsableForEstimate } from './one_rm'
 
 // コーチングプランの成長レポート（プラン完了時に見せる）。セルフモードの成長レポートと同じ形で返し、
 // 表示は GrowthReportModal を使い回す。
 //   - 回数・総重量: このプランに紐付いた記録（plan_exercise_id）
 //   - 種目別の変化: 種目ごとに、最初に記録した日と最後に記録した日の推定1RM（Epley）を比べる
 
-/** 1RMの推定に使うワーキングセットの回数の上限（回数が多いとEpleyの誤差が大きい） */
-const MAX_REPS_FOR_ESTIMATE = 12
 
 type SetRow = {
   weight_kg: number
@@ -37,8 +35,9 @@ export async function computePlanGrowthReport(
   const { data } = ids.length > 0
     ? await supabase
         .from('training_sets')
-        .select('weight_kg, reps, is_warmup, plan_exercise_id, training_sessions!inner(id, trained_at)')
-        .in('plan_exercise_id', ids)
+        // 種目IDの一覧を URL に並べると、件数が多い時に HTTP 400 になるため、結合でプランを条件にする（2026-10-25 レビュー対応 H1）
+        .select('weight_kg, reps, is_warmup, plan_exercise_id, training_sessions!inner(id, trained_at), plan_exercises!inner(plan_days!inner(plan_id))')
+        .eq('plan_exercises.plan_days.plan_id', plan.id)
     : { data: [] }
   const sets = (data ?? []) as unknown as SetRow[]
 
@@ -49,10 +48,10 @@ export async function computePlanGrowthReport(
   const byName = new Map<string, Map<string, number>>()
   for (const s of sets) {
     const w = Number(s.weight_kg)
-    if (s.is_warmup || !(w > 0) || s.reps < 1 || s.reps > MAX_REPS_FOR_ESTIMATE) continue
+    if (!isUsableForEstimate({ weight_kg: w, reps: s.reps, is_warmup: s.is_warmup })) continue
     const name = nameByPlanExercise.get(s.plan_exercise_id) ?? '種目'
     const byDate = byName.get(name) ?? new Map<string, number>()
-    const est = estimateOneRm(w, s.reps, 1)
+    const est = estimateOneRmFromSets([{ weight_kg: w, reps: s.reps }])!
     byDate.set(s.training_sessions.trained_at, Math.max(byDate.get(s.training_sessions.trained_at) ?? 0, est))
     byName.set(name, byDate)
   }

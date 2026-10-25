@@ -47,7 +47,11 @@ export default function CoachingHome({ plan, trainerName, days, initialDay }: Pr
     setAdvancing(true)
     setError(null)
     try {
-      const res = await fetch('/api/coaching-plan/advance-week', { method: 'POST' })
+      const res = await fetch('/api/coaching-plan/advance-week', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from_week: plan.currentWeek }),
+      })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error((data as { error?: string }).error ?? '週の更新に失敗しました')
       selectDay(1)

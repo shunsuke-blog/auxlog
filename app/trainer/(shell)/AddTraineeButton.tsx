@@ -6,13 +6,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Check, Copy, Plus } from 'lucide-react'
 import { TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
+import type { OneRmExercise } from '@/lib/trainer/templateOneRm'
 
-export type TemplateOption = {
-  id: string
-  name: string
-  // テンプレート内で %1RM を使っている種目（追加時に1RMを入力すると kg が入る）
-  oneRmExercises: { exerciseMasterId: string | null; trainerExerciseId: string | null; name: string; targetMuscle: string | null; sortOrder: number }[]
-}
+export type TemplateOption = { id: string; name: string }
 
 type Issued = { code: string; expires_at: string; link_id: string }
 
@@ -23,6 +19,9 @@ export default function AddTraineeButton({ templates }: { templates: TemplateOpt
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [templateId, setTemplateId] = useState('')
+  // 選んだテンプレートの %1RM の種目（選んだ時に読む。追加時に1RMを入力すると kg が入る）
+  const [oneRmExercises, setOneRmExercises] = useState<OneRmExercise[]>([])
+  const [loadingExercises, setLoadingExercises] = useState(false)
   const [oneRms, setOneRms] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -30,7 +29,23 @@ export default function AddTraineeButton({ templates }: { templates: TemplateOpt
   const [copied, setCopied] = useState(false)
 
   const template = templates.find(t => t.id === templateId)
-  const keyOf = (e: TemplateOption['oneRmExercises'][number]) => e.exerciseMasterId ?? e.trainerExerciseId ?? ''
+
+  const selectTemplate = async (id: string) => {
+    setTemplateId(id)
+    setOneRms({})
+    setOneRmExercises([])
+    if (!id) return
+    setLoadingExercises(true)
+    try {
+      const res = await fetch(`/api/trainer/templates/${id}/one-rm-exercises`)
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) setOneRmExercises((data as { exercises: OneRmExercise[] }).exercises)
+      else setError('1RMを入力する種目を読み込めませんでした')
+    } finally {
+      setLoadingExercises(false)
+    }
+  }
+  const keyOf = (e: OneRmExercise) => e.exerciseMasterId ?? e.trainerExerciseId ?? ''
 
   const reset = () => {
     setName('')
@@ -51,7 +66,7 @@ export default function AddTraineeButton({ templates }: { templates: TemplateOpt
     e.preventDefault()
     if (!template) return
     const payload = []
-    for (const ex of template.oneRmExercises) {
+    for (const ex of oneRmExercises) {
       const raw = oneRms[keyOf(ex)]?.trim()
       if (!raw) continue
       const kg = parseFloat(raw)
@@ -137,19 +152,20 @@ export default function AddTraineeButton({ templates }: { templates: TemplateOpt
                   <select
                     required
                     value={templateId}
-                    onChange={e => { setTemplateId(e.target.value); setOneRms({}) }}
+                    onChange={e => selectTemplate(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm text-black dark:text-white"
                   >
                     <option value="" disabled>選択してください</option>
                     {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </label>
-                {template && template.oneRmExercises.length > 0 && (
+                {loadingExercises && <p className="text-xs text-zinc-500">1RMを入力する種目を読み込み中...</p>}
+                {template && !loadingExercises && oneRmExercises.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                       1RM（任意）: 入力すると %1RM のセットに重量が入ります。空欄の種目は、トレーニーの初回の記録から1RMを推定して、次回から重量を自動で入れます。
                     </p>
-                    {template.oneRmExercises.map(ex => (
+                    {oneRmExercises.map(ex => (
                       <label key={keyOf(ex)} className="flex items-center gap-2 text-sm text-black dark:text-white">
                         <span className="w-8 shrink-0 text-xs text-zinc-400">{ex.targetMuscle ? TARGET_MUSCLE_LABELS[ex.targetMuscle as TargetMuscle] ?? '' : ''}</span>
                         <span className="flex-1 truncate">{ex.name}</span>
@@ -168,7 +184,7 @@ export default function AddTraineeButton({ templates }: { templates: TemplateOpt
                 {error && <p className="text-sm text-red-500">{error}</p>}
                 <div className="flex gap-3">
                   <button type="button" onClick={close} disabled={busy} className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white">キャンセル</button>
-                  <button type="submit" disabled={busy || !name.trim() || !template} className="flex-1 py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
+                  <button type="submit" disabled={busy || loadingExercises || !name.trim() || !template} className="flex-1 py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
                     {busy ? '発行中...' : '招待コードを発行'}
                   </button>
                 </div>

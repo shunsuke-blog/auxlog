@@ -6,21 +6,6 @@ import { loadTraineeRows } from '@/lib/trainer/trainees'
 import TraineeListItem from './TraineeListItem'
 import TraineeDetailPanel from './TraineeDetailPanel'
 import AddTraineeButton, { type TemplateOption } from './AddTraineeButton'
-import { MUSCLE_ORDER, type TargetMuscle } from '@/types'
-
-type TemplateRow = {
-  id: string
-  name: string
-  plan_days: {
-    plan_exercises: {
-      exercise_master_id: string | null
-      trainer_exercise_id: string | null
-      exercise_master: { name: string; target_muscle: string | null; sort_order: number } | null
-      trainer_exercises: { name: string; target_muscle: string | null } | null
-      plan_sets: { target_pct_1rm: number | null }[]
-    }[]
-  }[]
-}
 
 // トレーニー一覧（2026-10-19 決定）: 一番上に自分自身、その下にトレーニー。契約終了はグレーで一番下。
 // 名前・状態・最後に記録した日・今週の進み具合（4 / 6 種目＋バー、スキップは別表示）・アラート「！」。
@@ -36,34 +21,12 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
     loadTraineeRows(supabase, user.id),
     supabase
       .from('coaching_plans')
-      .select('id, name, plan_days(plan_exercises(exercise_master_id, trainer_exercise_id, exercise_master(name, target_muscle, sort_order), trainer_exercises(name, target_muscle), plan_sets(target_pct_1rm)))')
+      .select('id, name')
       .is('link_id', null)
       .order('updated_at', { ascending: false }),
   ])
 
-  // トレーニー追加時に1RMを聞く種目 = テンプレート内で %1RM を使っている種目
-  const templateOptions: TemplateOption[] = ((templates ?? []) as unknown as TemplateRow[]).map(t => {
-    const seen = new Map<string, TemplateOption['oneRmExercises'][number]>()
-    for (const d of t.plan_days) {
-      for (const e of d.plan_exercises) {
-        if (!e.plan_sets.some(s => s.target_pct_1rm != null)) continue
-        const key = e.exercise_master_id ?? e.trainer_exercise_id ?? ''
-        if (!seen.has(key)) {
-          seen.set(key, {
-            exerciseMasterId: e.exercise_master_id,
-            trainerExerciseId: e.trainer_exercise_id,
-            name: e.exercise_master?.name ?? e.trainer_exercises?.name ?? '',
-            targetMuscle: e.exercise_master?.target_muscle ?? e.trainer_exercises?.target_muscle ?? null,
-            sortOrder: e.exercise_master?.sort_order ?? Number.MAX_SAFE_INTEGER,
-          })
-        }
-      }
-    }
-    // 部位別（体の上から 胸・背中・肩・腕・脚・体幹）に並べ、同じ部位の中は種目マスタの並び順（2026-10-25）
-    const muscleRank = (m: string | null) => { const i = MUSCLE_ORDER.indexOf(m as TargetMuscle); return i < 0 ? MUSCLE_ORDER.length : i }
-    const oneRmExercises = [...seen.values()].sort((a, b) => muscleRank(a.targetMuscle) - muscleRank(b.targetMuscle) || a.sortOrder - b.sortOrder)
-    return { id: t.id, name: t.name, oneRmExercises }
-  })
+  const templateOptions: TemplateOption[] = (templates ?? []).map(t => ({ id: t.id as string, name: t.name as string }))
 
   const selected = rows.find(r => r.linkId === selectedId && !r.isSelf) ?? null
 

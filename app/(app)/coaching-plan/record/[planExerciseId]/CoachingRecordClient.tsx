@@ -51,6 +51,8 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
   const [fatigueLevel, setFatigueLevel] = useState(3)
   const [memo, setMemo] = useState('')
   const [saving, setSaving] = useState(false)
+  // この画面で保存する記録のID。再送しても同じ記録として扱われる（二重保存の防止、M2）
+  const [clientId] = useState(() => crypto.randomUUID())
   const [error, setError] = useState<string | null>(null)
   const [saveResult, setSaveResult] = useState<'record' | 'volume_up' | 'good_job' | null>(null)
 
@@ -84,6 +86,7 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          client_id: clientId,
           trained_at: todayLocalDate(),
           fatigue_level: fatigueLevel,
           memo,

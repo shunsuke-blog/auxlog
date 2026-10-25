@@ -20,6 +20,8 @@ export default async function TrainerProgramsPage() {
       .from('coaching_plans')
       .select('id, name, total_weeks, updated_at, source, generation_inputs, plan_days(day_number, week_number)')
       .is('link_id', null)
+      // 日数を出すだけなので Week 1 の Day だけ読む（全週は読まない、レビュー対応 M5）
+      .eq('plan_days.week_number', 1)
       .order('updated_at', { ascending: false }),
     // そのテンプレートから共有したプランのうち、進行中（共有済み・開始済み）で契約が続いているもの
     supabase
