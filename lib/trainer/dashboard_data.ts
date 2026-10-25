@@ -15,8 +15,6 @@ export type DashboardData = {
   week: WeekSummary
   activity: ActivityEvent[]
   highlights: { linkId: string; name: string; exercise: string; beforeKg: number; recentKg: number; gainKg: number; trainedOn: string }[]
-  /** %1RM のセットに重量がまだ入っていないプラン（1RM未入力で共有。初回の記録から自動で入る） */
-  awaitingOneRm: NamedLink[]
   /** プランが最終週の人（次のプランの準備の目安） */
   finalWeek: NamedLink[]
 }
@@ -89,21 +87,10 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
   const found = highlights(new Map([...oneRmByUser].filter(([userId]) => linkByUser.has(userId))), now).slice(0, 10)
   const exerciseIds = [...new Set(found.map(h => h.exerciseKey))]
 
-  // ── 1RM未入力のプラン: 進行中のプランごとに「%1RM なのに重量が空のセット」が1つでもあるか ──
   const livePlans = trainees.filter(r => r.status === 'active' && r.plan && (r.plan.status === 'shared' || r.plan.status === 'active'))
-  const [{ data: names }, awaitingChecks] = await Promise.all([
-    exerciseIds.length > 0 ? supabase.from('exercise_master').select('id, name').in('id', exerciseIds) : Promise.resolve({ data: [] }),
-    Promise.all(livePlans.map(r =>
-      supabase
-        .from('plan_sets')
-        .select('id, plan_exercises!inner(plan_days!inner(plan_id))')
-        .eq('plan_exercises.plan_days.plan_id', r.plan!.id)
-        .not('target_pct_1rm', 'is', null)
-        .is('target_weight_kg', null)
-        .limit(1)
-        .then(({ data }) => ((data ?? []).length > 0 ? r : null)),
-    )),
-  ])
+  const { data: names } = exerciseIds.length > 0
+    ? await supabase.from('exercise_master').select('id, name').in('id', exerciseIds)
+    : { data: [] }
   const nameById = new Map((names ?? []).map(n => [n.id as string, n.name as string]))
 
   return {
@@ -116,7 +103,6 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
       const link = linkByUser.get(h.userId)
       return { linkId: link?.linkId ?? '', name: link?.name ?? '', exercise: nameById.get(h.exerciseKey) ?? '種目', beforeKg: h.beforeKg, recentKg: h.recentKg, gainKg: h.gainKg, trainedOn: h.trainedOn }
     }),
-    awaitingOneRm: awaitingChecks.filter((r): r is TraineeRow => r != null).map(r => ({ linkId: r.linkId, name: r.name })),
     finalWeek: livePlans.filter(r => r.plan!.currentWeek >= r.plan!.totalWeeks).map(r => ({ linkId: r.linkId, name: r.name })),
   }
 }

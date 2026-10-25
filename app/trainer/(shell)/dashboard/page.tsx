@@ -1,15 +1,15 @@
 import Link from 'next/link'
 import { Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { loadDashboard, type NamedLink } from '@/lib/trainer/dashboard_data'
-import { formatActivityTime, HIGHLIGHT_DAYS, type TodoItem } from '@/lib/trainer/dashboard'
+import { loadDashboard } from '@/lib/trainer/dashboard_data'
+import { formatActivityTime, HIGHLIGHT_DAYS } from '@/lib/trainer/dashboard'
 import AddTraineeButton, { type TemplateOption } from '../AddTraineeButton'
 
 const fmtDay = (iso: string) => iso.slice(5, 10).replace('-', '/').replace(/^0/, '')
 
 // トレーナーのダッシュボード（2026-10-25、オーナーのデザイン案に合わせた）。ログインした時の最初の画面。
 // 上: 数字のカード（契約中・今週完了した種目・1RM更新）。左: 最近のアクティビティ・成果のハイライト。
-// 右: 今週の進捗・要対応 / アラート。スマホは縦に並べる。人の名前を押すと契約者一覧の詳細を開く。
+// 右: 今週の進捗・ToDo・アラート。スマホは縦に並べる。人の名前を押すと契約者一覧の詳細を開く。
 export default async function TrainerDashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -21,7 +21,13 @@ export default async function TrainerDashboardPage() {
   ])
   const templateOptions: TemplateOption[] = (templates ?? []).map(t => ({ id: t.id as string, name: t.name as string }))
   const { week, activity, highlights, todos } = data
-  const byKind = (kind: TodoItem['kind']): NamedLink[] => todos.filter(t => t.kind === kind).map(t => ({ linkId: t.linkId, name: t.name }))
+  // ToDo: やることを先に書く。アラート: 今の様子（契約者一覧のアラートと同じ文言）
+  const todoItems: Item[] = [
+    ...todos.filter(t => t.kind === 'waiting_plan').map(t => ({ ...t, text: '次のプランを共有する' })),
+    ...data.finalWeek.map(p => ({ ...p, text: 'プランが最終週です。次のプランを準備する' })),
+    ...todos.filter(t => t.kind === 'invite_expired').map(t => ({ ...t, text: '招待コードを再発行する（期限切れ）' })),
+  ]
+  const alertItems: Item[] = todos.filter(t => t.kind === 'no_record' || t.kind === 'stalled').map(t => ({ linkId: t.linkId, name: t.name, text: t.message }))
 
   return (
     <div className="min-h-dvh bg-zinc-50">
@@ -128,15 +134,22 @@ export default async function TrainerDashboardPage() {
               )}
             </Card>
 
-            <Card title="要対応 / アラート">
-              <dl className="space-y-3">
-                <AlertRow label="7日以上記録がないメンバー" people={byKind('no_record')} urgent />
-                <AlertRow label="推定1RMが3週間更新されていないメンバー" people={byKind('stalled')} urgent />
-                <AlertRow label="次のプラン待ちのメンバー" people={byKind('waiting_plan')} />
-                <AlertRow label="プランが最終週のメンバー" people={data.finalWeek} />
-                <AlertRow label="1RM未入力のプラン" people={data.awaitingOneRm} suffix="（初回の記録から自動で推定します）" />
-                <AlertRow label="招待コードの期限切れ" people={byKind('invite_expired')} />
-              </dl>
+            {/* ToDo（トレーナーがやる作業）とアラート（トレーニーの様子の異変）を分ける（2026-10-25 オーナー決定）。
+                該当者がいない項目は出さない */}
+            <Card title="ToDo">
+              {todoItems.length === 0 ? (
+                <Empty>ToDoはありません。</Empty>
+              ) : (
+                <ItemList items={todoItems} />
+              )}
+            </Card>
+
+            <Card title="アラート">
+              {alertItems.length === 0 ? (
+                <Empty>アラートはありません。</Empty>
+              ) : (
+                <ItemList items={alertItems} urgent />
+              )}
             </Card>
           </div>
         </div>
@@ -167,22 +180,23 @@ function Stat({ label, value, unit, note }: { label: string; value: string; unit
   )
 }
 
-function AlertRow({ label, people, urgent, suffix }: { label: string; people: NamedLink[]; urgent?: boolean; suffix?: string }) {
+type Item = { linkId: string; name: string; text: string }
+
+function ItemList({ items, urgent }: { items: Item[]; urgent?: boolean }) {
   return (
-    <div>
-      <dt className="text-sm font-semibold text-black dark:text-white">{label}:{people.length === 0 && <span className="ml-1 font-normal text-zinc-500">なし</span>}</dt>
-      {people.length > 0 && (
-        <dd className="mt-0.5 text-sm">
-          {people.map((p, i) => (
-            <span key={p.linkId}>
-              {i > 0 && '、'}
-              <Link href={`/trainer?id=${p.linkId}`} className={`hover:underline ${urgent ? 'text-red-600' : 'text-black dark:text-white'}`}>{p.name}</Link>
-            </span>
-          ))}
-          {suffix && <span className="text-zinc-500">{suffix}</span>}
-        </dd>
-      )}
-    </div>
+    <ul className="divide-y divide-zinc-100 dark:divide-zinc-900">
+      {items.map((it, i) => (
+        <li key={`${it.linkId}-${i}`}>
+          <Link href={`/trainer?id=${it.linkId}`} className="flex items-start gap-2.5 py-2.5 hover:underline">
+            <span className={`mt-2 w-1.5 h-1.5 shrink-0 rounded-full ${urgent ? 'bg-red-500' : 'bg-brand'}`} />
+            <p className="text-sm text-black dark:text-white">
+              <span className="font-semibold">{it.name}</span>
+              <span className={urgent ? 'text-red-600' : 'text-zinc-600'}>: {it.text}</span>
+            </p>
+          </Link>
+        </li>
+      ))}
+    </ul>
   )
 }
 
