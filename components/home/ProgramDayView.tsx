@@ -10,6 +10,7 @@ import ProgramSlotCard from './ProgramSlotCard'
 import NotCountedBadge from './NotCountedBadge'
 import GrowthReportModal from './GrowthReportModal'
 import type { GrowthReport } from '@/lib/program/week9-report'
+import DayProgress from './DayProgress'
 
 function SwipeableCard({ children, onRemove }: { children: React.ReactNode; onRemove: () => void }) {
   const [offset, setOffset] = useState(0)
@@ -432,6 +433,14 @@ export default function ProgramDayView({ enrollment }: Props) {
         })}
       </div>
 
+      {/* その Day の進み具合（記録した種目の数でティールのバーが満たされていく） */}
+      {suggestion && (() => {
+        const done = (id: string | null | undefined) => id != null && (weekStatus?.completed_exercise_ids.includes(id) ?? false)
+        const total = suggestion.slots.length + extraExercises.length
+        const count = suggestion.slots.filter(s => done(s.exercise.id)).length + extraExercises.filter(e => done(e.id)).length
+        return <DayProgress day={selectedDay} done={count} total={total} />
+      })()}
+
       {/* 今週のフォーカス */}
       {suggestion && (
         <div className="mx-5 mt-1 mb-0 px-4 py-3 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
@@ -554,7 +563,7 @@ export default function ProgramDayView({ enrollment }: Props) {
                         </h3>
                       </div>
                       {isDone
-                        ? <CheckCircle2 className="w-4 h-4 text-zinc-400 dark:text-zinc-500 mt-1 shrink-0" />
+                        ? <CheckCircle2 className="w-4 h-4 text-brand-text mt-1 shrink-0" />
                         : <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 mt-1 shrink-0" />
                       }
                     </div>

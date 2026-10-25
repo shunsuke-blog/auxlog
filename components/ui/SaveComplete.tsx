@@ -9,6 +9,7 @@ type Props = {
   result: SaveResult
 }
 
+// 自己ベスト更新（record）だけタイトルをゴールドにする（ふだんのティールと違う「特別な瞬間」、2026-10-25）
 const CONTENT: Record<SaveResult, { emoji: string; title: string; sub: string }> = {
   record:     { emoji: '🏆', title: 'Record!',     sub: '自己ベスト更新！' },
   volume_up:  { emoji: '📈', title: 'Volume Up!',  sub: '総負荷が上がった' },
@@ -39,7 +40,7 @@ export default function SaveComplete({ onDone, result }: Props) {
       }`}
     >
       <p className="text-6xl mb-5">{emoji}</p>
-      <p className="text-4xl font-black text-white tracking-tight">{title}</p>
+      <p className={`text-4xl font-black tracking-tight ${result === 'record' ? 'text-pr' : 'text-white'}`}>{title}</p>
       <p className="mt-3 text-sm text-zinc-400">{sub}</p>
     </div>
   )

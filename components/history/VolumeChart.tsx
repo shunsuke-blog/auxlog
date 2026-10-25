@@ -120,12 +120,12 @@ export default function VolumeChart({ sessions, exercises, programExerciseIds }:
                 border: `1px solid ${isDark ? '#27272a' : '#f4f4f5'}`,
                 borderRadius: 8,
                 backgroundColor: isDark ? '#09090b' : '#fff',
-                color: isDark ? '#fff' : '#000',
+                color: isDark ? '#E4E4E7' : '#000',
               }}
               formatter={(value) => [`${value}${unit}`, yLabel]}
             />
-            <Line type="monotone" dataKey="value" stroke={isDark ? '#fff' : '#000'} strokeWidth={2}
-              dot={{ fill: isDark ? '#fff' : '#000', r: 3 }} activeDot={{ r: 4 }} />
+            <Line type="monotone" dataKey="value" stroke={isDark ? '#E4E4E7' : '#000'} strokeWidth={2}
+              dot={{ fill: isDark ? '#E4E4E7' : '#000', r: 3 }} activeDot={{ r: 4 }} />
           </LineChart>
         </ResponsiveContainer>
       )}

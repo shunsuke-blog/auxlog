@@ -24,6 +24,10 @@
   --on-brand: #FFFFFF;
   --brand-soft: #E7F3F2;
   --brand-text: #0B7A75;
+  /* 自己ベスト（推定1RM）更新の色（ゴールド、2026-10-25）。ティール（完了・進行）とは別の「特別な瞬間」だけに使う。
+     ライトでも背景に敷いて濃い文字を乗せる（白地に金の文字は読めないため） */
+  --pr: #FBBF24;
+  --on-pr: #1F1300;
 }
 
 @theme inline {
@@ -36,6 +40,8 @@
   --color-on-brand: var(--on-brand);
   --color-brand-soft: var(--brand-soft);
   --color-brand-text: var(--brand-text);
+  --color-pr: var(--pr);
+  --color-on-pr: var(--on-pr);
 }
 
 /* トレーニー画面（ライトモード）のグレーを1段濃くする（2026-10-25 オーナー指摘「見やすく」）。
@@ -54,10 +60,13 @@
   }
 }
 
+/* ダークモード（トレーニー画面、2026-10-25 オーナー決定）: 背景は真っ黒ではなくダークグレー #18181B、
+   文字は真っ白ではなく #E4E4E7（目に刺さらない）。カード・枠は背景より1段ずつ明るいグレー。
+   ティール #3FBFB4 は「完了したセット」「進み具合のバー」など、やり切った報酬にだけ使う */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0A0A0A;
-    --foreground: #ffffff;
+    --background: #18181B;
+    --foreground: #E4E4E7;
     --my-accent: #E8FF00;
     /* ダークでは明るめのティールに濃い文字（暗い背景で白文字のティールは沈んで読みにくい） */
     --brand: #3FBFB4;
@@ -65,11 +74,12 @@
     --on-brand: #04201E;
     --brand-soft: rgba(63, 191, 180, 0.14);
     --brand-text: #5ECDC3;
-    /* ダーク背景の一括上書き */
-    --color-black: #0A0A0A;
-    --color-zinc-950: #141414;
-    --color-zinc-900: #1A1A1A;
-    --color-zinc-800: #222222;
+    /* ダーク背景・文字の一括上書き（bg-black → 背景、text-white → 文字） */
+    --color-black: #18181B;
+    --color-white: #E4E4E7;
+    --color-zinc-950: #1F1F23;
+    --color-zinc-900: #27272A;
+    --color-zinc-800: #34343A;
   }
 }
 
@@ -100,6 +110,7 @@ body {
   --brand-soft: #E7F3F2;
   --brand-text: #0B7A75;
   --color-black: oklch(20.8% 0.042 265.755);
+  --color-white: #ffffff;
   /* グレーはスレートグレー（2026-10-22 オーナー指定）。白と区別しやすいよう、Tailwind の slate より
      1段濃い値を割り当てる（2026-10-25 オーナー指摘「グレーが見づらい」）。
      例: 補助領域の背景 zinc-50 → slate-100、枠線 zinc-100 → slate-200、薄い文字 zinc-400 → slate-500

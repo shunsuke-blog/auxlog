@@ -155,7 +155,7 @@ export default function ProgramSlotCard({ slot, is_done = false, not_counted_thi
           </h3>
         </div>
         {is_done
-          ? <CheckCircle2 className="w-4 h-4 text-zinc-400 dark:text-zinc-500 mt-1 shrink-0" />
+          ? <CheckCircle2 className="w-4 h-4 text-brand-text mt-1 shrink-0" />
           : <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 mt-1 shrink-0" />
         }
       </div>

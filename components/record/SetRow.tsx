@@ -157,7 +157,7 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
           onClick={() => onChange({ ...setData, done: !done })}
           className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors border-2 ${
             done
-              ? 'bg-emerald-500 border-emerald-500 text-white'
+              ? 'bg-brand border-brand text-on-brand'
               : 'border-zinc-300 dark:border-zinc-600 text-transparent'
           }`}
         >

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, CheckCircle2 } from 'lucide-react'
 import GrowthReportModal from '@/components/home/GrowthReportModal'
+import DayProgress from '@/components/home/DayProgress'
 import type { GrowthReport } from '@/lib/program/week9-report'
 import { condenseTargetSets, isWeekComplete, type CoachingDay, type CoachingExercise, type LivePlan } from '@/lib/coaching/trainee'
 import { weekPurpose } from '@/lib/coaching/week_phases'
@@ -162,6 +163,15 @@ export default function CoachingHome({ plan, trainerName, days, initialDay }: Pr
         </div>
       )}
 
+      {/* その Day の進み具合（記録した種目の数でティールのバーが満たされていく。スキップした種目は数えない） */}
+      {day && (
+        <DayProgress
+          day={day.dayNumber}
+          done={day.exercises.filter(e => e.recorded).length}
+          total={day.exercises.filter(e => e.recorded || !e.skipped).length}
+        />
+      )}
+
       {weekComplete && !isFinalWeek && (
         <div className="px-5 pt-3">
           <button
@@ -246,7 +256,7 @@ function ExerciseCard({ ex, busy, onToggleSkip }: { ex: CoachingExercise; busy: 
             </h3>
           </div>
           {ex.recorded
-            ? <CheckCircle2 className="w-4 h-4 text-zinc-400 dark:text-zinc-500 mt-1 shrink-0" />
+            ? <CheckCircle2 className="w-4 h-4 text-brand-text mt-1 shrink-0" />
             : <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 mt-1 shrink-0" />}
         </div>
 
