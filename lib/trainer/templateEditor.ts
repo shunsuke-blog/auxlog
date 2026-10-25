@@ -25,6 +25,8 @@ export type CatalogExercise = {
   trainerExerciseId: string | null
   name: string
   targetMuscle: string | null
+  /** 動きの種類（種目マスタのみ）。入れ替えの候補で「同じ動き」を先に出すのに使う */
+  movementPattern?: string | null
 }
 
 export type PlanSetRow = {

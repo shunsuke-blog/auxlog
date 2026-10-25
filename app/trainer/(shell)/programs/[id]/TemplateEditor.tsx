@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowDown, ArrowUp, ChevronLeft, Copy, GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowLeftRight, ArrowUp, ChevronLeft, Copy, GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { MUSCLE_ORDER, TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
 import ExercisePicker from './ExercisePicker'
+import SwapPicker, { type SwapScope } from './SwapPicker'
 import ExerciseLibrary, { LIBRARY_DRAG_TYPE, catalogKey } from './ExerciseLibrary'
 import {
   newKey, toSavePayload,
@@ -110,6 +111,8 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null)
   const [catalog, setCatalog] = useState(initialCatalog)
   const [picking, setPicking] = useState(false)
+  // 種目の入れ替え: Dayごと表示はそのカード、種目ごと表示はその種目（全週の出てくる所すべて）
+  const [swap, setSwap] = useState<{ kind: 'card'; dayId: string; key: string } | { kind: 'exercise'; exerciseId: string } | null>(null)
   // 種目一覧から「独自の種目として作成」を押した時の名前（作成画面を開いた状態で ExercisePicker を出す）
   const [creatingName, setCreatingName] = useState<string | undefined>(undefined)
   // ドラッグ中に挿入位置として示す Day の種目の位置（list.length なら最後）
@@ -254,6 +257,40 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       return next
     })
 
+  // 入れ替え: 種目だけを替え、セット・回数・コメントはそのまま残す
+  const toSwapped = (ex: EditorExercise, to: CatalogExercise): EditorExercise =>
+    ({ ...ex, exerciseMasterId: to.exerciseMasterId, trainerExerciseId: to.trainerExerciseId, name: to.name, targetMuscle: to.targetMuscle })
+
+  const swapSource = (() => {
+    if (!swap) return null
+    const ex = swap.kind === 'card'
+      ? (byDay[swap.dayId] ?? []).find(e => e.key === swap.key)
+      : sortedDays.flatMap(d => byDay[d.id] ?? []).find(e => exerciseId(e) === swap.exerciseId)
+    if (!ex) return null
+    const id = exerciseId(ex)
+    const cat = catalog.find(c => exerciseId(c) === id)
+    const dayList = swap.kind === 'card' ? byDay[swap.dayId] ?? [] : []
+    return { ex, id, movementPattern: cat?.movementPattern ?? null, inDay: new Set(dayList.map(exerciseId)) }
+  })()
+
+  const applySwap = (to: CatalogExercise, scope: SwapScope) => {
+    if (!swap || !swapSource) return
+    const fromId = swapSource.id
+    if (swap.kind === 'card' && scope === 'this') {
+      patchExercise(swap.dayId, swap.key, e => toSwapped(e, to))
+    } else {
+      // 全週の同じ Day（Dayごと表示）、または全週・全 Day（種目ごと表示）で、同じ種目をすべて入れ替える
+      const dayNumber = swap.kind === 'card' ? days.find(d => d.id === swap.dayId)?.dayNumber : undefined
+      for (const d of days) {
+        if (dayNumber != null && d.dayNumber !== dayNumber) continue
+        if (!(byDay[d.id] ?? []).some(e => exerciseId(e) === fromId)) continue
+        updateDay(d.id, list => list.map(e => (exerciseId(e) === fromId ? toSwapped(e, to) : e)))
+      }
+      if (swap.kind === 'exercise') setSelectedExercise(exerciseId(to))
+    }
+    setSwap(null)
+  }
+
   const addExercise = (ex: CatalogExercise, at?: number) => {
     const item: EditorExercise = { key: newKey(), ...ex, note: '', sets: [blankSet(), blankSet(), blankSet()] }
     updateDay(dayId, list => {
@@ -342,16 +379,21 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           </Link>
           {/* 名前はその場で変えられる（ペンを押すと入力欄にカーソルが入る。欄の外に出ると保存） */}
           <div className="flex-1 min-w-0 flex items-center gap-1.5">
-            <input
-              ref={nameRef}
-              value={name}
-              onChange={e => setName(e.target.value)}
-              onBlur={saveName}
-              onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
-              maxLength={60}
-              size={Math.max(4, name.length + 2)}
-              className="min-w-0 max-w-full text-lg font-semibold bg-transparent text-black dark:text-white rounded-md px-1 -ml-1 focus:outline-none focus:bg-zinc-50 focus:ring-1 focus:ring-zinc-300"
-            />
+            {/* 入力欄の幅を名前の表示幅に合わせる（見えない同じ文字列を重ねて幅を決める）。
+                size（文字数）だと全角文字の幅が足りず、名前が途中で切れていた（2026-10-25 修正） */}
+            <span className="inline-grid min-w-0 max-w-full text-lg font-semibold">
+              <span aria-hidden className="invisible whitespace-pre px-1 [grid-area:1/1] truncate">{name || 'テンプレート名'} </span>
+              <input
+                ref={nameRef}
+                value={name}
+                onChange={e => setName(e.target.value)}
+                onBlur={saveName}
+                onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                maxLength={60}
+                placeholder="テンプレート名"
+                className="[grid-area:1/1] w-full min-w-0 bg-transparent text-black dark:text-white rounded-md px-1 -ml-1 focus:outline-none focus:bg-zinc-50 focus:ring-1 focus:ring-zinc-300"
+              />
+            </span>
             <button type="button" onClick={() => nameRef.current?.focus()} title="名前を変更" aria-label="名前を変更" className="shrink-0 p-1 rounded-md text-zinc-400 hover:text-black hover:bg-zinc-100">
               <Pencil className="w-4 h-4" />
             </button>
@@ -458,6 +500,10 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
                   <p className="text-[11px] text-zinc-400">{muscleLabel(ex.targetMuscle)}</p>
                   <p className="text-sm font-semibold text-black dark:text-white">{ex.name}</p>
                 </div>
+                <button onClick={() => setSwap({ kind: 'card', dayId, key: ex.key })} title="種目を入れ替え" aria-label="種目を入れ替え" className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-black hover:bg-zinc-100">
+                  <ArrowLeftRight className="w-4 h-4" />
+                  <span className="hidden sm:inline">入れ替え</span>
+                </button>
                 <button onClick={() => move(ex.key, -1)} disabled={exIdx === 0} title="上へ" className="p-1.5 text-zinc-400 disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
                 <button onClick={() => move(ex.key, 1)} disabled={exIdx === exercises.length - 1} title="下へ" className="p-1.5 text-zinc-400 disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
                 <button onClick={() => updateDay(dayId, list => list.filter(e => e.key !== ex.key))} title="種目を外す" className="p-1.5 text-zinc-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
@@ -502,9 +548,18 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       ) : (
         <div className="px-6 py-6 space-y-4">
           {activeExercise && (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {activeExercise.name}（{muscleLabel(activeExercise.targetMuscle)}）が出てくる {occurrences.length} 回分。週ごとの重量・回数の流れを見ながら直せます。
-            </p>
+            <div className="flex items-start gap-3">
+              <p className="flex-1 text-sm text-zinc-500 dark:text-zinc-400">
+                {activeExercise.name}（{muscleLabel(activeExercise.targetMuscle)}）が出てくる {occurrences.length} 回分。週ごとの重量・回数の流れを見ながら直せます。
+              </p>
+              <button
+                onClick={() => setSwap({ kind: 'exercise', exerciseId: activeExercise.id })}
+                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-black dark:text-white hover:bg-zinc-50"
+              >
+                <ArrowLeftRight className="w-4 h-4" />
+                この種目を入れ替え（{occurrences.length}回分）
+              </button>
+            </div>
           )}
           {occurrences.map(({ day, ex }) => (
             <div key={`${day.id}-${ex.key}`} className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
@@ -571,6 +626,17 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
             </div>
           </div>
         </div>
+      )}
+
+      {swap && swapSource && (
+        <SwapPicker
+          current={{ name: swapSource.ex.name, targetMuscle: swapSource.ex.targetMuscle, movementPattern: swapSource.movementPattern, isMaster: !!swapSource.ex.exerciseMasterId, id: swapSource.id }}
+          catalog={catalog}
+          inDay={swapSource.inDay}
+          scope={swap.kind === 'card' ? { dayNumber: days.find(d => d.id === swap.dayId)?.dayNumber ?? 1, totalWeeks } : undefined}
+          onPick={applySwap}
+          onClose={() => setSwap(null)}
+        />
       )}
 
       {(picking || creatingName) && (

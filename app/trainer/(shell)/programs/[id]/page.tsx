@@ -20,7 +20,7 @@ export default async function TemplateEditorPage({ params }: { params: Promise<{
       .eq('plan_id', id)
       .order('week_number')
       .order('day_number'),
-    supabase.from('exercise_master').select('id, name, target_muscle').order('sort_order'),
+    supabase.from('exercise_master').select('id, name, target_muscle, movement_pattern').order('sort_order'),
     supabase.from('trainer_exercises').select('id, name, target_muscle').order('created_at'),
   ])
 
@@ -35,7 +35,7 @@ export default async function TemplateEditorPage({ params }: { params: Promise<{
 
   const catalog: CatalogExercise[] = [
     ...(own ?? []).map(e => ({ exerciseMasterId: null, trainerExerciseId: e.id as string, name: e.name as string, targetMuscle: (e.target_muscle as string | null) ?? null })),
-    ...(master ?? []).map(e => ({ exerciseMasterId: e.id as string, trainerExerciseId: null, name: e.name as string, targetMuscle: (e.target_muscle as string | null) ?? null })),
+    ...(master ?? []).map(e => ({ exerciseMasterId: e.id as string, trainerExerciseId: null, name: e.name as string, targetMuscle: (e.target_muscle as string | null) ?? null, movementPattern: (e.movement_pattern as string | null) ?? null })),
   ]
 
   return <TemplateEditor planId={plan.id} initialName={plan.name} totalWeeks={plan.total_weeks} days={editorDays} catalog={catalog} />
