@@ -51,7 +51,7 @@ export default function SwapPicker({ current, catalog, inDay, scope, onPick, onC
             <ArrowLeftRight className="w-4 h-4 mt-1 text-zinc-400 shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-base font-semibold text-black dark:text-white">種目を入れ替え</p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{current.name} → 選んだ種目（セット・回数・コメントはそのまま）</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">{current.name} → 選んだ種目（セット・回数・コメントはそのまま。「1RM管理外」の種目に替えると、%1RM のセットは重量「自動」になります）</p>
             </div>
             <button onClick={onClose} aria-label="閉じる" className="text-zinc-400"><X className="w-5 h-5" /></button>
           </div>
@@ -98,8 +98,10 @@ export default function SwapPicker({ current, catalog, inDay, scope, onPick, onC
                   className="w-full flex items-center justify-between gap-3 px-5 py-3 text-left border-b border-zinc-50 dark:border-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-900"
                 >
                   <span className="text-sm text-black dark:text-white">{e.name}</span>
-                  <span className="shrink-0 text-xs text-zinc-400">
-                    {inDay.has(keyOf(e)) ? 'この Day にあり' : e.trainerExerciseId ? '独自の種目' : ''}
+                  <span className="shrink-0 flex items-center gap-1.5 text-xs text-zinc-400">
+                    {inDay.has(keyOf(e)) && <span>この Day にあり</span>}
+                    {e.trainerExerciseId && <span>独自の種目</span>}
+                    {!e.requiresOneRm && <span className="px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-500">1RM管理外</span>}
                   </span>
                 </button>
               ))}

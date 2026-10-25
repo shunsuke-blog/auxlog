@@ -257,9 +257,17 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       return next
     })
 
-  // 入れ替え: 種目だけを替え、セット・回数・コメントはそのまま残す
-  const toSwapped = (ex: EditorExercise, to: CatalogExercise): EditorExercise =>
-    ({ ...ex, exerciseMasterId: to.exerciseMasterId, trainerExerciseId: to.trainerExerciseId, name: to.name, targetMuscle: to.targetMuscle })
+  // 入れ替え: 種目だけを替え、セット・回数・コメントはそのまま残す。
+  // 1RM管理外の種目（マスタで requires_one_rm でない種目・独自の種目）に替える時は、%1RM のセットを
+  // 「自動」（前回の記録から提案）に切り替える（2026-10-25 オーナー決定。1RMが無く %から重量を出せないため）
+  const toSwapped = (ex: EditorExercise, to: CatalogExercise): EditorExercise => ({
+    ...ex,
+    exerciseMasterId: to.exerciseMasterId,
+    trainerExerciseId: to.trainerExerciseId,
+    name: to.name,
+    targetMuscle: to.targetMuscle,
+    sets: to.requiresOneRm ? ex.sets : ex.sets.map(st => (st.mode === 'pct' ? { ...st, mode: 'auto' as const, value: '' } : st)),
+  })
 
   const swapSource = (() => {
     if (!swap) return null

@@ -27,6 +27,8 @@ export type CatalogExercise = {
   targetMuscle: string | null
   /** 動きの種類（種目マスタのみ）。入れ替えの候補で「同じ動き」を先に出すのに使う */
   movementPattern?: string | null
+  /** 1RM管理の種目か（種目マスタの requires_one_rm。独自の種目は false） */
+  requiresOneRm?: boolean
 }
 
 export type PlanSetRow = {
