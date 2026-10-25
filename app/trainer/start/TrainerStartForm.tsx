@@ -23,7 +23,7 @@ export default function TrainerStartForm({ email }: { email: string | null }) {
         const data = await res.json().catch(() => ({}))
         throw new Error((data as { error?: string }).error ?? 'トレーナー登録に失敗しました')
       }
-      router.replace('/trainer')
+      router.replace('/trainer/dashboard')
       router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'トレーナー登録に失敗しました')

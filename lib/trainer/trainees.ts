@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { BASE_CATEGORIES_BY_RANK, LEG_DEFAULT_CATEGORY } from '@/lib/constants/program_composition'
 import { MUSCLE_ORDER, type TargetMuscle } from '@/types'
 import { selectInChunks } from '@/lib/supabase/chunk'
-import { parseTraineeActivity, traineeAlerts, weekProgress, type TraineeAlert, type WeekProgress } from './traineeStatus'
+import { parseTraineeActivity, traineeAlerts, weekProgress, type TraineeActivity, type TraineeAlert, type WeekProgress } from './traineeStatus'
 
 // トレーナー画面の一覧・詳細のデータ読み込み。すべてトレーナー本人のセッション（RLS）で読むため、
 // 契約期間外の記録や他人のトレーニーのデータはDB側で除外される（can_trainer_view 等）。
@@ -27,10 +27,14 @@ export type TraineeRow = {
 
 const STATUS_ORDER: Record<LinkStatus, number> = { active: 0, paused: 1, invited: 2, ended: 3 }
 
+/** 停滞・成果のハイライトの判定に使う記録の期間（120日） */
+export const activitySince = (now: Date) => new Date(now.getTime() - 120 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
 type LinkRow = { id: string; trainee_id: string | null; trainee_display_name: string; status: LinkStatus; started_at: string | null; ended_at: string | null; trainer_id: string }
 type PlanRow = { id: string; link_id: string; name: string; status: string; current_week: number; total_weeks: number; created_at: string; start_date: string | null }
 
-export async function loadTraineeRows(supabase: SupabaseClient, trainerId: string, now = new Date()): Promise<TraineeRow[]> {
+/** activity: 先に取得した trainer_trainee_activity の結果（ダッシュボードが成果のハイライトにも使うため、二重に取らない） */
+export async function loadTraineeRows(supabase: SupabaseClient, trainerId: string, now = new Date(), activity?: TraineeActivity | null): Promise<TraineeRow[]> {
   const { data: links } = await supabase
     .from('trainer_trainee_links')
     .select('id, trainer_id, trainee_id, trainee_display_name, status, started_at, ended_at')
@@ -40,14 +44,14 @@ export async function loadTraineeRows(supabase: SupabaseClient, trainerId: strin
 
   const linkIds = linkRows.map(l => l.id)
   const traineeIds = [...new Set(linkRows.map(l => l.trainee_id).filter((id): id is string => id != null))]
-  const since = new Date(now.getTime() - 120 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const since = activitySince(now)
 
-  const [{ data: plans }, { data: invites }, { data: activity }] = await Promise.all([
+  const [{ data: plans }, { data: invites }, { data: fetchedActivity }] = await Promise.all([
     supabase.from('coaching_plans').select('id, link_id, name, status, current_week, total_weeks, created_at, start_date').in('link_id', linkIds).order('created_at', { ascending: false }),
     supabase.from('trainer_invites').select('link_id, code, expires_at, created_at').in('link_id', linkIds).is('used_at', null).is('revoked_at', null).order('created_at', { ascending: false }),
     // 最後の記録日と停滞アラート用のセットは DB で集計して1つの値で受け取る（行のまま読むと
     // 1000行の上限で黙って切れるため）。契約期間外の記録は RLS で除かれる
-    traineeIds.length > 0 ? supabase.rpc('trainer_trainee_activity', { p_since: since }) : Promise.resolve({ data: null }),
+    activity !== undefined || traineeIds.length === 0 ? Promise.resolve({ data: activity ?? null }) : supabase.rpc('trainer_trainee_activity', { p_since: since }),
   ])
 
   // 契約ごとに表示するプラン: 進行中（共有済み・開始済み）を優先し、無ければ最新
@@ -61,7 +65,7 @@ export async function loadTraineeRows(supabase: SupabaseClient, trainerId: strin
   const inviteByLink = new Map<string, { code: string; expires_at: string }>()
   for (const i of invites ?? []) if (!inviteByLink.has(i.link_id)) inviteByLink.set(i.link_id, i)
 
-  const { lastByUser, oneRmByUser } = parseTraineeActivity(activity)
+  const { lastByUser, oneRmByUser } = parseTraineeActivity(fetchedActivity)
 
   // 今週の進み具合: 進行中のプランの、現在の週の種目
   const livePlans = [...planByLink.values()].filter(p => p.status === 'shared' || p.status === 'active')

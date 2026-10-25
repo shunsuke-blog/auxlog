@@ -7,7 +7,7 @@ import TrainerShell, { NAV_COLLAPSED_COOKIE } from '@/components/trainer/Trainer
 export default async function TrainerLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/trainer')
+  if (!user) redirect('/login?next=/trainer/dashboard')
   if (!(await getTrainerProfile(supabase, user.id))) redirect('/trainer/start')
 
   const collapsed = (await cookies()).get(NAV_COLLAPSED_COOKIE)?.value === '1'

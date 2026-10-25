@@ -10,7 +10,7 @@ export default async function TrainerStartPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login?next=/trainer/start')
 
-  if (await getTrainerProfile(supabase, user.id)) redirect('/trainer')
+  if (await getTrainerProfile(supabase, user.id)) redirect('/trainer/dashboard')
 
   const { data: userRow } = await supabase.from('users').select('account_type').eq('id', user.id).maybeSingle()
   const isGymOwner = userRow?.account_type === 'gym_owner'

@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // トレーナーはトレーナー画面が基本。一覧の自分の行から「自分のトレーニング」に入っている間
   // （SELF_VIEW_COOKIE）だけ、トレーニー用の画面を使う（2026-10-19 決定）。
   if (!(await cookies()).get(SELF_VIEW_COOKIE) && (await getTrainerProfile(supabase, user.id))) {
-    redirect('/trainer')
+    redirect('/trainer/dashboard')
   }
 
   return (
