@@ -21,6 +21,8 @@ export type LivePlan = {
   startDate: string | null
   /** 週ごとのフェーズ（V/I/D/M）。白紙から作成したプランは null */
   weekPhases: string[] | null
+  /** 作成時の条件（時間・重点部位など）。プログラムタブの表示に使う */
+  generationInputs: Record<string, unknown> | null
 }
 
 export type CoachingSet = {
@@ -89,6 +91,7 @@ export async function getLivePlan(supabase: SupabaseClient, linkId: string): Pro
     currentWeek: data.current_week,
     startDate: data.start_date ?? (data.started_at ? String(data.started_at).slice(0, 10) : null),
     weekPhases: Array.isArray(data.generation_inputs?.week_phases) ? data.generation_inputs.week_phases : null,
+    generationInputs: data.generation_inputs ?? null,
   }
 }
 
@@ -184,4 +187,93 @@ export function condenseTargetSets(ex: Pick<CoachingExercise, 'sets' | 'isBodywe
     rows.push({ label, text: `${weight(g.set)} × ${g.set.reps}${unit}` })
   })
   return rows
+}
+
+// ── プログラムタブ（閲覧のみ）の情報。アプリのプログラムタブ（プログラム情報・種目情報）と同じ内容 ──
+
+export type PlanOverview = {
+  daysPerWeek: number
+  sessionMinutes: 60 | 75 | 90 | null
+  priorityMuscles: string[]
+  /** 今週の Day ごとの種目と1RM（1RMはトレーナーの入力、または初回の記録からの推定。%1RM と重量から逆算） */
+  days: { dayNumber: number; label: string | null; exercises: { name: string; oneRmKg: number | null }[] }[]
+  /** 使用重量の推移（このプランで記録した週ごとの最大重量。重量のある種目だけ） */
+  weightHistory: { slotId: string; exerciseName: string; data: { week: number; maxWeight: number }[] }[]
+}
+
+type OverviewExerciseRow = {
+  id: string
+  exercise_master_id: string | null
+  trainer_exercise_id: string | null
+  sort_order: number
+  exercise_master: { name: string } | null
+  trainer_exercises: { name: string } | null
+  plan_sets: { target_pct_1rm: number | string | null; target_weight_kg: number | string | null }[]
+}
+type OverviewDayRow = { week_number: number; day_number: number; label: string | null; plan_exercises: OverviewExerciseRow[] }
+
+export async function loadPlanOverview(supabase: SupabaseClient, plan: LivePlan): Promise<PlanOverview> {
+  const generationInputs = plan.generationInputs
+  const { data } = await supabase
+    .from('plan_days')
+    .select('week_number, day_number, label, plan_exercises(id, exercise_master_id, trainer_exercise_id, sort_order, exercise_master(name), trainer_exercises(name), plan_sets(target_pct_1rm, target_weight_kg))')
+    .eq('plan_id', plan.id)
+  const days = (data ?? []) as unknown as OverviewDayRow[]
+  const exKey = (e: Pick<OverviewExerciseRow, 'exercise_master_id' | 'trainer_exercise_id'>) => e.exercise_master_id ?? e.trainer_exercise_id ?? ''
+  const nameOf = (e: OverviewExerciseRow) => e.exercise_master?.name ?? e.trainer_exercises?.name ?? '種目'
+
+  // 1RM: %1RM のセットに重量が入っていれば、重量 ÷ % で逆算する（トレーナーの入力・初回の記録からの推定のどちらでも同じ）
+  const oneRmByExercise = new Map<string, number>()
+  for (const d of days) for (const e of d.plan_exercises) for (const s of e.plan_sets) {
+    const pct = s.target_pct_1rm == null ? null : Number(s.target_pct_1rm)
+    const kg = s.target_weight_kg == null ? null : Number(s.target_weight_kg)
+    if (pct && kg && !oneRmByExercise.has(exKey(e))) oneRmByExercise.set(exKey(e), Math.round(kg / pct))
+  }
+
+  const currentDays = days
+    .filter(d => d.week_number === plan.currentWeek)
+    .sort((a, b) => a.day_number - b.day_number)
+    .map(d => ({
+      dayNumber: d.day_number,
+      label: d.label,
+      exercises: [...d.plan_exercises].sort((a, b) => a.sort_order - b.sort_order)
+        .map(e => ({ name: nameOf(e), oneRmKg: oneRmByExercise.get(exKey(e)) ?? null })),
+    }))
+
+  // 使用重量の推移: このプランの種目に紐付いた記録の、週ごとの最大重量
+  const weekOf = new Map<string, number>()
+  const exerciseOf = new Map<string, { key: string; name: string }>()
+  for (const d of days) for (const e of d.plan_exercises) {
+    weekOf.set(e.id, d.week_number)
+    exerciseOf.set(e.id, { key: exKey(e), name: nameOf(e) })
+  }
+  const ids = [...weekOf.keys()]
+  const { data: sets } = ids.length > 0
+    ? await supabase.from('training_sets').select('plan_exercise_id, weight_kg, is_warmup').in('plan_exercise_id', ids)
+    : { data: [] }
+  const history = new Map<string, { name: string; byWeek: Map<number, number> }>()
+  for (const s of (sets ?? []) as { plan_exercise_id: string; weight_kg: number; is_warmup: boolean }[]) {
+    const w = Number(s.weight_kg)
+    if (s.is_warmup || !(w > 0)) continue
+    const ex = exerciseOf.get(s.plan_exercise_id)
+    const week = weekOf.get(s.plan_exercise_id)
+    if (!ex || week == null) continue
+    const h = history.get(ex.key) ?? { name: ex.name, byWeek: new Map<number, number>() }
+    h.byWeek.set(week, Math.max(h.byWeek.get(week) ?? 0, w))
+    history.set(ex.key, h)
+  }
+  const weightHistory = [...history.entries()].map(([key, h]) => ({
+    slotId: key,
+    exerciseName: h.name,
+    data: [...h.byWeek.entries()].sort((a, b) => a[0] - b[0]).map(([week, maxWeight]) => ({ week, maxWeight })),
+  }))
+
+  const minutes = generationInputs?.session_minutes
+  return {
+    daysPerWeek: new Set(days.filter(d => d.week_number === 1).map(d => d.day_number)).size,
+    sessionMinutes: minutes === 60 || minutes === 75 || minutes === 90 ? minutes : null,
+    priorityMuscles: Array.isArray(generationInputs?.priority_muscles) ? (generationInputs.priority_muscles as string[]) : [],
+    days: currentDays,
+    weightHistory,
+  }
 }

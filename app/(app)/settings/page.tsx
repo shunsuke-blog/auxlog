@@ -1,32 +1,39 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronRight, Dumbbell, Mail } from 'lucide-react'
-import LogoutButton from './LogoutButton'
-import DeleteAccountButton from './DeleteAccountButton'
+import { ChevronRight, Dumbbell, Mail, UserCircle } from 'lucide-react'
 import AddToHomeScreenSection from '@/components/ui/AddToHomeScreenSection'
-import ProgramSection from './ProgramSection'
 import { getTrainerProfile } from '@/lib/trainer/session'
 import { getTraineeLink } from '@/lib/coaching/trainee'
 import TrainerContractSection from './TrainerContractSection'
 
+const POLICY_LINKS = [
+  { label: '利用規約', href: 'https://auxlog.com/terms' },
+  { label: 'プライバシーポリシー', href: 'https://auxlog.com/privacy' },
+  { label: '特定商取引法', href: 'https://auxlog.com/tokushoho' },
+]
+
+function Row({ href, icon: Icon, label }: { href: string; icon: typeof Mail; label: string }) {
+  return (
+    <Link href={href} className="flex items-center justify-between px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
+      <div className="flex items-center gap-3">
+        <Icon className="w-4 h-4 text-zinc-400" />
+        <span className="text-sm text-black dark:text-white">{label}</span>
+      </div>
+      <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
+    </Link>
+  )
+}
+
+// 設定（アプリの設定画面に合わせる、2026-10-25）: アカウント（メール・プログラムのリセット・ログアウト・
+// 削除は1つ下の画面）、お問い合わせ、規約のリンク。Web版だけの項目として、担当トレーナー・種目の管理・
+// ホーム画面に追加 を置く。トレーナーのプランを使っている間は、種目はトレーナーが管理するので「種目を管理する」は出さない。
 export default async function SettingsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: userData }, { data: enrollment }, trainerProfile, traineeLink] = await Promise.all([
-    supabase
-      .from('users')
-      .select('email')
-      .eq('id', user.id)
-      .single(),
-    supabase
-      .from('user_program_enrollments')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .maybeSingle(),
+  const [trainerProfile, traineeLink] = await Promise.all([
     getTrainerProfile(supabase, user.id),
     getTraineeLink(supabase, user.id),
   ])
@@ -37,7 +44,7 @@ export default async function SettingsPage() {
         <h1 className="text-xl font-semibold text-black dark:text-white">設定</h1>
       </div>
 
-      <div className="px-6 py-6 space-y-4">
+      <div className="px-6 py-6 space-y-3">
         {trainerProfile && (
           // トレーナーが「自分のトレーニング」に入っている時だけ表示される（それ以外はトレーナー画面へ戻される）
           <Link
@@ -50,11 +57,6 @@ export default async function SettingsPage() {
           </Link>
         )}
 
-        <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">アカウント</h2>
-          <p className="text-sm text-black dark:text-white">{userData?.email ?? user.email}</p>
-        </div>
-
         {/* トレーナー自身（自分のトレーニング）はトレーナー側の画面で管理するので出さない */}
         {!trainerProfile && (
           <TrainerContractSection
@@ -62,51 +64,20 @@ export default async function SettingsPage() {
           />
         )}
 
-        <ProgramSection enrollmentId={enrollment?.id ?? null} />
-
-        <Link
-          href="/exercises"
-          className="flex items-center justify-between px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900"
-        >
-          <div className="flex items-center gap-3">
-            <Dumbbell className="w-4 h-4 text-zinc-400" />
-            <span className="text-sm text-black dark:text-white">種目を管理する</span>
-          </div>
-          <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
-        </Link>
-
-        <Link
-          href="/contact"
-          className="flex items-center justify-between px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900"
-        >
-          <div className="flex items-center gap-3">
-            <Mail className="w-4 h-4 text-zinc-400" />
-            <span className="text-sm text-black dark:text-white">お問い合わせ</span>
-          </div>
-          <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
-        </Link>
+        <Row href="/settings/account" icon={UserCircle} label="アカウント" />
+        {!traineeLink && <Row href="/exercises" icon={Dumbbell} label="種目を管理する" />}
+        <Row href="/contact" icon={Mail} label="お問い合わせ" />
 
         <AddToHomeScreenSection />
 
-        <LogoutButton />
-
-        <div className="pt-2 space-y-2 text-center">
-          <div className="flex items-center justify-center gap-3 text-xs text-zinc-400 dark:text-zinc-600">
-            <a href="https://auxlog.com/terms" target="_blank" rel="noopener noreferrer" className="hover:underline">
-              利用規約
-            </a>
-            <span>·</span>
-            <a href="https://auxlog.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline">
-              プライバシーポリシー
-            </a>
-            <span>·</span>
-            <a href="https://auxlog.com/tokushoho" target="_blank" rel="noopener noreferrer" className="hover:underline">
-              特定商取引法
-            </a>
-          </div>
+        <div className="pt-4 flex items-center justify-center gap-3 text-xs text-zinc-400 dark:text-zinc-600">
+          {POLICY_LINKS.map((l, i) => (
+            <span key={l.href} className="flex items-center gap-3">
+              {i > 0 && <span>·</span>}
+              <a href={l.href} target="_blank" rel="noopener noreferrer" className="hover:underline">{l.label}</a>
+            </span>
+          ))}
         </div>
-
-        <DeleteAccountButton />
       </div>
     </div>
   )
