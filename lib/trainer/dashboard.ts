@@ -88,6 +88,7 @@ export type ActivityEvent = {
   linkId: string
   name: string
   kind: 'contract_started' | 'plan_started' | 'recorded' | 'contract_ended'
+  /** 名前の後ろに続く文（助詞から。例: 「が記録しました」「との契約が終了しました」） */
   text: string
 }
 

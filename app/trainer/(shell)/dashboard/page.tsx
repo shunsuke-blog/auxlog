@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Pencil } from 'lucide-react'
+import { ClipboardPlus, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { loadDashboard } from '@/lib/trainer/dashboard_data'
 import { FREE_TRAINEE_LIMIT, formatActivityTime, HIGHLIGHT_DAYS } from '@/lib/trainer/dashboard'
@@ -39,16 +39,19 @@ export default async function TrainerDashboardPage() {
   return (
     <div>
       <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-black dark:text-white">ダッシュボード</h1>
+        <h1 className="text-xl font-semibold text-black dark:text-white whitespace-nowrap">ダッシュボード</h1>
         <div className="flex items-center gap-2">
-          <AddTraineeButton templates={templateOptions} label="契約者を追加" />
+          <AddTraineeButton templates={templateOptions} label="契約者を追加" iconOnlyOnMobile />
           <Link
             href="/trainer/programs?create=1"
-            className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium"
+            aria-label="プログラムを作成"
+            title="プログラムを作成"
+            className="flex items-center gap-1.5 px-2.5 md:px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium"
           >
-            <Pencil className="w-4 h-4" />
-            <span className="hidden sm:inline">プログラムを作成</span>
-            <span className="sm:hidden">作成</span>
+            {/* スマホはプログラムのマーク（＋）だけ、PC は今までどおり文字付き */}
+            <ClipboardPlus className="w-5 h-5 md:hidden" />
+            <Pencil className="hidden md:block w-4 h-4" />
+            <span className="hidden md:inline">プログラムを作成</span>
           </Link>
         </div>
       </div>
@@ -86,7 +89,7 @@ export default async function TrainerDashboardPage() {
                           {i < activity.length - 1 && <span className="absolute top-4 bottom-0 w-px bg-zinc-200" />}
                         </div>
                         <Link href={`/trainer?id=${e.linkId}`} className="flex-1 min-w-0 pb-4 text-sm text-black dark:text-white leading-relaxed hover:underline">
-                          <span className="font-semibold">{e.name}</span> が{e.text}
+                          <span className="font-semibold">{e.name}</span> {e.text}
                         </Link>
                       </li>
                     )

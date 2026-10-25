@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, Copy, Plus } from 'lucide-react'
+import { Check, Copy, Plus, UserPlus } from 'lucide-react'
 import { TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
 import type { OneRmExercise } from '@/lib/trainer/templateOneRm'
 
@@ -14,7 +14,8 @@ type Issued = { code: string; expires_at: string; link_id: string }
 
 // トレーニーの追加（2026-10-19 決定）: 共有するテンプレートを選ぶ → 招待コードを発行する。
 // テンプレートの %1RM の種目は、ここで入力した1RMから kg を計算する（未入力なら重量は自動提案）。
-export default function AddTraineeButton({ templates, label = '追加' }: { templates: TemplateOption[]; label?: string }) {
+// iconOnlyOnMobile: スマホでは人のマーク（＋）だけにする（ダッシュボードの見出しでボタンが大きくならないように、2026-10-25）
+export default function AddTraineeButton({ templates, label = '追加', iconOnlyOnMobile = false }: { templates: TemplateOption[]; label?: string; iconOnlyOnMobile?: boolean }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -102,9 +103,24 @@ export default function AddTraineeButton({ templates, label = '追加' }: { temp
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium">
-        <Plus className="w-4 h-4" />
-        {label}
+      <button
+        onClick={() => setOpen(true)}
+        aria-label={label}
+        title={iconOnlyOnMobile ? label : undefined}
+        className={`flex items-center gap-1.5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium ${iconOnlyOnMobile ? 'px-2.5 md:px-4' : 'px-4'}`}
+      >
+        {iconOnlyOnMobile ? (
+          <>
+            <UserPlus className="w-5 h-5 md:hidden" />
+            <Plus className="hidden md:block w-4 h-4" />
+            <span className="hidden md:inline">{label}</span>
+          </>
+        ) : (
+          <>
+            <Plus className="w-4 h-4" />
+            {label}
+          </>
+        )}
       </button>
 
       {open && createPortal(

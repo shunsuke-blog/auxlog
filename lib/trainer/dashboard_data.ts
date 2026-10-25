@@ -88,12 +88,12 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
   // ── 最近のアクティビティ: 契約の開始・プランの開始・記録・契約の終了 ──
   const events: ActivityEvent[] = []
   for (const r of trainees) {
-    if (r.startedAt) events.push({ at: r.startedAt, linkId: r.linkId, name: r.name, kind: 'contract_started', text: '招待コードを入力して契約を始めました' })
-    if (r.endedAt) events.push({ at: r.endedAt, linkId: r.linkId, name: r.name, kind: 'contract_ended', text: '契約が終了しました' })
+    if (r.startedAt) events.push({ at: r.startedAt, linkId: r.linkId, name: r.name, kind: 'contract_started', text: 'が招待コードを入力して契約を始めました' })
+    if (r.endedAt) events.push({ at: r.endedAt, linkId: r.linkId, name: r.name, kind: 'contract_ended', text: 'との契約が終了しました' })
   }
   for (const p of plans ?? []) {
     const link = linkById.get(p.link_id as string)
-    if (link && p.started_at) events.push({ at: p.started_at as string, linkId: link.linkId, name: link.name, kind: 'plan_started', text: `「${p.name}」を始めました` })
+    if (link && p.started_at) events.push({ at: p.started_at as string, linkId: link.linkId, name: link.name, kind: 'plan_started', text: `が「${p.name}」を始めました` })
   }
   for (const s of (sessions ?? []) as unknown as SessionRow[]) {
     const link = linkByUser.get(s.user_id)
@@ -106,8 +106,8 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
       name: link.name,
       kind: 'recorded',
       text: day
-        ? `「${planName.get(day.plan_id) ?? 'プラン'}」の Week ${day.week_number} Day ${day.day_number} を記録しました（${count}種目）`
-        : `トレーニングを記録しました（${count}種目）`,
+        ? `が「${planName.get(day.plan_id) ?? 'プラン'}」の Week ${day.week_number} Day ${day.day_number} を記録しました（${count}種目）`
+        : `がトレーニングを記録しました（${count}種目）`,
     })
   }
 
