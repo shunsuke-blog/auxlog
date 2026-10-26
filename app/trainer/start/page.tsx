@@ -8,7 +8,7 @@ import TrainerStartForm from './TrainerStartForm'
 export default async function TrainerStartPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/trainer/start')
+  if (!user) redirect('/trainer/login?next=/trainer/start')
 
   if (await getTrainerProfile(supabase, user.id)) redirect('/trainer/dashboard')
 

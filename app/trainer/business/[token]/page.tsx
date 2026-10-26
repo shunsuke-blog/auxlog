@@ -15,7 +15,7 @@ export default async function BusinessInvitePage({ params }: { params: Promise<{
   const path = `/trainer/business/${encodeURIComponent(token)}`
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect(`/login?next=${encodeURIComponent(path)}`)
+  if (!user) redirect(`/trainer/login?next=${encodeURIComponent(path)}`)
 
   let profile = await getTrainerProfile(supabase, user.id)
   if (!profile) {

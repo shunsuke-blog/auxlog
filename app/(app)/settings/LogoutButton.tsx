@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
 import { useState } from 'react'
 
-export default function LogoutButton() {
+// ログアウト後に出すログイン画面。トレーナー画面からはトレーナー用（/trainer/login）に戻す（2026-10-26）
+export default function LogoutButton({ redirectTo = '/login' }: { redirectTo?: string }) {
   const router = useRouter()
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -14,7 +15,7 @@ export default function LogoutButton() {
     setLoading(true)
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/login')
+    router.push(redirectTo)
   }
 
   return (

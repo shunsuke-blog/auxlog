@@ -10,7 +10,7 @@ export default async function TeamSetupPage({ searchParams }: { searchParams: Pr
   const { welcome } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/trainer/team-setup')
+  if (!user) redirect('/trainer/login?next=/trainer/team-setup')
   const profile = await getTrainerProfile(supabase, user.id)
   if (!profile) redirect('/trainer/start')
 

@@ -40,5 +40,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(`${redirectBase}/login?error=auth`)
+  // トレーナー画面へ戻る途中の失敗は、トレーナー用のログイン画面に戻す
+  const loginBase = next.startsWith('/trainer') ? '/trainer/login' : '/login'
+  return NextResponse.redirect(`${redirectBase}${loginBase}?error=auth&next=${encodeURIComponent(next)}`)
 }

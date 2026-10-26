@@ -87,7 +87,7 @@ export default async function TrainerSettingsPage({ searchParams }: { searchPara
           <p className="text-sm text-black dark:text-white">{profile?.display_name}</p>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">{user.email}</p>
         </div>
-        <LogoutButton />
+        <LogoutButton redirectTo="/trainer/login" />
       </div>
     </div>
   )

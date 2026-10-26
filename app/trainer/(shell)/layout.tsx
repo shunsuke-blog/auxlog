@@ -9,7 +9,7 @@ import TrainerShell, { NAV_COLLAPSED_COOKIE } from '@/components/trainer/Trainer
 export default async function TrainerLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/trainer/dashboard')
+  if (!user) redirect('/trainer/login?next=/trainer/dashboard')
   const profile = await getTrainerProfile(supabase, user.id)
   if (!profile) redirect('/trainer/start')
   // ビジネスでチームがまだ無い間は、チームを作るだけの画面にする。管理だけの管理者はタブを減らす（2026-10-26 オーナー指摘）
