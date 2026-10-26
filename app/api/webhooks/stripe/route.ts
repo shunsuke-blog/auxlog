@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createServiceClient } from '@/lib/supabase/server'
+import { syncTrainerSubscription, TRAINER_SUBSCRIPTION_KIND } from '@/lib/trainer/billing'
 
 export async function POST(request: Request) {
   if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
@@ -23,6 +24,23 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServiceClient()
+
+  // トレーナーのプラン（2026-10-26）: metadata.kind で見分け、trainer_profiles.plan を切り替える。
+  // 失敗したら 500 を返して Stripe に再送させる
+  if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+    const subscription = event.data.object as Stripe.Subscription
+    if (subscription.metadata?.kind === TRAINER_SUBSCRIPTION_KIND) {
+      try {
+        await syncTrainerSubscription(stripe, supabase, subscription.id)
+      } catch (e) {
+        console.error('trainer subscription sync failed', e)
+        return NextResponse.json({ error: 'sync failed' }, { status: 500 })
+      }
+      return NextResponse.json({ received: true })
+    }
+  }
+
+  // 以下は以前のセルフモードのサブスク（users テーブル）
 
   // サブスクリプション作成時: trial_ends_at を保存
   if (event.type === 'customer.subscription.created') {

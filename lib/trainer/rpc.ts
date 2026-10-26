@@ -12,6 +12,7 @@ export const RULE_MESSAGES: Record<string, string> = {
   already_recorded: '記録済みの種目はスキップできません',
   final_week: 'プランは最終週です',
   not_final_week: 'プランの最終週が終わってから完了できます',
+  over_limit: '今のプランの上限を超えているため、この操作はできません。契約を終了して上限内に戻すか、プロプランにしてください',
 }
 
 // トレーナー用RPCのエラーをHTTPレスポンスに変換する。RPC側は権限エラーを 42501、

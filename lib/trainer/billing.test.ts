@@ -1,0 +1,24 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import type Stripe from 'stripe'
+import { trainerSubscriptionUpdate } from './billing'
+
+const sub = (over: Partial<Stripe.Subscription>) => ({
+  id: 'sub_1', status: 'active', cancel_at_period_end: false, cancel_at: null,
+  items: { data: [{ current_period_end: 1798000000 }] }, metadata: {}, ...over,
+}) as unknown as Stripe.Subscription
+
+test('trainerSubscriptionUpdate: 支払い中（再試行中を含む）はプロ、終了・未払いはスターター', () => {
+  assert.equal(trainerSubscriptionUpdate(sub({ status: 'active' })).plan, 'pro')
+  assert.equal(trainerSubscriptionUpdate(sub({ status: 'past_due' })).plan, 'pro')
+  assert.equal(trainerSubscriptionUpdate(sub({ status: 'canceled' })).plan, 'starter')
+  assert.equal(trainerSubscriptionUpdate(sub({ status: 'unpaid' })).plan, 'starter')
+  assert.equal(trainerSubscriptionUpdate(sub({ status: 'incomplete_expired' })).plan, 'starter')
+})
+
+test('trainerSubscriptionUpdate: 更新日は品目から、解約予約は cancel_at でも立てる', () => {
+  const u = trainerSubscriptionUpdate(sub({ cancel_at: 1798000000 }))
+  assert.equal(u.current_period_end, new Date(1798000000 * 1000).toISOString())
+  assert.equal(u.cancel_at_period_end, true)
+  assert.equal(trainerSubscriptionUpdate(sub({})).cancel_at_period_end, false)
+})
