@@ -20,12 +20,16 @@ export default async function BusinessInvitePage({ params }: { params: Promise<{
   let profile = await getTrainerProfile(supabase, user.id)
   if (!profile) {
     const tentative = (user.email ?? '').split('@')[0].slice(0, 40) || '管理者'
-    await supabase.rpc('register_as_trainer', { p_display_name: tentative })
+    const { error: registerError } = await supabase.rpc('register_as_trainer', { p_display_name: tentative })
+    // ログイン直後は同じページが2回続けて開かれる（ログイン画面の router.replace と router.refresh）ため、
+    // もう片方が先に登録を済ませていることがある。読み直して、それでも無い時だけ失敗にする（2026-10-26）。
     profile = await getTrainerProfile(supabase, user.id)
     if (!profile) {
+      console.error('[business-invite] register_as_trainer failed', { userId: user.id, error: registerError })
       return (
         <Frame title="ビジネスプランのご案内">
-          <p className="text-sm text-red-600 leading-relaxed">登録に失敗しました。お手数ですが運営までお問い合わせください。</p>
+          <p className="text-sm text-red-600 leading-relaxed">登録に失敗しました。もう一度お試しください。続く場合はお手数ですが運営までお問い合わせください。</p>
+          <a href={path} className="block w-full py-3 rounded-xl bg-brand hover:bg-brand-hover text-center text-sm font-medium text-on-brand">もう一度試す</a>
         </Frame>
       )
     }
