@@ -419,7 +419,7 @@ function RecordContent() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
-      <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-4 py-5 z-10 flex items-center gap-2">
+      <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-4 py-5 z-10 flex items-center gap-2">
         <button
           onClick={() => guardedPush('/')}
           className="p-1.5 -ml-1.5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
@@ -454,7 +454,7 @@ function RecordContent() {
           <div key={muscle ?? 'all'}>
             {muscle && (
               <div className="mt-2 mb-4">
-                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+                <h3 className="text-xs font-semibold text-zinc-400  mb-2">
                   {TARGET_MUSCLE_LABELS[muscle]}
                 </h3>
                 <div className="h-px bg-zinc-200 dark:bg-zinc-800" />
@@ -556,12 +556,12 @@ function RecordContent() {
         )}
 
         <div>
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">消耗度</h2>
+          <h2 className="text-xs font-semibold text-zinc-400  mb-3">消耗度</h2>
           <FatigueSelector value={fatigueLevel} onChange={setFatigueLevel} />
         </div>
 
         <div>
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">メモ（任意）</h2>
+          <h2 className="text-xs font-semibold text-zinc-400  mb-2">メモ（任意）</h2>
           <textarea
             value={memo}
             onChange={e => setMemo(e.target.value)}
@@ -581,7 +581,7 @@ function RecordContent() {
           disabled={saving}
           className="w-full max-w-lg mx-auto block py-4 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-40 transition-opacity shadow-lg"
         >
-          {saving ? '保存中...' : '保存する'}
+          {saving ? '保存中…' : '保存する'}
         </button>
         {errorMessage && (
           <p className="text-center text-xs text-red-500 mt-2">{errorMessage}</p>

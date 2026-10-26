@@ -412,7 +412,7 @@ export default function TemplateList({ templates, initialCreating = false }: { t
                 キャンセル
               </button>
               <button type="submit" disabled={busy || !name.trim()} className="flex-1 py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
-                {busy ? '作成中...' : '作成'}
+                {busy ? '作成中…' : '作成'}
               </button>
             </div>
           </form>

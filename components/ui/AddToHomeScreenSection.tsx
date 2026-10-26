@@ -29,7 +29,7 @@ export default function AddToHomeScreenSection() {
   if (standalone) {
     return (
       <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
-        <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+        <h2 className="text-xs font-semibold text-zinc-400  mb-3">
           ホーム画面
         </h2>
         <div className="flex items-center gap-3">
@@ -44,7 +44,7 @@ export default function AddToHomeScreenSection() {
 
   return (
     <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
-      <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+      <h2 className="text-xs font-semibold text-zinc-400 ">
         ホーム画面に追加する
       </h2>
       <div className="flex items-start gap-3">

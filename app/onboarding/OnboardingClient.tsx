@@ -325,7 +325,7 @@ export default function OnboardingClient({ exercises }: Props) {
         <div className="relative flex items-center justify-center w-32 h-32">
           <div className="absolute inset-0 rounded-full border-4 border-white/15 border-t-white auxlog-spinner" />
           <div className="w-20 h-20 rounded-full bg-white/8 border border-white/20 flex items-center justify-center">
-            <span className="text-3xl">⚡</span>
+            <Zap aria-hidden className="w-8 h-8 text-white" strokeWidth={1.75} />
           </div>
         </div>
         <div className="text-center space-y-3">
@@ -347,7 +347,7 @@ export default function OnboardingClient({ exercises }: Props) {
     ]
     return (
       <div className="min-h-screen bg-white dark:bg-black">
-        <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
+        <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
           <h1 className="text-xl font-semibold text-black dark:text-white">はじめに</h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">トレーナーから招待コードを受け取っていますか？</p>
         </div>
@@ -399,7 +399,7 @@ export default function OnboardingClient({ exercises }: Props) {
 
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-40">
-        <div className="sticky top-0 bg-zinc-50/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 py-5 z-10">
+        <div className="sticky top-0 bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 px-6 py-5 z-10">
           <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium mb-1">ステップ 5 / 6</p>
           <h1 className="text-xl font-semibold text-black dark:text-white">あなたのプログラム</h1>
         </div>
@@ -407,7 +407,7 @@ export default function OnboardingClient({ exercises }: Props) {
         <div className="px-4 py-6 space-y-6">
           {/* 9週間タイムライン */}
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider px-1">9週間の流れ</p>
+            <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500  px-1">9週間の流れ</p>
             <div className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-100 dark:border-zinc-800">
               {([
                 { weeks: 'Week 1〜4', label: 'ボリューム期', desc: '重量に体を慣らし、フォームを固める期間。回数は少なめで丁寧に。', accent: false },
@@ -435,7 +435,7 @@ export default function OnboardingClient({ exercises }: Props) {
 
           {/* 重量の説明 */}
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider px-1">重量について</p>
+            <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500  px-1">重量について</p>
             <div className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-800 border border-zinc-100 dark:border-zinc-800">
               <div className="flex items-start gap-3 p-4">
                 <div className="w-8 h-8 rounded-xl bg-black dark:bg-white flex items-center justify-center shrink-0 mt-0.5">
@@ -482,7 +482,7 @@ export default function OnboardingClient({ exercises }: Props) {
           {/* プログラム一覧 */}
           {programByDay.map(({ day, slots }) => (
             <div key={day} className="space-y-2">
-              <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider px-1">
+              <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500  px-1">
                 Day {day}
               </p>
               <div className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-800 border border-zinc-100 dark:border-zinc-800">
@@ -516,7 +516,7 @@ export default function OnboardingClient({ exercises }: Props) {
         </div>
 
         <div
-          className="fixed left-0 right-0 px-6 pt-6 bg-zinc-50/90 dark:bg-zinc-950/90 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800"
+          className="fixed left-0 right-0 px-6 pt-6 bg-zinc-50 dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800"
           style={{ bottom: 0, paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}
         >
           <button
@@ -557,7 +557,7 @@ export default function OnboardingClient({ exercises }: Props) {
           </div>
           {isMobile && (
             <div className="bg-zinc-50 dark:bg-zinc-900 rounded-2xl p-5 space-y-3">
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">追加方法</p>
+              <p className="text-xs font-semibold text-zinc-400 ">追加方法</p>
               <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                 {isIOS
                   ? isIOSChrome
@@ -569,7 +569,7 @@ export default function OnboardingClient({ exercises }: Props) {
           )}
         </div>
         <div
-          className="p-6 space-y-3 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900"
+          className="p-6 space-y-3 bg-white dark:bg-black border-t border-zinc-100 dark:border-zinc-900"
           style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}
         >
           <button
@@ -618,7 +618,7 @@ export default function OnboardingClient({ exercises }: Props) {
             高さ分はoneRmHeaderHeightで下のコンテンツにpadding-topとして反映する */}
         <div
           ref={oneRmHeaderRef}
-          className="fixed top-0 left-0 right-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10"
+          className="fixed top-0 left-0 right-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10"
         >
           <div className="flex items-center gap-2 mb-1">
             <button
@@ -641,7 +641,7 @@ export default function OnboardingClient({ exercises }: Props) {
             {visible1RmSlots.map((_, i) => (
               <div
                 key={i}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
+                className={`h-1.5 rounded-full transition-colors duration-300 ${
                   i === currentOneRmIndex
                     ? 'w-6 bg-black dark:bg-white'
                     : i < currentOneRmIndex
@@ -779,7 +779,7 @@ export default function OnboardingClient({ exercises }: Props) {
 
         {/* Bottom buttons */}
         <div
-          className="fixed left-0 right-0 px-6 pt-4 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900 space-y-3"
+          className="fixed left-0 right-0 px-6 pt-4 bg-white dark:bg-black border-t border-zinc-100 dark:border-zinc-900 space-y-3"
           style={{ bottom: 0, paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}
         >
           {!isLastSlot ? (
@@ -818,7 +818,7 @@ export default function OnboardingClient({ exercises }: Props) {
   if (step === 'priority_muscles') {
     return (
       <div className="min-h-screen bg-white dark:bg-black pb-40">
-        <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
+        <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
           <div className="flex items-center gap-2 mb-1">
             <button
               onClick={() => setStep('frequency')}
@@ -865,7 +865,7 @@ export default function OnboardingClient({ exercises }: Props) {
         </div>
 
         <div
-          className="fixed left-0 right-0 px-6 pt-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900"
+          className="fixed left-0 right-0 px-6 pt-6 bg-white dark:bg-black border-t border-zinc-100 dark:border-zinc-900"
           style={{ bottom: 0, paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}
         >
           <button
@@ -901,7 +901,7 @@ export default function OnboardingClient({ exercises }: Props) {
 
     return (
       <div className="min-h-screen bg-white dark:bg-black pb-40">
-        <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
+        <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
           <div className="flex items-center gap-2 mb-1">
             <button
               onClick={() => setStep('priority_muscles')}
@@ -921,7 +921,7 @@ export default function OnboardingClient({ exercises }: Props) {
         <div className="px-6 py-6 space-y-8">
           {visibleGroups.map(group => (
             <div key={group.muscle}>
-              <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">
+              <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500  mb-3">
                 {group.label}
               </h2>
               <div className="space-y-2">
@@ -954,7 +954,7 @@ export default function OnboardingClient({ exercises }: Props) {
         </div>
 
         <div
-          className="fixed left-0 right-0 px-6 pt-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900"
+          className="fixed left-0 right-0 px-6 pt-6 bg-white dark:bg-black border-t border-zinc-100 dark:border-zinc-900"
           style={{ bottom: 0, paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}
         >
           <button
@@ -962,7 +962,7 @@ export default function OnboardingClient({ exercises }: Props) {
             disabled={saving}
             className="w-full py-4 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-40"
           >
-            {saving ? '登録中...' : selectedExercises.size > 0 ? `次へ（${selectedExercises.size}種目選択中）` : '次へ（全てデフォルトで設定）'}
+            {saving ? '登録中…' : selectedExercises.size > 0 ? `次へ（${selectedExercises.size}種目選択中）` : '次へ（全てデフォルトで設定）'}
           </button>
         </div>
       </div>
@@ -972,7 +972,7 @@ export default function OnboardingClient({ exercises }: Props) {
   // ── frequency (default) ──────────────────────────────────
   return (
     <div className="min-h-screen bg-white dark:bg-black pb-40">
-      <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
+      <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
         <div className="flex items-center gap-2 mb-1">
           <button
             onClick={() => setStep('start')}
@@ -991,7 +991,7 @@ export default function OnboardingClient({ exercises }: Props) {
 
       <div className="px-6 py-8 space-y-8">
         <div className="space-y-3">
-          <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">週何回？</h2>
+          <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 ">週何回？</h2>
           {(
             [
               { days: 2 as const, title: '週2回', sub: 'Day 1 と Day 2' },
@@ -1025,7 +1025,7 @@ export default function OnboardingClient({ exercises }: Props) {
         </div>
 
         <div className="space-y-3">
-          <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+          <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 ">
             1回のセッション時間は？
           </h2>
           {(
@@ -1059,7 +1059,7 @@ export default function OnboardingClient({ exercises }: Props) {
       </div>
 
       <div
-        className="fixed left-0 right-0 px-6 pt-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-900"
+        className="fixed left-0 right-0 px-6 pt-6 bg-white dark:bg-black border-t border-zinc-100 dark:border-zinc-900"
         style={{ bottom: 0, paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}
       >
         <button

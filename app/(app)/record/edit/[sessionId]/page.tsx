@@ -274,7 +274,7 @@ function EditContent() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
-      <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-4 py-5 z-10 flex items-center gap-2">
+      <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-4 py-5 z-10 flex items-center gap-2">
         <button
           onClick={() => router.back()}
           className="p-1.5 -ml-1.5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
@@ -304,7 +304,7 @@ function EditContent() {
 
       <div className="px-6 py-6 space-y-6 pb-32">
         <div>
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">疲労度</h2>
+          <h2 className="text-xs font-semibold text-zinc-400  mb-3">疲労度</h2>
           <FatigueSelector value={fatigueLevel} onChange={setFatigueLevel} />
         </div>
 
@@ -358,7 +358,7 @@ function EditContent() {
         )}
 
         <div>
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">メモ（任意）</h2>
+          <h2 className="text-xs font-semibold text-zinc-400  mb-2">メモ（任意）</h2>
           <textarea
             value={memo}
             onChange={e => setMemo(e.target.value)}
@@ -377,7 +377,7 @@ function EditContent() {
           disabled={saving}
           className="w-full max-w-lg mx-auto block py-4 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-40 transition-opacity shadow-lg"
         >
-          {saving ? '更新中...' : '更新する'}
+          {saving ? '更新中…' : '更新する'}
         </button>
       </div>
 

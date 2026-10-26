@@ -54,7 +54,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
               <div>
                 <p className="text-sm font-semibold text-black dark:text-white">{profile?.display_name ?? r.name}（自分）</p>
                 <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                  自分のトレーニングを開く{r.lastTrainedOn ? ` · 最終記録 ${r.lastTrainedOn.slice(5).replace('-', '/')}` : ''}
+                  自分のトレーニングを開く{r.lastTrainedOn && <span className="ml-3">最終記録 {r.lastTrainedOn.slice(5).replace('-', '/')}</span>}
                 </p>
               </div>
               <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />

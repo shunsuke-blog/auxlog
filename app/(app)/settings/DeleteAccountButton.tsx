@@ -58,7 +58,7 @@ export default function DeleteAccountButton() {
                 disabled={loading}
                 className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold disabled:opacity-40"
               >
-                {loading ? '削除中...' : '削除する'}
+                {loading ? '削除中…' : '削除する'}
               </button>
             </div>
           </div>

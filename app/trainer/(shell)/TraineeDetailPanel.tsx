@@ -39,24 +39,24 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
 
       {row.plan && (
         <div className="px-5 py-4 rounded-2xl trainer-card space-y-2">
-          <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">プラン</p>
+          <p className="text-xs font-semibold text-zinc-400 ">プラン</p>
           <p className="text-sm font-semibold text-black dark:text-white">{row.plan.name}</p>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Week {row.plan.currentWeek} / {row.plan.totalWeeks}
-            {row.plan.status === 'shared' && ' · まだ記録が始まっていません'}
-            {row.plan.status === 'ended' && ' · 終了'}
+            {row.plan.status === 'shared' && '（まだ記録が始まっていません）'}
+            {row.plan.status === 'ended' && '（終了）'}
           </p>
           {/* プランの開始日はトレーニーがコード入力時に選ぶ（契約期間とは別、2026-10-25） */}
           {row.plan.startDate && row.plan.status !== 'ended' && (
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
               {row.plan.startDate > todayInJapan() ? `${formatMonthDay(row.plan.startDate)} 開始予定` : `開始日 ${formatMonthDay(row.plan.startDate)}`}
-              {' · '}Week {row.plan.currentWeek}（{weekDateRange(row.plan.startDate, row.plan.currentWeek)}）
+              <span className="ml-3">Week {row.plan.currentWeek}：{weekDateRange(row.plan.startDate, row.plan.currentWeek)}</span>
             </p>
           )}
           {row.progress && row.status !== 'ended' && (
             <div className="space-y-1 pt-1">
               <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-                今週 {row.progress.done} / {row.progress.total} 種目{row.progress.skipped > 0 && ` · スキップ ${row.progress.skipped}`}
+                今週 {row.progress.done} / {row.progress.total} 種目{row.progress.skipped > 0 && `（スキップ ${row.progress.skipped}）`}
               </p>
               <ProgressBar done={row.progress.done} total={row.progress.total} />
             </div>
@@ -70,7 +70,7 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
         <div className="grid md:grid-cols-2 gap-4">
           {detail.oneRms.length > 0 && (
             <div className="px-5 py-4 rounded-2xl trainer-card space-y-2">
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">1RM</p>
+              <p className="text-xs font-semibold text-zinc-400 ">1RM</p>
               {detail.oneRms.map(o => (
                 <div key={o.label} className="flex justify-between text-sm">
                   <span className="text-black dark:text-white">{o.label}</span>
@@ -81,7 +81,7 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
           )}
           {detail.bests.length > 0 && (
             <div className="px-5 py-4 rounded-2xl trainer-card space-y-2">
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">自己ベスト</p>
+              <p className="text-xs font-semibold text-zinc-400 ">自己ベスト</p>
               {/* 部位の順（胸 → 背中 → 肩 → 腕 → 脚 → 体幹）。件数は絞らずすべて出す */}
               {detail.bests.map(b => (
                 <div key={b.name} className="flex items-baseline gap-2 text-sm">
@@ -97,7 +97,7 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
 
       {detail && (
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">記録（契約期間内・直近20回）</p>
+          <p className="text-xs font-semibold text-zinc-400 ">記録（契約期間内・直近20回）</p>
           {detail.sessions.length === 0 ? (
             <p className="text-sm text-zinc-400 dark:text-zinc-500 py-4">まだ記録がありません。</p>
           ) : (

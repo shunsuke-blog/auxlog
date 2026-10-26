@@ -58,7 +58,7 @@ function condenseSets(sets: SetSuggestion[]): Array<{
   // warmup sets — show as single collapsed row
   const warmups = sets.filter(s => s.set_type === 'warmup')
   if (warmups.length > 0) {
-    const weights = warmups.map(s => `${s.suggested_weight_kg}kg`).join(' · ')
+    const weights = warmups.map(s => `${s.suggested_weight_kg}kg`).join(' / ')
     result.push({
       type: 'warmup',
       label: SET_TYPE_LABEL.warmup,
@@ -138,10 +138,10 @@ export default function ProgramSlotCard({ slot, is_done = false, not_counted_thi
     <Link
       href={`/record?exerciseId=${slot.exercise.id}`}
       onClick={saveSlotToSession}
-      className={`block rounded-3xl px-5 pt-4 pb-5 active:scale-[0.99] transition-transform ${
+      className={`block rounded-2xl px-5 pt-4 pb-5 active:scale-[0.99] transition-transform ${
         is_done
           ? 'bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800/50'
-          : 'bg-white dark:bg-zinc-900 shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none border border-zinc-200 dark:border-zinc-800'
+          : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800'
       }`}
     >
       {/* ヘッダー */}
@@ -171,7 +171,7 @@ export default function ProgramSlotCard({ slot, is_done = false, not_counted_thi
           const rowClass = is_done ? SET_TYPE_CLASS_DONE[row.type] : SET_TYPE_CLASS[row.type]
           return (
             <div key={i} className="flex items-center gap-2 text-[13px]">
-              <span className={`w-14 shrink-0 text-[11px] font-semibold tracking-wide ${rowClass}`}>
+              <span className={`w-14 shrink-0 text-[11px] font-semibold ${rowClass}`}>
                 {row.label}
               </span>
               <span className={`font-medium tabular-nums ${rowClass}`}>

@@ -43,15 +43,15 @@ export default function TraineeListItem({ row, selected }: { row: TraineeRow; se
           <p className="text-xs text-zinc-400 dark:text-zinc-500 truncate">
             {row.status === 'invited'
               ? row.invite
-                ? row.invite.expired ? '招待コードの期限切れ（再発行してください）' : `招待コード ${row.invite.code} · ${fmtDay(row.invite.expiresAt)}まで`
+                ? row.invite.expired ? '招待コードの期限切れ（再発行してください）' : `招待コード ${row.invite.code}（${fmtDay(row.invite.expiresAt)}まで）`
                 : '招待コードなし'
-              : `${row.plan?.name ?? 'プランなし'} · 最終記録 ${row.lastTrainedOn ? fmtDay(row.lastTrainedOn) : 'なし'}`}
+              : <><span>{row.plan?.name ?? 'プランなし'}</span><span className="ml-3">最終記録 {row.lastTrainedOn ? fmtDay(row.lastTrainedOn) : 'なし'}</span></>}
           </p>
           {row.progress && row.status !== 'ended' && (
             <div className="space-y-1">
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
-                Week {row.plan?.currentWeek} · {startsLater ? `${formatMonthDay(startsLater)} 開始予定 · ` : '今週 '}{row.progress.done} / {row.progress.total} 種目
-                {row.progress.skipped > 0 && ` · スキップ ${row.progress.skipped}`}
+                Week {row.plan?.currentWeek}<span className="ml-3">{startsLater ? `${formatMonthDay(startsLater)} 開始予定` : '今週'}</span><span className="ml-3">{row.progress.done} / {row.progress.total} 種目</span>
+                {row.progress.skipped > 0 && `（スキップ ${row.progress.skipped}）`}
               </p>
               <ProgressBar done={row.progress.done} total={row.progress.total} />
             </div>

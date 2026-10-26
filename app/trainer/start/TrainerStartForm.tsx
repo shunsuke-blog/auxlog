@@ -47,7 +47,7 @@ export default function TrainerStartForm({ email }: { email: string | null }) {
         disabled={saving || !displayName.trim()}
         className="w-full px-6 py-3.5 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium disabled:opacity-50"
       >
-        {saving ? '登録中...' : 'トレーナーとして登録する'}
+        {saving ? '登録中…' : 'トレーナーとして登録する'}
       </button>
       {email && <p className="text-xs text-zinc-400 text-center">{email} でログイン中</p>}
       {error && <p className="text-sm text-red-500 text-center">{error}</p>}

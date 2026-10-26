@@ -13,10 +13,10 @@ export function weekPhaseCodes(totalWeeks: number): WeekPhaseCode[] {
 }
 
 export const WEEK_PHASE_MESSAGES: Record<WeekPhaseCode, { label: string; message: string }> = {
-  V: { label: '🧱 筋肉の土台を作る期間', message: '重さよりも正しいフォームを意識し、しっかり回数をこなして筋肉に効かせましょう。' },
-  I: { label: '🔥 筋力を引き上げる期間', message: '限界の重さに挑戦します。回数が減る分、1セットごとに全力を出し切りましょう。' },
-  D: { label: '🔋 疲労を抜くための回復週', message: '「少し物足りない」程度に負荷を下げて体を休ませることが、次の成長に直結します。' },
-  M: { label: '🏆 自己ベスト挑戦週！', message: 'プログラムの集大成です。今の限界に挑戦し、メイン種目で記録更新を狙いましょう！' },
+  V: { label: '筋肉の土台を作る期間', message: '重さよりも正しいフォームを意識し、しっかり回数をこなして筋肉に効かせましょう。' },
+  I: { label: '筋力を引き上げる期間', message: '限界の重さに挑戦します。回数が減る分、1セットごとに全力を出し切りましょう。' },
+  D: { label: '疲労を抜くための回復週', message: '「少し物足りない」程度に負荷を下げて体を休ませることが、次の成長に直結します。' },
+  M: { label: '自己ベスト挑戦週！', message: 'プログラムの集大成です。今の限界に挑戦し、メイン種目で記録更新を狙いましょう！' },
 }
 
 /** プランの week_phases から、その週の目的を返す（白紙から作成したプランなど、無ければ null） */

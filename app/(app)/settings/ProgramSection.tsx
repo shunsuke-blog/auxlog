@@ -48,7 +48,7 @@ export default function ProgramSection({ enrollmentId }: Props) {
         <div className="flex items-center gap-3">
           <RefreshCw className={`w-4 h-4 ${confirm ? 'text-red-500' : 'text-zinc-400'}`} />
           <span className={`text-sm ${confirm ? 'text-red-500 font-semibold' : 'text-black dark:text-white'}`}>
-            {resetting ? 'リセット中...' : confirm ? '本当にリセットしますか？（もう一度タップ）' : 'プログラムをリセットして再開する'}
+            {resetting ? 'リセット中…' : confirm ? '本当にリセットしますか？（もう一度タップ）' : 'プログラムをリセットして再開する'}
           </span>
         </div>
       </button>

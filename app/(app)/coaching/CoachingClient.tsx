@@ -235,7 +235,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
   return (
     <div className="min-h-screen bg-white dark:bg-black">
       {/* Sticky header */}
-      <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 z-20">
+      <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 z-20">
         <div className="px-6 py-4">
           <h1 className="text-xl font-semibold text-black dark:text-white">プログラム</h1>
         </div>
@@ -286,8 +286,8 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
                 </div>
                 <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-700 ease-out ${config.style.bar}`}
-                    style={{ width: `${progressWidth}%` }}
+                    className={`h-full w-full rounded-full origin-left transition-transform duration-700 ease-out ${config.style.bar}`}
+                    style={{ transform: `scaleX(${progressWidth / 100})` }}
                   />
                 </div>
               </div>
@@ -334,7 +334,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
 
             {/* 9-week timeline */}
             <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
-              <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">9週間スケジュール</h3>
+              <h3 className="text-xs font-semibold text-zinc-400  mb-3">9週間スケジュール</h3>
               <div className="flex gap-1">
                 {[1,2,3,4,5,6,7,8,9].map((week, i) => {
                   const wPhase = WEEK_PHASE[week]
@@ -347,7 +347,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
                     <button
                       key={week}
                       onClick={() => setSelectedWeek(isSelected ? null : week)}
-                      className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-lg transition-all ${
+                      className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-lg transition-colors ${
                         isCurrent
                           ? `${wConfig.style.badge} ring-1 ring-current`
                           : isSelected
@@ -405,7 +405,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
 
             {/* Focus points */}
             <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
-              <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">今週のフォーカス</h3>
+              <h3 className="text-xs font-semibold text-zinc-400  mb-3">今週のフォーカス</h3>
               <ul className="space-y-2.5">
                 {config.focus.map((point, i) => (
                   <li key={i} className="flex items-start gap-2.5">
@@ -418,7 +418,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
 
             {/* Weight progress chart */}
             <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
-              <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-0.5">使用重量の推移</h3>
+              <h3 className="text-xs font-semibold text-zinc-400  mb-0.5">使用重量の推移</h3>
               <p className="text-[10px] text-zinc-400 dark:text-zinc-600 mb-3">W8（Deload）は重量を保ったまま、セット数を減らして回復します</p>
               <WeightProgressChart exercises={weightHistory} currentWeek={currentWeek} />
             </div>
@@ -427,7 +427,7 @@ export default function CoachingClient({ enrollment, dayData, weightHistory }: P
           <>
             {dayData.map(({ day, slots }) => (
               <div key={day} className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
-                <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Day {day}</h2>
+                <h2 className="text-xs font-semibold text-zinc-400  mb-3">Day {day}</h2>
                 <div className="space-y-2.5">
                   {slots.map(slot => (
                     <button

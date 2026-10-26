@@ -20,7 +20,7 @@ export default async function AccountPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
-      <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
+      <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
         <div className="flex items-center gap-2">
           <Link href="/settings" aria-label="設定に戻る" className="p-1 -ml-1 text-zinc-400 hover:text-black dark:hover:text-white">
             <ChevronLeft className="w-5 h-5" />

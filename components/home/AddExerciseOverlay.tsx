@@ -104,7 +104,7 @@ export default function AddExerciseOverlay({ excludedNames, note, onPicked, onCl
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="種目名で検索..."
+              placeholder="種目名で検索…"
               enterKeyHint="search"
               onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) e.currentTarget.blur() }}
               className="flex-1 text-[15px] text-black dark:text-white bg-transparent placeholder:text-zinc-400 focus:outline-none"
@@ -144,7 +144,7 @@ export default function AddExerciseOverlay({ excludedNames, note, onPicked, onCl
               ))}
             </div>
           ) : masterLoading ? (
-            <p className="text-sm text-zinc-400 text-center py-12">読み込み中...</p>
+            <p className="text-sm text-zinc-400 text-center py-12">読み込み中…</p>
           ) : (
             <>
               {/* 部位ごとに分けて並べる（胸 → 背中 → 肩 → 腕 → 脚 → 体幹 → その他、2026-10-25 オーナー指摘） */}

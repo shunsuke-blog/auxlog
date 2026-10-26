@@ -62,7 +62,7 @@ export default async function TrainerDashboardPage() {
 
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-4">
         <section className="space-y-3">
-          <h2 className="text-xs font-semibold text-zinc-400 tracking-wider">クイック統計</h2>
+          <h2 className="text-xs font-semibold text-zinc-400 ">クイック統計</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {/* 契約中とプランの残りは経営の数字なので隣に並べる（スマホは1段目、2026-10-25 オーナー指摘） */}
             <Stat label="契約中" value={`${data.activeCount}`} unit="名" />
@@ -95,12 +95,7 @@ export default async function TrainerDashboardPage() {
                           <p>{t.day}</p>
                           {t.time && <p>{t.time}</p>}
                         </div>
-                        {/* 時系列の線と点 */}
-                        <div className="relative w-3 shrink-0 flex justify-center">
-                          <span className="mt-1.5 w-2 h-2 rounded-full bg-zinc-300" />
-                          {i < activity.length - 1 && <span className="absolute top-4 bottom-0 w-px bg-zinc-200" />}
-                        </div>
-                        <Link href={`/trainer?id=${e.linkId}`} className="flex-1 min-w-0 pb-4 text-sm text-black dark:text-white leading-relaxed hover:underline">
+                        <Link href={`/trainer?id=${e.linkId}`} className="flex-1 min-w-0 pb-4 pl-4 border-l border-line text-sm text-black dark:text-white leading-relaxed hover:underline">
                           <span className="font-semibold">{e.name}</span> {e.text}
                         </Link>
                       </li>
@@ -119,7 +114,7 @@ export default async function TrainerDashboardPage() {
                     <li key={`${h.linkId}-${h.exercise}`}>
                       <Link href={`/trainer?id=${h.linkId}`} className="flex items-center gap-3 py-2.5 hover:underline">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-black dark:text-white truncate"><span className="font-semibold">{h.name}</span> · {h.exercise}</p>
+                          <p className="text-sm text-black dark:text-white truncate"><span className="font-semibold">{h.name}</span><span className="ml-2">{h.exercise}</span></p>
                           <p className="text-xs text-zinc-500 tabular-nums">推定1RM {h.beforeKg}kg → {h.recentKg}kg（{fmtDay(h.trainedOn)}）</p>
                         </div>
                         <p className="shrink-0 text-sm font-bold tabular-nums text-black dark:text-white">+{h.gainKg}kg</p>
@@ -164,7 +159,7 @@ export default async function TrainerDashboardPage() {
                         </div>
                         <ProgressBar done={p.done} total={p.total} />
                         <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-                          {p.week != null && `Week ${p.week} | `}進行状況: {p.done} / {p.total} 種目 完了 ({pct}%){p.skipped > 0 && ` · スキップ ${p.skipped}`}
+                          {p.week != null && `Week ${p.week} | `}進行状況: {p.done} / {p.total} 種目 完了 ({pct}%){p.skipped > 0 && `（スキップ ${p.skipped}）`}
                         </p>
                       </li>
                     )
@@ -183,7 +178,7 @@ export default async function TrainerDashboardPage() {
 function Card({ title, className = '', children }: { title: string; className?: string; children: React.ReactNode }) {
   return (
     <section className={`px-4 md:px-5 py-4 rounded-2xl trainer-card space-y-3 ${className}`}>
-      <h2 className="text-xs font-semibold text-zinc-400 tracking-wider">{title}</h2>
+      <h2 className="text-xs font-semibold text-zinc-400 ">{title}</h2>
       {children}
     </section>
   )
@@ -210,7 +205,6 @@ function ItemList({ items, urgent }: { items: Item[]; urgent?: boolean }) {
       {items.map((it, i) => (
         <li key={`${it.linkId}-${i}`}>
           <Link href={`/trainer?id=${it.linkId}`} className="flex items-start gap-2.5 py-2.5 hover:underline">
-            <span className={`mt-2 w-1.5 h-1.5 shrink-0 rounded-full ${urgent ? 'bg-red-500' : 'bg-zinc-400'}`} />
             <p className="text-sm text-black dark:text-white">
               <span className="font-semibold">{it.name}</span>
               <span className={urgent ? 'text-red-600 dark:text-red-400' : 'text-zinc-500 dark:text-zinc-400'}>: {it.text}</span>

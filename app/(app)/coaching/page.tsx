@@ -44,7 +44,7 @@ export default async function CoachingPage() {
     }
     return (
       <div className="min-h-screen bg-white dark:bg-black">
-        <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
+        <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
           <h1 className="text-xl font-semibold text-black dark:text-white">プログラム</h1>
         </div>
         <div className="px-6 py-16 text-center space-y-1">
@@ -65,7 +65,7 @@ export default async function CoachingPage() {
   if (!enrollment) {
     return (
       <div className="min-h-screen bg-white dark:bg-black">
-        <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
+        <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
           <h1 className="text-xl font-semibold text-black dark:text-white">プログラム</h1>
         </div>
         <div className="flex flex-col items-center justify-center py-24 gap-2">

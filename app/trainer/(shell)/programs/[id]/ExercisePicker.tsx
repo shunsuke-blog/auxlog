@@ -70,7 +70,7 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
               autoFocus
               value={query}
               onChange={e => { setQuery(e.target.value); setCreating(false) }}
-              placeholder="種目名で検索..."
+              placeholder="種目名で検索…"
               className="flex-1 text-sm bg-transparent text-black dark:text-white placeholder:text-zinc-400 focus:outline-none"
             />
           </div>
@@ -120,7 +120,7 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
                 </label>
                 {error && <p className="text-sm text-red-500">{error}</p>}
                 <button onClick={handleCreate} disabled={busy} className="w-full py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
-                  {busy ? '作成中...' : '作成して追加'}
+                  {busy ? '作成中…' : '作成して追加'}
                 </button>
               </div>
             ) : (

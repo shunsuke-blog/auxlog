@@ -142,7 +142,7 @@ export default function AddCustomSlotModal({ day, onAdded, onClose }: Props) {
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="種目名で検索..."
+                placeholder="種目名で検索…"
                 autoFocus
                 disabled={submitting}
                 className="flex-1 text-[15px] text-black dark:text-white bg-transparent placeholder:text-zinc-400 focus:outline-none"
@@ -157,9 +157,9 @@ export default function AddCustomSlotModal({ day, onAdded, onClose }: Props) {
 
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <p className="text-sm text-zinc-400 text-center py-12">読み込み中...</p>
+              <p className="text-sm text-zinc-400 text-center py-12">読み込み中…</p>
             ) : submitting ? (
-              <p className="text-sm text-zinc-400 text-center py-12">追加中...</p>
+              <p className="text-sm text-zinc-400 text-center py-12">追加中…</p>
             ) : (
               <>
                 {filtered.map(ex => (

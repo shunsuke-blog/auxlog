@@ -134,7 +134,7 @@ export default function PwaInstallBanner() {
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={handleInstallAndroid}
-              className="bg-[#E8FF00] text-black font-bold px-4 py-2 rounded-full text-xs"
+              className="bg-accent text-black font-bold px-4 py-2 rounded-full text-xs"
             >
               追加する
             </button>

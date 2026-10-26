@@ -105,10 +105,10 @@ export default function VolumeChart({ sessions, exercises, programExerciseIds }:
       ) : (
         <ResponsiveContainer width="100%" height={160}>
           <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#27272a' : '#f4f4f5'} />
-            <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'var(--color-zinc-800)' : 'var(--color-zinc-100)'} />
+            <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--color-zinc-400)' }} axisLine={false} tickLine={false} />
             <YAxis
-              tick={{ fontSize: 10, fill: '#a1a1aa' }}
+              tick={{ fontSize: 10, fill: 'var(--color-zinc-400)' }}
               axisLine={false}
               tickLine={false}
               width={metric === 'volume' ? 40 : 30}
@@ -117,15 +117,15 @@ export default function VolumeChart({ sessions, exercises, programExerciseIds }:
             <Tooltip
               contentStyle={{
                 fontSize: 12,
-                border: `1px solid ${isDark ? '#27272a' : '#f4f4f5'}`,
+                border: `1px solid ${isDark ? 'var(--color-zinc-800)' : 'var(--color-zinc-100)'}`,
                 borderRadius: 8,
-                backgroundColor: isDark ? '#09090b' : '#fff',
-                color: isDark ? '#E4E4E7' : '#000',
+                backgroundColor: 'var(--background)',
+                color: 'var(--foreground)',
               }}
               formatter={(value) => [`${value}${unit}`, yLabel]}
             />
-            <Line type="monotone" dataKey="value" stroke={isDark ? '#E4E4E7' : '#000'} strokeWidth={2}
-              dot={{ fill: isDark ? '#E4E4E7' : '#000', r: 3 }} activeDot={{ r: 4 }} />
+            <Line type="monotone" dataKey="value" stroke={'var(--foreground)'} strokeWidth={2}
+              dot={{ fill: 'var(--foreground)', r: 3 }} activeDot={{ r: 4 }} />
           </LineChart>
         </ResponsiveContainer>
       )}

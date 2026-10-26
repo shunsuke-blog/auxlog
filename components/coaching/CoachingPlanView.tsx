@@ -28,7 +28,7 @@ export default function CoachingPlanView({ plan, trainerName, overview }: Props)
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
-      <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 z-20">
+      <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 z-20">
         <div className="px-6 py-4">
           <h1 className="text-xl font-semibold text-black dark:text-white">プログラム</h1>
         </div>
@@ -88,7 +88,7 @@ export default function CoachingPlanView({ plan, trainerName, overview }: Props)
 
             {phases.length === plan.totalWeeks && (
               <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
-                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">{plan.totalWeeks}週間の流れ</p>
+                <p className="text-xs font-semibold text-zinc-400  mb-3">{plan.totalWeeks}週間の流れ</p>
                 <div className="flex gap-1">
                   {phases.map((p, i) => {
                     const week = i + 1
@@ -107,14 +107,14 @@ export default function CoachingPlanView({ plan, trainerName, overview }: Props)
 
             {phase && (
               <div className="px-5 py-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">今週の目的</p>
+                <p className="text-xs font-semibold text-zinc-400  mb-1">今週の目的</p>
                 <p className="text-sm font-semibold text-black dark:text-white">{WEEK_PHASE_MESSAGES[phase].label}</p>
                 <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">{WEEK_PHASE_MESSAGES[phase].message}</p>
               </div>
             )}
 
             <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">使用重量の推移</p>
+              <p className="text-xs font-semibold text-zinc-400  mb-1">使用重量の推移</p>
               <p className="text-xs text-zinc-400 mb-3">このプランで記録した、週ごとの最大重量です。</p>
               <WeightProgressChart exercises={overview.weightHistory} currentWeek={plan.currentWeek} />
             </div>

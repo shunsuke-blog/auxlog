@@ -164,7 +164,7 @@ export function isWeekComplete(days: CoachingDay[]): boolean {
 
 /**
  * 目標セットを、アプリと同じ形にまとめて表示する（2026-10-25）。
- * - ウォームアップは1行（「40kg×5 · 60kg×3」）
+ * - ウォームアップは1行（「40kg×5 / 60kg×3」）
  * - 同じ重量・回数が続くセットは「3セット」にまとめる。最初のセットだけ違う時は「メイン」
  * - RIR（努力度）は出さない（重量が決まっている種目は不要、自動の種目はコメントで平易な言葉にする）
  * - 時間で行う種目（プランク（秒））は回数を秒として出す
@@ -174,7 +174,7 @@ export function condenseTargetSets(ex: Pick<CoachingExercise, 'sets' | 'isBodywe
   const weight = (s: CoachingSet) => (s.weightKg != null ? `${s.weightKg}kg` : ex.isBodyweight ? '自重' : '前回から')
   const rows: { label: string; text: string }[] = []
   const warmups = ex.sets.filter(s => s.isWarmup)
-  if (warmups.length > 0) rows.push({ label: 'ウォーム', text: warmups.map(s => `${weight(s)}×${s.reps}`).join(' · ') })
+  if (warmups.length > 0) rows.push({ label: 'ウォーム', text: warmups.map(s => `${weight(s)}×${s.reps}`).join(' / ') })
 
   const groups: { set: CoachingSet; count: number }[] = []
   for (const s of ex.sets.filter(x => !x.isWarmup)) {

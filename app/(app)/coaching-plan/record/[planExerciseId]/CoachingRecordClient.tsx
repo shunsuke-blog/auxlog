@@ -119,7 +119,7 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
 
   return (
     <div className="min-h-screen bg-white dark:bg-black pb-48">
-      <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5">
+      <div className="sticky top-0 z-10 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5">
         {/* アプリと同じく「← 種目名」だけにする（2026-10-25） */}
         <div className="flex items-center gap-2">
           <button onClick={() => router.push(`/?day=${day}`)} aria-label="ホームに戻る" className="p-1 -ml-1 text-zinc-400 hover:text-black dark:hover:text-white">
@@ -151,7 +151,7 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
 
           {note && (
             <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900 px-4 py-3">
-              <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">トレーナーからのメモ</p>
+              <p className="text-[10px] font-semibold text-zinc-400  mb-1">トレーナーからのメモ</p>
               <p className="text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap">{note}</p>
             </div>
           )}
@@ -200,12 +200,12 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
           </div>
 
           <div>
-            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">消耗度</h2>
+            <h2 className="text-xs font-semibold text-zinc-400  mb-3">消耗度</h2>
             <FatigueSelector value={fatigueLevel} onChange={setFatigueLevel} />
           </div>
 
           <div>
-            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">メモ（任意）</h2>
+            <h2 className="text-xs font-semibold text-zinc-400  mb-2">メモ（任意）</h2>
             <textarea
               value={memo}
               onChange={e => setMemo(e.target.value)}
@@ -228,7 +228,7 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
             disabled={saving}
             className="w-full max-w-lg mx-auto block py-4 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-40 transition-opacity shadow-lg"
           >
-            {saving ? '保存中...' : '保存する'}
+            {saving ? '保存中…' : '保存する'}
           </button>
           {error && <p className="text-center text-xs text-red-500 mt-2">{error}</p>}
         </div>

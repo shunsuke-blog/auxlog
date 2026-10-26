@@ -31,7 +31,7 @@ export default function HistoryClient({ sessions, exercises, programExerciseIds 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
       {/* ヘッダー */}
-      <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10 flex items-center justify-between">
+      <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-black dark:text-white">履歴</h1>
         <button
           onClick={() => setShowMonthCalendar(true)}

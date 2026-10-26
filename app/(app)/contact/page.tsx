@@ -45,7 +45,7 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
-      <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-4 py-5 z-10 flex items-center gap-2">
+      <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-4 py-5 z-10 flex items-center gap-2">
         <button
           onClick={() => router.back()}
           className="p-1.5 -ml-1.5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
@@ -58,7 +58,7 @@ export default function ContactPage() {
       <div className="px-6 py-6 space-y-5">
         {/* カテゴリ */}
         <div className="space-y-2">
-          <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">カテゴリ</label>
+          <label className="text-xs font-semibold text-zinc-400 ">カテゴリ</label>
           <div className="flex gap-2">
             {CATEGORIES.map(c => (
               <button
@@ -78,7 +78,7 @@ export default function ContactPage() {
 
         {/* 件名 */}
         <div className="space-y-2">
-          <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">件名</label>
+          <label className="text-xs font-semibold text-zinc-400 ">件名</label>
           <input
             type="text"
             value={subject}
@@ -91,7 +91,7 @@ export default function ContactPage() {
 
         {/* 本文 */}
         <div className="space-y-2">
-          <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">本文</label>
+          <label className="text-xs font-semibold text-zinc-400 ">本文</label>
           <textarea
             value={body}
             onChange={e => setBody(e.target.value)}
@@ -108,7 +108,7 @@ export default function ContactPage() {
           disabled={sending}
           className="w-full py-4 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-40 transition-opacity"
         >
-          {sending ? '送信中...' : '送信する'}
+          {sending ? '送信中…' : '送信する'}
         </button>
       </div>
 

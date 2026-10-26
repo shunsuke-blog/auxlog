@@ -123,8 +123,8 @@ export default function CoachingHome({ plan, trainerName, days, offPlan = [], in
 
   return (
     <>
-      <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5">
-        <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium tracking-wide">{trainerName} さんのプラン</p>
+      <div className="sticky top-0 z-10 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5">
+        <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium ">{trainerName} さんのプラン</p>
         <div className="flex items-end justify-between mt-0.5 gap-3">
           <h1 className="text-xl font-black text-black dark:text-white tracking-tight leading-tight truncate">{plan.name}</h1>
           <div className="shrink-0 text-right">
@@ -139,7 +139,7 @@ export default function CoachingHome({ plan, trainerName, days, offPlan = [], in
       {/* 今週の目的（なぜ今週は回数が多いのか・軽いのか）。フェーズの無いプラン（白紙から作成）は出さない */}
       {purpose && (
         <div className="mx-5 mt-4 px-4 py-3 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
-          <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1">今週の目的</p>
+          <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500  mb-1">今週の目的</p>
           <p className="text-sm font-semibold text-black dark:text-white">{purpose.label}</p>
           <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">{purpose.message}</p>
         </div>
@@ -183,21 +183,21 @@ export default function CoachingHome({ plan, trainerName, days, offPlan = [], in
             disabled={advancing}
             className="w-full py-4 rounded-3xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-50 transition-opacity"
           >
-            {advancing ? '更新中...' : `Week ${plan.currentWeek} 完了 → Week ${plan.currentWeek + 1} へ`}
+            {advancing ? '更新中…' : `Week ${plan.currentWeek} 完了 → Week ${plan.currentWeek + 1} へ`}
           </button>
         </div>
       )}
 
       {weekComplete && isFinalWeek && (
         <div className="mx-5 mt-3 px-5 py-4 rounded-3xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
-          <p className="text-sm font-semibold text-black dark:text-white">プランの全メニューが終わりました 🎉</p>
+          <p className="text-sm font-semibold text-black dark:text-white">プランの全メニューが終わりました</p>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{plan.totalWeeks}週間の成果を確認して、プランを完了しましょう。</p>
           <button
             onClick={showReport}
             disabled={loadingReport}
             className="mt-3 w-full py-3 rounded-2xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-50"
           >
-            {loadingReport ? '集計中...' : '成果を見る'}
+            {loadingReport ? '集計中…' : '成果を見る'}
           </button>
         </div>
       )}
@@ -226,7 +226,7 @@ export default function CoachingHome({ plan, trainerName, days, offPlan = [], in
       <div className="px-5 pb-6 space-y-3">
         {offPlan.length > 0 && (
           <div className="space-y-2">
-            <p className="px-1 text-xs font-semibold text-zinc-400 uppercase tracking-wider">プラン外の種目（今週）</p>
+            <p className="px-1 text-xs font-semibold text-zinc-400 ">プラン外の種目（今週）</p>
             {offPlan.map(r => (
               <div key={`${r.exerciseId}-${r.trainedOn}`} className="flex items-start gap-3 px-5 py-3.5 rounded-3xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800/50">
                 <div className="flex-1 min-w-0">
@@ -270,7 +270,7 @@ export default function CoachingHome({ plan, trainerName, days, offPlan = [], in
             period: `${plan.totalWeeks}週間`,
             message: `${plan.totalWeeks}週間、記録を続けたこと自体がいちばんの積み重ねです。プランを完了すると、${trainerName} さんが次のプランを共有するまでホームでお待ちいただく形になります。これまでの記録はそのまま残ります。`,
             action: 'プランを完了する',
-            actionBusy: '完了中...',
+            actionBusy: '完了中…',
           }}
         />
       )}
@@ -283,10 +283,10 @@ function ExerciseCard({ ex, busy, onToggleSkip }: { ex: CoachingExercise; busy: 
 
   return (
     <div
-      className={`rounded-3xl ${
+      className={`rounded-2xl ${
         dimmed
           ? 'bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800/50'
-          : 'bg-white dark:bg-zinc-900 shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none border border-zinc-200 dark:border-zinc-800'
+          : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800'
       }`}
     >
       <Link href={`/coaching-plan/record/${ex.planExerciseId}`} className="block px-5 pt-4 pb-4 active:scale-[0.99] transition-transform">
@@ -311,7 +311,7 @@ function ExerciseCard({ ex, busy, onToggleSkip }: { ex: CoachingExercise; busy: 
             const warm = row.label === 'ウォーム'
             return (
               <div key={i} className="flex items-start gap-2 text-[13px]">
-                <span className={`w-14 shrink-0 text-[11px] font-semibold tracking-wide ${warm || dimmed ? 'text-zinc-400' : row.label === 'メイン' ? 'text-black dark:text-white' : 'text-zinc-700 dark:text-zinc-300'}`}>
+                <span className={`w-14 shrink-0 text-[11px] font-semibold ${warm || dimmed ? 'text-zinc-400' : row.label === 'メイン' ? 'text-black dark:text-white' : 'text-zinc-700 dark:text-zinc-300'}`}>
                   {row.label}
                 </span>
                 <span className={`tabular-nums ${warm || dimmed ? 'text-zinc-400' : 'font-medium text-black dark:text-white'}`}>{row.text}</span>

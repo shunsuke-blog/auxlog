@@ -54,7 +54,7 @@ export default function SessionList({ sessions, exercises }: Props) {
         return (
           <div
             key={session.id}
-            className="bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_2px_16px_rgba(0,0,0,0.07)] dark:shadow-none dark:border dark:border-zinc-800 overflow-hidden"
+            className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden"
           >
             {/* セッションヘッダー */}
             <div className="flex items-center justify-between px-5 pt-4 pb-3">
@@ -149,10 +149,10 @@ export default function SessionList({ sessions, exercises }: Props) {
                           )}
                         </div>
                         <div className="grid grid-cols-4 gap-2 pb-1">
-                          <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">セット</span>
-                          <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider text-right">重量</span>
-                          <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider text-right">回数</span>
-                          <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider text-right">余裕</span>
+                          <span className="text-[10px] font-medium text-zinc-400 ">セット</span>
+                          <span className="text-[10px] font-medium text-zinc-400  text-right">重量</span>
+                          <span className="text-[10px] font-medium text-zinc-400  text-right">回数</span>
+                          <span className="text-[10px] font-medium text-zinc-400  text-right">余裕</span>
                         </div>
                         {exSets.map(set => {
                           const isMaxWeight = !isBodyweight && !set.is_warmup && set.weight_kg === maxWeight

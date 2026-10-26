@@ -47,7 +47,7 @@ export default function LogoutButton() {
                 disabled={loading}
                 className="flex-1 py-3 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-40"
               >
-                {loading ? '処理中...' : 'ログアウト'}
+                {loading ? '処理中…' : 'ログアウト'}
               </button>
             </div>
           </div>

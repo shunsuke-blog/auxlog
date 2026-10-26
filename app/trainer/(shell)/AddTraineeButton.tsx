@@ -194,7 +194,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
                     {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </label>
-                {loadingExercises && <p className="text-xs text-zinc-500">1RMを入力する種目を読み込み中...</p>}
+                {loadingExercises && <p className="text-xs text-zinc-500">1RMを入力する種目を読み込み中…</p>}
                 {template && !loadingExercises && oneRmExercises.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -220,7 +220,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
                 <div className="flex gap-3">
                   <button type="button" onClick={close} disabled={busy} className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white">キャンセル</button>
                   <button type="submit" disabled={busy || loadingExercises || !name.trim() || !template} className="flex-1 py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
-                    {busy ? '発行中...' : '招待コードを発行'}
+                    {busy ? '発行中…' : '招待コードを発行'}
                   </button>
                 </div>
               </form>

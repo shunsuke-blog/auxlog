@@ -93,7 +93,7 @@ function AddModal({ onClose, onAdd, registeredMasterIds }: AddModalProps) {
                 if (!exercises?.length) return null
                 return (
                   <div key={muscle}>
-                    <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+                    <h3 className="text-xs font-semibold text-zinc-400  mb-2">
                       {TARGET_MUSCLE_LABELS[muscle]}
                     </h3>
                     <div className="space-y-1.5">
@@ -206,7 +206,7 @@ export default function ExercisesPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
-      <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10 flex items-center justify-between">
+      <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-black dark:text-white">種目管理</h1>
         <button
           onClick={() => setShowModal(true)}
@@ -228,7 +228,7 @@ export default function ExercisesPage() {
             if (!group?.length) return null
             return (
               <div key={muscle}>
-                <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">
+                <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500  mb-3">
                   {TARGET_MUSCLE_LABELS[muscle]}
                 </h2>
                 <div className="space-y-2">

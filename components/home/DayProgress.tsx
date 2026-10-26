@@ -15,7 +15,7 @@ export default function DayProgress({ day, done, total }: { day: number; done: n
         </p>
       </div>
       <div className="h-2 w-full rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-        <div className="h-full rounded-full bg-brand transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} />
+        <div className="h-full w-full rounded-full bg-brand origin-left transition-transform duration-500 ease-out" style={{ transform: `scaleX(${pct / 100})` }} />
       </div>
     </div>
   )

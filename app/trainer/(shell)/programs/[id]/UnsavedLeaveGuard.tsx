@@ -65,7 +65,7 @@ export function UnsavedLeaveDialog({ pending, saving, label, onResolve }: {
         </p>
         <div className="flex flex-col gap-2">
           <button onClick={() => onResolve('save')} disabled={saving} className="w-full py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
-            {saving ? '保存中...' : '保存する'}
+            {saving ? '保存中…' : '保存する'}
           </button>
           <button onClick={() => onResolve('discard')} disabled={saving} className="w-full py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-red-500">
             保存しない

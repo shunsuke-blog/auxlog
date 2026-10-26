@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Check, TrendingUp, Trophy, type LucideIcon } from 'lucide-react'
 
 type SaveResult = 'record' | 'volume_up' | 'good_job'
 
@@ -10,15 +11,16 @@ type Props = {
 }
 
 // 自己ベスト更新（record）だけタイトルをゴールドにする（ふだんのティールと違う「特別な瞬間」、2026-10-25）
-const CONTENT: Record<SaveResult, { emoji: string; title: string; sub: string }> = {
-  record:     { emoji: '🏆', title: 'Record!',     sub: '自己ベスト更新！' },
-  volume_up:  { emoji: '📈', title: 'Volume Up!',  sub: '総負荷が上がった' },
-  good_job:   { emoji: '💪', title: 'Good Job!',   sub: 'よく頑張りました' },
+// 絵文字ではなく線のアイコンにする（hallmark の audit 2026-10-26）
+const CONTENT: Record<SaveResult, { icon: LucideIcon; title: string; sub: string }> = {
+  record:     { icon: Trophy,     title: 'Record!',     sub: '自己ベスト更新！' },
+  volume_up:  { icon: TrendingUp, title: 'Volume Up!',  sub: '総負荷が上がった' },
+  good_job:   { icon: Check,      title: 'Good Job!',   sub: 'よく頑張りました' },
 }
 
 export default function SaveComplete({ onDone, result }: Props) {
   const [visible, setVisible] = useState(false)
-  const { emoji, title, sub } = CONTENT[result]
+  const { icon: Icon, title, sub } = CONTENT[result]
 
   useEffect(() => {
     // マウント直後にフェードイン
@@ -39,7 +41,7 @@ export default function SaveComplete({ onDone, result }: Props) {
         visible ? 'opacity-100' : 'opacity-0'
       }`}
     >
-      <p className="text-6xl mb-5">{emoji}</p>
+      <Icon aria-hidden className={`w-14 h-14 mb-5 ${result === 'record' ? 'text-pr' : 'text-white'}`} strokeWidth={1.75} />
       <p className={`text-4xl font-black tracking-tight ${result === 'record' ? 'text-pr' : 'text-white'}`}>{title}</p>
       <p className="mt-3 text-sm text-zinc-400">{sub}</p>
     </div>

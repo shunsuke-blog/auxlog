@@ -1,3 +1,8 @@
+/* Hallmark · checked: 2026-10-26 · genre: modern-minimal (trainer screens) / editorial (trainee screens), inferred · shape: app screen
+ * floor: fixed 1, 2, 9, 10, 11, 26a, 27, 33, 48 · structural: 1 printed (the dashboard opens on four stat cards)
+ * built: the project · redesign: polish · v2.0.0 */
+/* Hallmark · waive 7b · the owner specified white cards (#FFFFFF) on a grey base for the trainer screens */
+/* Hallmark · dismissed 74 · the zinc utilities resolve to project tokens: --color-zinc-* is redefined per scope below */
 @import "tailwindcss";
 
 /* dark: は端末がダークモードの時に効く。ただしトレーナー画面（.light-only の中）は常にライトモード
@@ -28,9 +33,45 @@
      ライトでも背景に敷いて濃い文字を乗せる（白地に金の文字は読めないため） */
   --pr: #FBBF24;
   --on-pr: #1F1300;
+  /* 枠線・カードの影（hallmark の audit 2026-10-26: 色の直書きをトークンにまとめる） */
+  --line: var(--color-zinc-100);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.06);
+  /* グラフ（使用重量の推移）: フェーズの帯・線・吹き出し */
+  --chart-vol: #dbeafe;
+  --chart-int: #fef3c7;
+  --chart-dld: #d1fae5;
+  --chart-max: #fee2e2;
+  --chart-line: #3b82f6;
+  --chart-tooltip-bg: #18181b;
+  --chart-tooltip-fg: #ffffff;
+  /* トレーナー画面（.light-only）のパレット。値はここで宣言し、.light-only はこれを参照する */
+  --tr-background: #ffffff;
+  --tr-foreground: oklch(20.8% 0.042 265.755);
+  --tr-my-accent: #B8CC00;
+  --tr-brand: #0B7A75;
+  --tr-brand-hover: #09625E;
+  --tr-on-brand: #FFFFFF;
+  --tr-brand-soft: #E7F3F2;
+  --tr-brand-text: #0B7A75;
+  --tr-black: oklch(20.8% 0.042 265.755);
+  --tr-white: #ffffff;
+  --tr-zinc-50: oklch(96.8% 0.007 247.896);
+  --tr-zinc-100: oklch(92.9% 0.013 255.508);
+  --tr-zinc-200: oklch(86.9% 0.022 252.894);
+  --tr-zinc-300: oklch(70.4% 0.04 256.788);
+  --tr-zinc-400: oklch(55.4% 0.046 257.417);
+  --tr-zinc-500: oklch(44.6% 0.043 257.281);
+  --tr-zinc-600: oklch(37.2% 0.044 257.287);
+  --tr-zinc-700: oklch(27.9% 0.041 260.031);
+  --tr-zinc-800: oklch(27.9% 0.041 260.031);
+  --tr-zinc-900: oklch(20.8% 0.042 265.755);
+  --tr-zinc-950: oklch(12.9% 0.042 264.695);
+  --tr-line: oklch(92.9% 0.013 255.508);
 }
 
 @theme inline {
+  --color-line: var(--line);
+  --shadow-card: var(--shadow-card);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -100,38 +141,40 @@ body {
 /* トレーナー画面は常にライトモード。:root のダークモード用の上書きを、この範囲だけ元に戻す */
 .light-only {
   color-scheme: light;
-  --background: #ffffff;
+  --background: var(--tr-background);
   /* 文字は真っ黒ではなくスレートの濃い色（白地との強すぎるコントラストを和らげる） */
-  --foreground: oklch(20.8% 0.042 265.755);
-  --my-accent: #B8CC00;
-  --brand: #0B7A75;
-  --brand-hover: #09625E;
-  --on-brand: #FFFFFF;
-  --brand-soft: #E7F3F2;
-  --brand-text: #0B7A75;
-  --color-black: oklch(20.8% 0.042 265.755);
-  --color-white: #ffffff;
+  --foreground: var(--tr-foreground);
+  --my-accent: var(--tr-my-accent);
+  --brand: var(--tr-brand);
+  --brand-hover: var(--tr-brand-hover);
+  --on-brand: var(--tr-on-brand);
+  --brand-soft: var(--tr-brand-soft);
+  --brand-text: var(--tr-brand-text);
+  --color-black: var(--tr-black);
+  --color-white: var(--tr-white);
   /* グレーはスレートグレー（2026-10-22 オーナー指定）。白と区別しやすいよう、Tailwind の slate より
      1段濃い値を割り当てる（2026-10-25 オーナー指摘「グレーが見づらい」）。
      例: 補助領域の背景 zinc-50 → slate-100、枠線 zinc-100 → slate-200、薄い文字 zinc-400 → slate-500
      （白地とのコントラスト比 約4.8、WCAG AA） */
-  --color-zinc-50: oklch(96.8% 0.007 247.896);
-  --color-zinc-100: oklch(92.9% 0.013 255.508);
-  --color-zinc-200: oklch(86.9% 0.022 252.894);
-  --color-zinc-300: oklch(70.4% 0.04 256.788);
-  --color-zinc-400: oklch(55.4% 0.046 257.417);
-  --color-zinc-500: oklch(44.6% 0.043 257.281);
-  --color-zinc-600: oklch(37.2% 0.044 257.287);
-  --color-zinc-700: oklch(27.9% 0.041 260.031);
-  --color-zinc-800: oklch(27.9% 0.041 260.031);
-  --color-zinc-900: oklch(20.8% 0.042 265.755);
-  --color-zinc-950: oklch(12.9% 0.042 264.695);
+  --color-zinc-50: var(--tr-zinc-50);
+  --color-zinc-100: var(--tr-zinc-100);
+  --color-zinc-200: var(--tr-zinc-200);
+  --color-zinc-300: var(--tr-zinc-300);
+  --color-zinc-400: var(--tr-zinc-400);
+  --color-zinc-500: var(--tr-zinc-500);
+  --color-zinc-600: var(--tr-zinc-600);
+  --color-zinc-700: var(--tr-zinc-700);
+  --color-zinc-800: var(--tr-zinc-800);
+  --color-zinc-900: var(--tr-zinc-900);
+  --color-zinc-950: var(--tr-zinc-950);
+  /* 枠線はこの範囲のスレート（:root で決めた値はトレーニー画面のグレーのまま引き継がれるため、ここで決め直す） */
+  --line: var(--tr-line);
   /* 背景は付けない（body 直下に出すダイアログの全画面の枠にも使うため。画面の白は TrainerShell の bg-white） */
   color: var(--foreground);
 }
 body:has(.light-only) {
   /* 画面の地（TrainerShell の bg-zinc-50＝この範囲ではスレートの薄いグレー）と同じ色 */
-  background: oklch(96.8% 0.007 247.896);
+  background: var(--tr-zinc-50);
 }
 
 /* トレーナー画面の地と図（2026-10-25 オーナー指定）: 長時間の作業で目が疲れないよう、一番まぶしい純白の面積を減らす。
@@ -139,14 +182,14 @@ body:has(.light-only) {
    （地のグレーとカードの白が同化しないように）。見出しの帯とサイドメニューは白で、極細の線で地から分ける
    （モダンSaaS型。ブランド色で塗らない） */
 @utility trainer-card {
-  background-color: #ffffff;
-  border: 1px solid #E5E7EB;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  background-color: var(--background);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
 }
 @utility trainer-header {
-  background-color: #ffffff;
-  border-bottom: 1px solid #E5E7EB;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  background-color: var(--background);
+  border-bottom: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
 }
 
 /* トレーナー画面のセレクトボックスの矢印（2026-10-25 オーナー指摘）。ブラウザ標準の矢印は右端に
@@ -174,4 +217,38 @@ input[type='date'] {
 }
 input[type='date']::-webkit-date-and-time-value {
   text-align: left;
+}
+
+/* ── 操作の見た目と動き（hallmark の audit 2026-10-26） ──
+   キーボードで操作した時の枠はどの部品にも必ず出す（focus:outline-none で消している部品があっても、この枠は出す）。
+   押している間は少し沈め、使えない部品は押せないことが分かるようにする。動きを減らす設定の人には動きを止める */
+:focus-visible {
+  outline: 2px solid var(--brand) !important;
+  outline-offset: 2px;
+  transition: none;
+}
+:where(button, [role='button'], summary):not(:disabled):active {
+  transform: translateY(1px);
+}
+:where(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+html, body {
+  overflow-x: clip;
+}
+
+/* 選択範囲・入力のカーソルもブランドの色に */
+::selection {
+  background: var(--brand-soft);
+}
+:root {
+  caret-color: var(--brand);
 }

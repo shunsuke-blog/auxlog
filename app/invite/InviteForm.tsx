@@ -43,7 +43,7 @@ export default function InviteForm({ currentTrainerName, hasSelfProgram }: Props
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
-      <div className="sticky top-0 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
+      <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
         <button
           onClick={() => router.back()}
           className="flex items-center gap-1 text-sm text-zinc-400 hover:text-black dark:hover:text-white -ml-1 mb-1"
@@ -100,7 +100,7 @@ export default function InviteForm({ currentTrainerName, hasSelfProgram }: Props
               disabled={submitting || normalized.length !== 8 || !startDate}
               className="w-full py-4 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-40"
             >
-              {submitting ? '確認中...' : 'コードを入力して始める'}
+              {submitting ? '確認中…' : 'コードを入力して始める'}
             </button>
           </>
         )}

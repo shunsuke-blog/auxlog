@@ -15,7 +15,7 @@ export default async function TrainerSettingsPage() {
       </div>
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 max-w-xl">
         <div className="px-5 py-4 rounded-2xl trainer-card space-y-3">
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">アカウント</h2>
+          <h2 className="text-xs font-semibold text-zinc-400 ">アカウント</h2>
           <p className="text-sm text-black dark:text-white">{profile?.display_name}</p>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">{user?.email}</p>
         </div>

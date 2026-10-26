@@ -316,15 +316,15 @@ export default function ProgramDayView({ enrollment }: Props) {
   return (
     <>
       {/* ヘッダー */}
-      <div className="sticky top-0 z-10 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-900 px-6 py-5">
-        <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium tracking-wide">{today}</p>
+      <div className="sticky top-0 z-10 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5">
+        <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium ">{today}</p>
         <div className="flex items-end justify-between mt-0.5">
           <h1 className="text-xl font-black text-black dark:text-white tracking-tight leading-tight">
             今日のメニュー
           </h1>
           <div className="text-right">
             <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-              Week {currentWeek} / 9 · {PHASE_LABELS[suggestion?.phase ?? 'volume']}
+              Week {currentWeek} / 9<span className="ml-2">{PHASE_LABELS[suggestion?.phase ?? 'volume']}</span>
             </p>
             <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
               {(() => {
@@ -375,7 +375,7 @@ export default function ProgramDayView({ enrollment }: Props) {
       {/* 今週のフォーカス */}
       {suggestion && (
         <div className="mx-5 mt-1 mb-0 px-4 py-3 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
-          <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1">
+          <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500  mb-1">
             今週のフォーカス
           </p>
           <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
@@ -393,7 +393,7 @@ export default function ProgramDayView({ enrollment }: Props) {
             disabled={advancingWeek}
             className="w-full py-4 rounded-3xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-50 transition-opacity"
           >
-            {advancingWeek ? '更新中...' : `Week ${currentWeek} 完了 → Week ${currentWeek + 1} へ`}
+            {advancingWeek ? '更新中…' : `Week ${currentWeek} 完了 → Week ${currentWeek + 1} へ`}
           </button>
         </div>
       )}
@@ -405,7 +405,7 @@ export default function ProgramDayView({ enrollment }: Props) {
             disabled={loadingGrowthReport}
             className="w-full py-4 rounded-3xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold disabled:opacity-50 transition-opacity"
           >
-            {loadingGrowthReport ? '集計中...' : `Week ${currentWeek} 完了 → 成果を見る`}
+            {loadingGrowthReport ? '集計中…' : `Week ${currentWeek} 完了 → 成果を見る`}
           </button>
           {growthReportError && <p className="mt-2 text-[12px] text-red-500 text-center">{growthReportError}</p>}
         </div>
@@ -428,7 +428,6 @@ export default function ProgramDayView({ enrollment }: Props) {
           </div>
         ) : !suggestion || suggestion.slots.length === 0 ? (
           <div className="text-center py-16 space-y-2">
-            <p className="text-4xl">🎉</p>
             <p className="text-base font-semibold text-black dark:text-white">
               このDayは除外されています
             </p>
@@ -478,10 +477,10 @@ export default function ProgramDayView({ enrollment }: Props) {
                 >
                   <Link
                     href={ex.id ? `/record?exerciseId=${ex.id}` : '/record'}
-                    className={`block rounded-3xl px-5 pt-4 pb-5 active:scale-[0.99] transition-transform ${
+                    className={`block rounded-2xl px-5 pt-4 pb-5 active:scale-[0.99] transition-transform ${
                       isDone
                         ? 'bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800/50'
-                        : 'bg-white dark:bg-zinc-900 shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-none border border-zinc-200 dark:border-zinc-800'
+                        : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3 mb-3">

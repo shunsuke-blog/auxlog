@@ -49,7 +49,7 @@ export default function TrainerContractSection({ link }: Props) {
 
   return (
     <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-3">
-      <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">担当トレーナー</h2>
+      <h2 className="text-xs font-semibold text-zinc-400 ">担当トレーナー</h2>
       <p className="text-sm text-black dark:text-white">
         {link.trainerName} さん{link.status === 'paused' ? '（一時停止中）' : ''}
       </p>
@@ -78,7 +78,7 @@ export default function TrainerContractSection({ link }: Props) {
               disabled={ending}
               className="flex-1 py-2.5 rounded-lg bg-red-500 text-white text-xs font-semibold disabled:opacity-50"
             >
-              {ending ? '終了中...' : '契約を終了する'}
+              {ending ? '終了中…' : '契約を終了する'}
             </button>
           </div>
         </div>

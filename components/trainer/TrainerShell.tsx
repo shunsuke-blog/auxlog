@@ -21,7 +21,7 @@ export default function TrainerShell({ initialCollapsed, children }: { initialCo
     // 高さは dvh: iPhone の Safari では 100vh が見えている高さより大きく、中身が短くても画面が動いてしまう
     <div className="light-only min-h-dvh bg-zinc-50">
       <TrainerNav collapsed={collapsed} onToggle={toggle} />
-      <main className={`pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0 transition-[padding] ${collapsed ? 'md:pl-16' : 'md:pl-56'}`}>
+      <main className={`pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0 ${collapsed ? 'md:pl-16' : 'md:pl-56'}`}>
         {children}
       </main>
     </div>

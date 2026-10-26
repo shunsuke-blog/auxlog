@@ -24,12 +24,9 @@ const SELF_MODE_COPY: GrowthReportCopy = {
   period: '9週間',
   message: '9週間、記録を続けたこと自体がいちばんの積み重ねです。今週の実績をもとに重量の基準を自動で更新して、次の9週間プログラムを作成します。種目の選び直しは不要で、これまでの記録もそのまま残ります。',
   action: '次の9週間を始める',
-  actionBusy: '作成中...',
+  actionBusy: '作成中…',
 }
 
-// LP(auxlog-lp01)のCTAボタンと同じアクセントカラー。ライム背景+黒文字の固定コントラストでのみ使う
-// （モバイル版 growth-report-modal.tsx と同じ値）。
-const ACCENT = '#E8FF00'
 
 function formatDateJP(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00`)
@@ -79,6 +76,7 @@ function fallbackHeadline(report: GrowthReport, period: string): string {
 
 // Week9(MaxOut)の全種目記録が完了した直後に表示する成長レポート。成果を先に見せてから
 // 「次のサイクルを始めるか」を選んでもらう（モバイル版 growth-report-modal.tsx の移植）。
+// 伸びた数字の強調はトレーニー画面のブランド色（ティール）。以前は LP のライム色だった（2026-10-26 オーナー決定）
 export default function GrowthReportModal({ report, isRenewing, renewError, onRenew, onDismiss, copy = SELF_MODE_COPY }: Props) {
   const best = bestGrown(report)
 
@@ -93,7 +91,7 @@ export default function GrowthReportModal({ report, isRenewing, renewError, onRe
         {best ? (
           <div className="flex flex-col items-center gap-1">
             <p className="text-[12px] text-zinc-500 dark:text-zinc-400">一番伸びたのは</p>
-            <p className="px-4 py-2 my-1 rounded-2xl text-[40px] leading-[44px] font-extrabold text-black" style={{ backgroundColor: ACCENT }}>
+            <p className="px-4 py-2 my-1 rounded-2xl text-[40px] leading-[44px] font-extrabold bg-brand text-on-brand">
               +{formatKg(best.diff)}
             </p>
             <p className="text-base font-bold text-black dark:text-white">{best.gain.exercise_name}</p>
@@ -126,7 +124,7 @@ export default function GrowthReportModal({ report, isRenewing, renewError, onRe
                   <div key={gain.slot_id} className="flex items-center justify-between gap-2">
                     <p className="flex-1 text-[13px] leading-5 text-black dark:text-white">{display.label}</p>
                     {display.kind === 'grown' && (
-                      <span className="px-2 py-0.5 rounded-full text-[12px] font-bold text-black" style={{ backgroundColor: ACCENT }}>
+                      <span className="px-2 py-0.5 rounded-full text-[12px] font-bold bg-brand text-on-brand">
                         +{formatKg(display.diff)}
                       </span>
                     )}

@@ -38,10 +38,10 @@ export default function WeightProgressChart({ exercises, currentWeek }: Props) {
 
   // フェーズ帯の定義（currentWeekの範囲でクリップ）
   const PHASE_BANDS = [
-    { x1: 1, x2: 4, fill: '#dbeafe', label: 'Vol' },   // blue-100
-    { x1: 5, x2: 7, fill: '#fef3c7', label: 'Int' },   // amber-100
-    { x1: 8, x2: 8, fill: '#d1fae5', label: 'Dld' },   // emerald-100
-    { x1: 9, x2: 9, fill: '#fee2e2', label: 'Max' },   // red-100
+    { x1: 1, x2: 4, fill: 'var(--chart-vol)', label: 'Vol' },   // blue-100
+    { x1: 5, x2: 7, fill: 'var(--chart-int)', label: 'Int' },   // amber-100
+    { x1: 8, x2: 8, fill: 'var(--chart-dld)', label: 'Dld' },   // emerald-100
+    { x1: 9, x2: 9, fill: 'var(--chart-max)', label: 'Max' },   // red-100
   ]
   const visibleBands = PHASE_BANDS
     .filter(b => b.x1 <= currentWeek)
@@ -81,12 +81,12 @@ export default function WeightProgressChart({ exercises, currentWeek }: Props) {
           <XAxis
             dataKey="week"
             tickFormatter={(v) => `W${v}`}
-            tick={{ fontSize: 10, fill: '#a1a1aa' }}
+            tick={{ fontSize: 10, fill: 'var(--color-zinc-400)' }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
-            tick={{ fontSize: 10, fill: '#a1a1aa' }}
+            tick={{ fontSize: 10, fill: 'var(--color-zinc-400)' }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => `${v}kg`}
@@ -95,19 +95,19 @@ export default function WeightProgressChart({ exercises, currentWeek }: Props) {
             formatter={(value) => value != null ? [`${value}kg`, '最高重量'] : ['−', '']}
             labelFormatter={(label) => `Week ${label}`}
             contentStyle={{
-              backgroundColor: '#18181b',
+              backgroundColor: 'var(--chart-tooltip-bg)',
               border: 'none',
               borderRadius: '8px',
               fontSize: '12px',
-              color: '#fff',
+              color: 'var(--chart-tooltip-fg)',
             }}
           />
           <Line
             dataKey="maxWeight"
-            stroke="#3b82f6"
+            stroke="var(--chart-line)"
             strokeWidth={2}
-            dot={{ fill: '#3b82f6', strokeWidth: 0, r: 3 }}
-            activeDot={{ r: 5, fill: '#3b82f6' }}
+            dot={{ fill: 'var(--chart-line)', strokeWidth: 0, r: 3 }}
+            activeDot={{ r: 5, fill: 'var(--chart-line)' }}
             connectNulls={false}
           />
         </LineChart>
