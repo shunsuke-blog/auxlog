@@ -42,10 +42,10 @@ type PlanRecordRow = {
   is_warmup: boolean
   plan_exercise_id: string
   training_sessions: { trained_at: string }
-  plan_exercises: { exercise_master: ExerciseRef; trainer_exercises: ExerciseRef; plan_sets: { set_number: number; target_weight_kg: number | string | null; target_reps: number; is_warmup: boolean }[] }
+  plan_exercises: { exercise_master: ExerciseRef; trainer_exercises: ExerciseRef; cardio_master: ExerciseRef; plan_sets: { set_number: number; target_weight_kg: number | string | null; target_reps: number; is_warmup: boolean }[] }
 }
 type SkipRow = {
-  plan_exercises: { exercise_master_id: string | null; trainer_exercise_id: string | null; exercise_master: ExerciseRef; trainer_exercises: ExerciseRef; plan_days: { week_number: number } }
+  plan_exercises: { exercise_master_id: string | null; trainer_exercise_id: string | null; cardio_master_id: string | null; exercise_master: ExerciseRef; trainer_exercises: ExerciseRef; cardio_master: ExerciseRef; plan_days: { week_number: number } }
 }
 
 type SessionRow = {
@@ -130,12 +130,12 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
     const [{ data: recs }, { data: skips }] = await Promise.all([
       supabase
         .from('training_sets')
-        .select('set_number, weight_kg, reps, is_warmup, plan_exercise_id, training_sessions!inner(trained_at), plan_exercises!inner(exercise_master(name), trainer_exercises(name), plan_sets(set_number, target_weight_kg, target_reps, is_warmup), plan_days!inner(plan_id))')
+        .select('set_number, weight_kg, reps, is_warmup, plan_exercise_id, training_sessions!inner(trained_at), plan_exercises!inner(exercise_master(name), trainer_exercises(name), cardio_master(name), plan_sets(set_number, target_weight_kg, target_reps, is_warmup), plan_days!inner(plan_id))')
         .eq('plan_exercises.plan_days.plan_id', planId)
         .gte('training_sessions.trained_at', since),
       supabase
         .from('plan_exercise_skips')
-        .select('plan_exercises!inner(exercise_master_id, trainer_exercise_id, exercise_master(name), trainer_exercises(name), plan_days!inner(plan_id, week_number))')
+        .select('plan_exercises!inner(exercise_master_id, trainer_exercise_id, cardio_master_id, exercise_master(name), trainer_exercises(name), cardio_master(name), plan_days!inner(plan_id, week_number))')
         .eq('plan_exercises.plan_days.plan_id', planId),
     ])
     // 記録は種目（プランの種目）ごとにまとめ、目標のセットと突き合わせる
@@ -145,7 +145,7 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
       const entry = byExercise.get(t.plan_exercise_id) ?? {
         linkId: r.linkId,
         name: r.name,
-        exercise: pe.exercise_master?.name ?? pe.trainer_exercises?.name ?? '種目',
+        exercise: pe.exercise_master?.name ?? pe.trainer_exercises?.name ?? pe.cardio_master?.name ?? '種目',
         trainedOn: t.training_sessions.trained_at,
         actual: [],
         targets: pe.plan_sets.map(ps => ({ setNumber: ps.set_number, weightKg: ps.target_weight_kg == null ? null : Number(ps.target_weight_kg), reps: ps.target_reps, isWarmup: ps.is_warmup })),
@@ -156,8 +156,8 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
     const skipped: SkippedExercise[] = ((skips ?? []) as unknown as SkipRow[]).map(k => ({
       linkId: r.linkId,
       name: r.name,
-      exerciseKey: k.plan_exercises.exercise_master_id ?? k.plan_exercises.trainer_exercise_id ?? '',
-      exercise: k.plan_exercises.exercise_master?.name ?? k.plan_exercises.trainer_exercises?.name ?? '種目',
+      exerciseKey: k.plan_exercises.exercise_master_id ?? k.plan_exercises.trainer_exercise_id ?? k.plan_exercises.cardio_master_id ?? '',
+      exercise: k.plan_exercises.exercise_master?.name ?? k.plan_exercises.trainer_exercises?.name ?? k.plan_exercises.cardio_master?.name ?? '種目',
       week: k.plan_exercises.plan_days.week_number,
       currentWeek: r.plan!.currentWeek,
     }))

@@ -8,7 +8,8 @@ export type ExerciseOption = { id: string; name: string; targetMuscle: string | 
 export default function ExerciseIndex({ options, activeId, onSelect }: { options: ExerciseOption[]; activeId: string | null; onSelect: (id: string) => void }) {
   const groups = [
     ...MUSCLE_ORDER.map(m => ({ key: m as string, label: TARGET_MUSCLE_LABELS[m], items: options.filter(o => o.targetMuscle === m) })),
-    { key: 'other', label: 'その他', items: options.filter(o => !MUSCLE_ORDER.includes(o.targetMuscle as TargetMuscle)) },
+    { key: 'cardio', label: '有酸素', items: options.filter(o => o.targetMuscle === 'cardio') },
+    { key: 'other', label: 'その他', items: options.filter(o => o.targetMuscle !== 'cardio' && !MUSCLE_ORDER.includes(o.targetMuscle as TargetMuscle)) },
   ].filter(g => g.items.length > 0)
   return (
     <>

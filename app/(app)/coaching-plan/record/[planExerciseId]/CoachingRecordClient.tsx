@@ -12,6 +12,8 @@ import { todayLocalDate } from '@/lib/utils/date'
 import type { CoachingRecordData, PrefillSet } from '@/lib/coaching/record'
 import { calcBadge } from '@/lib/record/badge'
 import PendingSetsModal from '@/components/record/PendingSetsModal'
+import CardioInputs, { type CardioInputValue } from '@/components/record/CardioInputs'
+import { formatCardio, formatDuration, parseCardioInput } from '@/lib/record/cardio'
 
 export type { PrefillSet }
 
@@ -19,7 +21,7 @@ type Props = CoachingRecordData
 
 // コーチングモードの1種目の記録。プランの目標セットを初期値にして、実際の重量・回数を記録する。
 // 保存した記録はプランの種目（plan_exercise_id）と紐付き、トレーナーの画面に反映される。
-export default function CoachingRecordClient({ planExerciseId, name, note, day, isBodyweight, prefill, alreadyRecorded, prevBest, beforeWeekStart }: Props) {
+export default function CoachingRecordClient({ planExerciseId, name, note, day, isBodyweight, prefill, alreadyRecorded, prevBest, beforeWeekStart, cardio }: Props) {
   const router = useRouter()
   const { setIsDirty } = useNavigationGuard()
   const [sets, setSets] = useState<SetData[]>(() =>
@@ -33,6 +35,8 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
       done: false,
     })),
   )
+  // 有酸素運動の種目（2026-10-26）は、セットの代わりに時間・距離・消費カロリーを記録する
+  const [cardioInput, setCardioInput] = useState<CardioInputValue>({ minutes: '', distanceKm: '', calories: '' })
   const [fatigueLevel, setFatigueLevel] = useState(3)
   const [memo, setMemo] = useState('')
   const [saving, setSaving] = useState(false)
@@ -65,7 +69,17 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
   const doneTotalReps = sets.filter(s => s.done).reduce((sum, s) => sum + (parseInt(s.reps) || 0), 0)
   const bodyweightNoLoad = isBodyweight && sets.filter(s => s.done).every(s => kg(s) === 0)
 
+  const parsedCardio = cardio ? parseCardioInput({ ...cardioInput, distanceKm: cardio.tracksDistance ? cardioInput.distanceKm : '' }) : null
+
   const requestSave = () => {
+    if (cardio) {
+      if (!parsedCardio) {
+        setError(cardioInput.minutes.trim() ? '入力した値を確認してください' : '時間を入力してください')
+        return
+      }
+      save()
+      return
+    }
     if (doneSets.length === 0) {
       setError('実施したセットにチェックを入れてください')
       return
@@ -95,7 +109,9 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
           trained_at: todayLocalDate(),
           fatigue_level: fatigueLevel,
           memo,
-          sets: doneSets.map((s, i) => ({
+          sets: cardio && parsedCardio
+            ? [{ exercise_id: exerciseId, set_number: 1, weight_kg: 0, reps: 0, rir: false, is_warmup: false, plan_exercise_id: planExerciseId, ...parsedCardio }]
+            : doneSets.map((s, i) => ({
             exercise_id: exerciseId,
             set_number: i + 1,
             weight_kg: s.weight_kg === '' ? 0 : parseFloat(s.weight_kg),
@@ -156,7 +172,28 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
             </div>
           )}
 
-          {prefill.some(s => s.awaitingOneRm) && (
+          {cardio && (
+            <div className="space-y-4">
+              {cardio.targetDurationSeconds != null && (
+                <p className="text-sm font-semibold text-black dark:text-white">
+                  目標 {formatDuration(cardio.targetDurationSeconds)}
+                  {cardio.targetDistanceKm != null && ` · ${cardio.targetDistanceKm.toFixed(1)}km`}
+                </p>
+              )}
+              {cardio.previous && (
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  前回（{cardio.previous.trainedAt.slice(5).replace('-', '/')}）: {formatCardio(cardio.previous)}
+                </p>
+              )}
+              <CardioInputs
+                value={cardioInput}
+                onChange={v => { setCardioInput(v); setIsDirty(true) }}
+                tracksDistance={cardio.tracksDistance}
+              />
+            </div>
+          )}
+
+          {!cardio && prefill.some(s => s.awaitingOneRm) && (
             <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 px-4 py-3">
               <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
                 重量が空欄の場合は、今回の記録をもとに、次回からあなたに合わせた目標重量が自動で計算されます。
@@ -164,6 +201,7 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
             </div>
           )}
 
+          {!cardio && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               {badge && (
@@ -198,6 +236,7 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
               セット追加
             </button>
           </div>
+          )}
 
           <div>
             <h2 className="text-xs font-semibold text-zinc-400  mb-3">消耗度</h2>

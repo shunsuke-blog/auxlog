@@ -6,7 +6,8 @@ import { trainerRpcError } from '@/lib/trainer/rpc'
 
 const CreateTrainerExerciseSchema = z.object({
   name: z.string().trim().min(1).max(60),
-  target_muscle: z.enum(['chest', 'back', 'legs', 'shoulders', 'arms', 'core']),
+  // 'cardio' は有酸素運動（2026-10-26）。プログラムではセットの代わりに目標の時間・距離を持つ
+  target_muscle: z.enum(['chest', 'back', 'legs', 'shoulders', 'arms', 'core', 'cardio']),
   is_compound: z.boolean(),
   is_bodyweight: z.boolean(),
 })

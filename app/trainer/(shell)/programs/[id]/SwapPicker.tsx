@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import { ArrowLeftRight, Search, X } from 'lucide-react'
-import { TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
-import type { CatalogExercise } from '@/lib/trainer/templateEditor'
+import { exerciseIdOf, isCardioExercise, muscleGroupLabel, type CatalogExercise } from '@/lib/trainer/templateEditor'
 
 export type SwapScope = 'this' | 'sameDayAllWeeks'
 
@@ -21,8 +20,7 @@ type Props = {
   onClose: () => void
 }
 
-const keyOf = (e: Pick<CatalogExercise, 'exerciseMasterId' | 'trainerExerciseId'>) =>
-  e.exerciseMasterId ? `m:${e.exerciseMasterId}` : `t:${e.trainerExerciseId}`
+const keyOf = exerciseIdOf
 
 // 種目の入れ替え（2026-10-25 オーナー依頼）。セット・コメントはそのままで種目だけを替える。
 // 候補は「同じ動き」→「同じ部位」→ 検索した時だけその他、の順に出す。
@@ -31,11 +29,13 @@ export default function SwapPicker({ current, oneRmSource, catalog, inDay, scope
   const [range, setRange] = useState<SwapScope>('sameDayAllWeeks')
 
   const q = query.trim()
-  const candidates = catalog.filter(e => keyOf(e) !== current.id && (!q || e.name.includes(q)))
+  // 有酸素は有酸素同士でだけ入れ替える（目標の持ち方がセットと違うため、2026-10-26）
+  const currentIsCardio = isCardioExercise(current)
+  const candidates = catalog.filter(e => keyOf(e) !== current.id && isCardioExercise(e) === currentIsCardio && (!q || e.name.includes(q)))
   const sameMovement = current.movementPattern ? candidates.filter(e => e.movementPattern === current.movementPattern) : []
   const sameMuscle = candidates.filter(e => !sameMovement.includes(e) && e.targetMuscle != null && e.targetMuscle === current.targetMuscle)
   const others = q ? candidates.filter(e => !sameMovement.includes(e) && !sameMuscle.includes(e)) : []
-  const muscleLabel = current.targetMuscle ? TARGET_MUSCLE_LABELS[current.targetMuscle as TargetMuscle] ?? current.targetMuscle : ''
+  const muscleLabel = muscleGroupLabel(current.targetMuscle)
 
   const groups: { title: string; items: CatalogExercise[] }[] = [
     { title: '同じ動きの種目', items: sameMovement },

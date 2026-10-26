@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { formatCardio } from '@/lib/record/cardio'
+import { formatCardio, formatDuration } from '@/lib/record/cardio'
 
 // トレーニー側のコーチングモードのデータ読み込み。すべてトレーニー本人のセッション（RLS）で読む。
 // プランを読めるのは契約中（active）で、共有済み・開始済みのプランだけ（can_read_plan）。
@@ -45,6 +45,8 @@ export type CoachingExercise = {
   sets: CoachingSet[]
   recorded: boolean
   skipped: boolean
+  /** 有酸素運動の種目の目標「30分 · 5.0km」（2026-10-26）。有酸素はセットを持たない。筋トレの種目は null */
+  cardioTarget: string | null
 }
 
 export type CoachingDay = {
@@ -118,17 +120,27 @@ type PlanExerciseRow = {
   id: string
   sort_order: number
   note: string | null
+  cardio_master_id: string | null
+  target_duration_seconds: number | null
+  target_distance_km: number | string | null
   exercise_master: ExerciseRef
-  trainer_exercises: ExerciseRef
+  trainer_exercises: (ExerciseRef & { target_muscle?: string | null }) | null
+  cardio_master: { name: string } | null
   plan_sets: { set_number: number; target_weight_kg: number | null; target_pct_1rm: number | null; target_reps: number; target_rir: number | null; is_warmup: boolean }[]
 }
 type PlanDayRow = { id: string; day_number: number; label: string | null; plan_exercises: PlanExerciseRow[] }
+
+/** 有酸素の目標「30分 · 5.0km」。時間が無ければ空 */
+export function formatCardioTarget(seconds: number | null, km: number | string | null): string {
+  if (seconds == null) return ''
+  return [formatDuration(seconds), ...(km != null ? [`${Number(km).toFixed(1)}km`] : [])].join(' · ')
+}
 
 /** その週の Day ごとの種目・目標セット・記録済み/スキップ済み */
 export async function loadCoachingWeek(supabase: SupabaseClient, planId: string, week: number): Promise<CoachingDay[]> {
   const { data } = await supabase
     .from('plan_days')
-    .select('id, day_number, label, plan_exercises(id, sort_order, note, exercise_master(name, is_bodyweight), trainer_exercises(name, is_bodyweight), plan_sets(set_number, target_weight_kg, target_pct_1rm, target_reps, target_rir, is_warmup))')
+    .select('id, day_number, label, plan_exercises(id, sort_order, note, cardio_master_id, target_duration_seconds, target_distance_km, exercise_master(name, is_bodyweight), trainer_exercises(name, is_bodyweight, target_muscle), cardio_master(name), plan_sets(set_number, target_weight_kg, target_pct_1rm, target_reps, target_rir, is_warmup))')
     .eq('plan_id', planId)
     .eq('week_number', week)
     .order('day_number')
@@ -152,9 +164,10 @@ export async function loadCoachingWeek(supabase: SupabaseClient, planId: string,
       .sort((a, b) => a.sort_order - b.sort_order)
       .map(e => {
         const ref = e.exercise_master ?? e.trainer_exercises
+        const isCardio = e.cardio_master_id != null || e.trainer_exercises?.target_muscle === 'cardio'
         return {
           planExerciseId: e.id,
-          name: ref?.name ?? '種目',
+          name: ref?.name ?? e.cardio_master?.name ?? '種目',
           isBodyweight: ref?.is_bodyweight ?? false,
           note: e.note,
           sets: [...e.plan_sets]
@@ -169,6 +182,7 @@ export async function loadCoachingWeek(supabase: SupabaseClient, planId: string,
             })),
           recorded: recordedIds.has(e.id),
           skipped: skippedIds.has(e.id),
+          cardioTarget: isCardio ? formatCardioTarget(e.target_duration_seconds, e.target_distance_km) : null,
         }
       }),
   }))
@@ -187,7 +201,9 @@ export function isWeekComplete(days: CoachingDay[]): boolean {
  * - RIR（努力度）は出さない（重量が決まっている種目は不要、自動の種目はコメントで平易な言葉にする）
  * - 時間で行う種目（プランク（秒））は回数を秒として出す
  */
-export function condenseTargetSets(ex: Pick<CoachingExercise, 'sets' | 'isBodyweight' | 'name'>): { label: string; text: string }[] {
+export function condenseTargetSets(ex: Pick<CoachingExercise, 'sets' | 'isBodyweight' | 'name'> & { cardioTarget?: string | null }): { label: string; text: string }[] {
+  // 有酸素は目標の時間・距離を1行で出す（2026-10-26）
+  if (ex.cardioTarget) return [{ label: '目標', text: ex.cardioTarget }]
   const unit = ex.name.includes('（秒）') ? '秒' : '回'
   const weight = (s: CoachingSet) => (s.weightKg != null ? `${s.weightKg}kg` : ex.isBodyweight ? '自重' : '前回から')
   const rows: { label: string; text: string }[] = []
@@ -223,9 +239,11 @@ type OverviewExerciseRow = {
   id: string
   exercise_master_id: string | null
   trainer_exercise_id: string | null
+  cardio_master_id: string | null
   sort_order: number
   exercise_master: { name: string } | null
   trainer_exercises: { name: string } | null
+  cardio_master: { name: string } | null
   plan_sets: { target_pct_1rm: number | string | null; target_weight_kg: number | string | null }[]
 }
 type OverviewDayRow = { week_number: number; day_number: number; label: string | null; plan_exercises: OverviewExerciseRow[] }
@@ -234,11 +252,11 @@ export async function loadPlanOverview(supabase: SupabaseClient, plan: LivePlan)
   const generationInputs = plan.generationInputs
   const { data } = await supabase
     .from('plan_days')
-    .select('week_number, day_number, label, plan_exercises(id, exercise_master_id, trainer_exercise_id, sort_order, exercise_master(name), trainer_exercises(name), plan_sets(target_pct_1rm, target_weight_kg))')
+    .select('week_number, day_number, label, plan_exercises(id, exercise_master_id, trainer_exercise_id, cardio_master_id, sort_order, exercise_master(name), trainer_exercises(name), cardio_master(name), plan_sets(target_pct_1rm, target_weight_kg))')
     .eq('plan_id', plan.id)
   const days = (data ?? []) as unknown as OverviewDayRow[]
-  const exKey = (e: Pick<OverviewExerciseRow, 'exercise_master_id' | 'trainer_exercise_id'>) => e.exercise_master_id ?? e.trainer_exercise_id ?? ''
-  const nameOf = (e: OverviewExerciseRow) => e.exercise_master?.name ?? e.trainer_exercises?.name ?? '種目'
+  const exKey = (e: Pick<OverviewExerciseRow, 'exercise_master_id' | 'trainer_exercise_id' | 'cardio_master_id'>) => e.exercise_master_id ?? e.trainer_exercise_id ?? e.cardio_master_id ?? ''
+  const nameOf = (e: OverviewExerciseRow) => e.exercise_master?.name ?? e.trainer_exercises?.name ?? e.cardio_master?.name ?? '種目'
 
   // 1RM: %1RM のセットに重量が入っていれば、重量 ÷ % で逆算する（トレーナーの入力・初回の記録からの推定のどちらでも同じ）
   const oneRmByExercise = new Map<string, number>()

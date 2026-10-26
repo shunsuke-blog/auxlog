@@ -3,16 +3,16 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowDown, ArrowLeftRight, ArrowUp, ChevronLeft, Copy, GripVertical, Plus, Trash2 } from 'lucide-react'
-import { TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
 import ExercisePicker from './ExercisePicker'
 import SwapPicker, { type SwapScope } from './SwapPicker'
 import ExerciseLibrary, { LIBRARY_DRAG_TYPE, catalogKey } from './ExerciseLibrary'
 import ExerciseIndex, { type ExerciseOption } from './ExerciseIndex'
 import SetTable, { blankSet } from './SetTable'
+import CardioTargets from './CardioTargets'
 import TemplateNameInput from './TemplateNameInput'
 import { UnsavedLeaveDialog, useUnsavedLeaveGuard } from './UnsavedLeaveGuard'
 import {
-  newKey, toSavePayload,
+  newKey, toSavePayload, exerciseIdOf, isCardioExercise, muscleGroupLabel,
   type CatalogExercise, type EditorExercise, type EditorSet,
 } from '@/lib/trainer/templateEditor'
 
@@ -23,9 +23,8 @@ type View = 'day' | 'exercise'
 
 /** Day の中の種目カードを並べ替えるときの dataTransfer の型名 */
 const CARD_DRAG_TYPE = 'application/x-auxlog-card'
-const exerciseId = (ex: Pick<EditorExercise, 'exerciseMasterId' | 'trainerExerciseId'>) =>
-  ex.exerciseMasterId ? `m:${ex.exerciseMasterId}` : `t:${ex.trainerExerciseId}`
-const muscleLabel = (m: string | null) => (m ? TARGET_MUSCLE_LABELS[m as TargetMuscle] ?? m : '')
+const exerciseId = exerciseIdOf
+const muscleLabel = muscleGroupLabel
 
 // テンプレートの編集。表示は「Day ごと」（週 → Day を選んでその日の種目を編集）と「種目ごと」
 // （種目を選んで、その種目が出てくる全週・全Dayのセットを並べて編集）を切り替えられる（2026-10-19 オーナー依頼）。
@@ -154,6 +153,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     ...ex,
     exerciseMasterId: to.exerciseMasterId,
     trainerExerciseId: to.trainerExerciseId,
+    cardioMasterId: to.cardioMasterId ?? null,
     name: to.name,
     targetMuscle: to.targetMuscle,
     sets: to.requiresOneRm ? ex.sets : ex.sets.map(st => (st.mode === 'pct' ? { ...st, mode: 'auto' as const, value: '' } : st)),
@@ -193,7 +193,10 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   }
 
   const addExercise = (ex: CatalogExercise, at?: number) => {
-    const item: EditorExercise = { key: newKey(), ...ex, note: '', sets: [blankSet(), blankSet(), blankSet()] }
+    // 有酸素はセットの代わりに目標の時間・距離を入れる（2026-10-26）
+    const item: EditorExercise = isCardioExercise(ex)
+      ? { key: newKey(), ...ex, note: '', sets: [], targetMinutes: '', targetDistanceKm: '' }
+      : { key: newKey(), ...ex, note: '', sets: [blankSet(), blankSet(), blankSet()] }
     updateDay(dayId, list => {
       const i = at == null ? list.length : Math.max(0, Math.min(at, list.length))
       return [...list.slice(0, i), item, ...list.slice(i)]
@@ -357,12 +360,20 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
                 placeholder="トレーナーからのコメント（任意）"
                 className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-900 text-sm text-black dark:text-white placeholder:text-zinc-400 focus:outline-none resize-none"
               />
+              {isCardioExercise(ex) ? (
+                <CardioTargets
+                  minutes={ex.targetMinutes ?? ''}
+                  distanceKm={ex.targetDistanceKm ?? ''}
+                  onChange={patch => patchExercise(dayId, ex.key, x => ({ ...x, ...patch }))}
+                />
+              ) : (
               <SetTable
                 sets={ex.sets}
                 onChange={(i, patch) => patchSet(dayId, ex.key, i, patch)}
                 onRemove={i => patchExercise(dayId, ex.key, x => ({ ...x, sets: x.sets.filter((_, j) => j !== i) }))}
                 onAdd={() => patchExercise(dayId, ex.key, x => ({ ...x, sets: [...x.sets, { ...(x.sets[x.sets.length - 1] ?? blankSet()) }] }))}
               />
+              )}
             </div>
             </div>
           ))}
@@ -417,12 +428,20 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
                 placeholder="トレーナーからのコメント（任意）"
                 className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-900 text-sm text-black dark:text-white placeholder:text-zinc-400 focus:outline-none resize-none"
               />
+              {isCardioExercise(ex) ? (
+                <CardioTargets
+                  minutes={ex.targetMinutes ?? ''}
+                  distanceKm={ex.targetDistanceKm ?? ''}
+                  onChange={patch => patchExercise(day.id, ex.key, x => ({ ...x, ...patch }))}
+                />
+              ) : (
               <SetTable
                 sets={ex.sets}
                 onChange={(i, patch) => patchSet(day.id, ex.key, i, patch)}
                 onRemove={i => patchExercise(day.id, ex.key, x => ({ ...x, sets: x.sets.filter((_, j) => j !== i) }))}
                 onAdd={() => patchExercise(day.id, ex.key, x => ({ ...x, sets: [...x.sets, { ...(x.sets[x.sets.length - 1] ?? blankSet()) }] }))}
               />
+              )}
             </div>
           ))}
         </div>

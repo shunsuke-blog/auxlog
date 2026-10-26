@@ -23,12 +23,12 @@ export async function computePlanGrowthReport(
 ): Promise<GrowthReport> {
   const { data: days } = await supabase
     .from('plan_days')
-    .select('plan_exercises(id, exercise_master(name), trainer_exercises(name))')
+    .select('plan_exercises(id, exercise_master(name), trainer_exercises(name), cardio_master(name))')
     .eq('plan_id', plan.id)
-  type ExRow = { id: string; exercise_master: { name: string } | null; trainer_exercises: { name: string } | null }
+  type ExRow = { id: string; exercise_master: { name: string } | null; trainer_exercises: { name: string } | null; cardio_master: { name: string } | null }
   const nameByPlanExercise = new Map<string, string>()
   for (const d of (days ?? []) as unknown as { plan_exercises: ExRow[] }[]) {
-    for (const e of d.plan_exercises) nameByPlanExercise.set(e.id, e.exercise_master?.name ?? e.trainer_exercises?.name ?? '種目')
+    for (const e of d.plan_exercises) nameByPlanExercise.set(e.id, e.exercise_master?.name ?? e.trainer_exercises?.name ?? e.cardio_master?.name ?? '種目')
   }
 
   const ids = [...nameByPlanExercise.keys()]

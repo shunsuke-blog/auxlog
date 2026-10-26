@@ -12,19 +12,20 @@ export default async function TemplateEditorPage({ params }: { params: Promise<{
   if (!user) notFound()
 
   // 編集できるのは自分のテンプレートだけ（チームのテンプレートは RLS で読めても編集画面は出さない）
-  const [{ data: plan }, { data: days }, { data: master }, { data: own }] = await Promise.all([
+  const [{ data: plan }, { data: days }, { data: master }, { data: own }, { data: cardio }] = await Promise.all([
     supabase.from('coaching_plans').select('id, name, total_weeks, link_id').eq('id', id).is('link_id', null).eq('trainer_id', user.id).maybeSingle(),
     supabase
       .from('plan_days')
       .select(`id, week_number, day_number, label,
-        plan_exercises(sort_order, note, exercise_master_id, trainer_exercise_id,
-          exercise_master(name, target_muscle), trainer_exercises(name, target_muscle),
+        plan_exercises(sort_order, note, exercise_master_id, trainer_exercise_id, cardio_master_id, target_duration_seconds, target_distance_km,
+          exercise_master(name, target_muscle), trainer_exercises(name, target_muscle), cardio_master(name),
           plan_sets(set_number, target_pct_1rm, target_weight_kg, target_reps, target_rir, is_warmup))`)
       .eq('plan_id', id)
       .order('week_number')
       .order('day_number'),
     supabase.from('exercise_master').select('id, name, target_muscle, movement_pattern, requires_one_rm').order('sort_order'),
     supabase.from('trainer_exercises').select('id, name, target_muscle').eq('trainer_id', user.id).order('created_at'),
+    supabase.from('cardio_master').select('id, name').order('sort_order'),
   ])
 
   if (!plan) notFound()
@@ -39,6 +40,8 @@ export default async function TemplateEditorPage({ params }: { params: Promise<{
   const catalog: CatalogExercise[] = [
     ...(own ?? []).map(e => ({ exerciseMasterId: null, trainerExerciseId: e.id as string, name: e.name as string, targetMuscle: (e.target_muscle as string | null) ?? null })),
     ...(master ?? []).map(e => ({ exerciseMasterId: e.id as string, trainerExerciseId: null, name: e.name as string, targetMuscle: (e.target_muscle as string | null) ?? null, movementPattern: (e.movement_pattern as string | null) ?? null, requiresOneRm: e.requires_one_rm === true })),
+    // 有酸素運動（2026-10-26）。部位は 'cardio' として扱う
+    ...(cardio ?? []).map(e => ({ exerciseMasterId: null, trainerExerciseId: null, cardioMasterId: e.id as string, name: e.name as string, targetMuscle: 'cardio' })),
   ]
 
   return <TemplateEditor planId={plan.id} initialName={plan.name} totalWeeks={plan.total_weeks} days={editorDays} catalog={catalog} />

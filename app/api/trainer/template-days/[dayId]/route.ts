@@ -16,9 +16,17 @@ const SetSchema = z.object({
 const ExerciseSchema = z.object({
   exercise_master_id: z.string().uuid().nullable(),
   trainer_exercise_id: z.string().uuid().nullable(),
+  // 有酸素の一覧の種目（2026-10-26）。有酸素はセットの代わりに目標の時間（必須）・距離（任意）を持つ
+  cardio_master_id: z.string().uuid().nullable().optional(),
   note: z.string().max(200).nullable(),
+  target_duration_seconds: z.number().int().min(60).max(86400).nullable().optional(),
+  target_distance_km: z.number().gt(0).max(1000).nullable().optional(),
   sets: z.array(SetSchema).max(20),
-}).refine(e => (e.exercise_master_id == null) !== (e.trainer_exercise_id == null), '種目を1つ指定してください')
+})
+  .refine(e => [e.exercise_master_id, e.trainer_exercise_id, e.cardio_master_id].filter(v => v != null).length === 1, '種目を1つ指定してください')
+  .refine(e => e.cardio_master_id == null || e.target_duration_seconds != null, '有酸素の種目には目標の時間を入れてください')
+  .refine(e => e.target_duration_seconds == null || e.sets.length === 0, '有酸素の種目にはセットを入れられません')
+  .refine(e => e.target_distance_km == null || e.target_duration_seconds != null, '距離は時間と一緒に入れてください')
 
 const ReplaceDaySchema = z.object({ exercises: z.array(ExerciseSchema).max(30) })
 

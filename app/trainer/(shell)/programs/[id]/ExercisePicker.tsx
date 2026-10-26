@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Plus, Search, X } from 'lucide-react'
 import { MUSCLE_ORDER, TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
-import type { CatalogExercise } from '@/lib/trainer/templateEditor'
+import { exerciseIdOf, muscleGroupLabel, type CatalogExercise } from '@/lib/trainer/templateEditor'
 
 type Props = {
   catalog: CatalogExercise[]
@@ -18,7 +18,8 @@ type Props = {
 export default function ExercisePicker({ catalog, onPick, onCreated, onClose, initialQuery }: Props) {
   const [query, setQuery] = useState(initialQuery ?? '')
   const [creating, setCreating] = useState(!!initialQuery)
-  const [muscle, setMuscle] = useState<TargetMuscle>('chest')
+  // 'cardio' は有酸素運動（2026-10-26）
+  const [muscle, setMuscle] = useState<TargetMuscle | 'cardio'>('chest')
   const [isCompound, setIsCompound] = useState(false)
   const [isBodyweight, setIsBodyweight] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -28,6 +29,7 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
   const filtered = q ? catalog.filter(e => e.name.includes(q)) : catalog
   const own = filtered.filter(e => e.trainerExerciseId)
   const master = filtered.filter(e => e.exerciseMasterId)
+  const cardio = filtered.filter(e => e.cardioMasterId)
 
   const handleCreate = async () => {
     setBusy(true)
@@ -36,7 +38,7 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
       const res = await fetch('/api/trainer/exercises', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: q, target_muscle: muscle, is_compound: isCompound, is_bodyweight: isBodyweight }),
+        body: JSON.stringify({ name: q, target_muscle: muscle, is_compound: muscle !== 'cardio' && isCompound, is_bodyweight: muscle !== 'cardio' && isBodyweight }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error((data as { error?: string }).error ?? '種目の作成に失敗しました')
@@ -49,12 +51,12 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
 
   const row = (e: CatalogExercise) => (
     <button
-      key={e.exerciseMasterId ?? e.trainerExerciseId}
+      key={exerciseIdOf(e)}
       onClick={() => onPick(e)}
       className="w-full flex items-center justify-between px-5 py-3 text-left border-b border-zinc-50 dark:border-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-900"
     >
       <span className="text-sm text-black dark:text-white">{e.name}</span>
-      {e.targetMuscle && <span className="text-xs text-zinc-400">{TARGET_MUSCLE_LABELS[e.targetMuscle as TargetMuscle] ?? e.targetMuscle}</span>}
+      {e.targetMuscle && <span className="text-xs text-zinc-400">{muscleGroupLabel(e.targetMuscle)}</span>}
     </button>
   )
 
@@ -94,6 +96,12 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
               </div>
             )
           })}
+          {cardio.length > 0 && (
+            <div>
+              <p className="px-5 pt-3 pb-1 text-xs font-semibold text-zinc-400">有酸素</p>
+              {cardio.map(row)}
+            </div>
+          )}
 
           {q && !catalog.some(e => e.name === q) && (
             creating ? (
@@ -109,15 +117,25 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
                       {TARGET_MUSCLE_LABELS[m]}
                     </button>
                   ))}
+                  <button
+                    onClick={() => setMuscle('cardio')}
+                    className={`py-2 rounded-lg border text-sm ${muscle === 'cardio' ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
+                  >
+                    有酸素
+                  </button>
                 </div>
-                <label className="flex items-center gap-2 text-sm text-black dark:text-white">
-                  <input type="checkbox" checked={isCompound} onChange={e => setIsCompound(e.target.checked)} />
-                  多関節種目（コンパウンド）
-                </label>
-                <label className="flex items-center gap-2 text-sm text-black dark:text-white">
-                  <input type="checkbox" checked={isBodyweight} onChange={e => setIsBodyweight(e.target.checked)} />
-                  自重種目
-                </label>
+                {muscle !== 'cardio' && (
+                  <>
+                  <label className="flex items-center gap-2 text-sm text-black dark:text-white">
+                    <input type="checkbox" checked={isCompound} onChange={e => setIsCompound(e.target.checked)} />
+                    多関節種目（コンパウンド）
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-black dark:text-white">
+                    <input type="checkbox" checked={isBodyweight} onChange={e => setIsBodyweight(e.target.checked)} />
+                    自重種目
+                  </label>
+                  </>
+                )}
                 {error && <p className="text-sm text-red-500">{error}</p>}
                 <button onClick={handleCreate} disabled={busy} className="w-full py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
                   {busy ? '作成中…' : '作成して追加'}

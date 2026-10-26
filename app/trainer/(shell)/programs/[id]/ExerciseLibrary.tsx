@@ -3,12 +3,12 @@
 import { useState } from 'react'
 import { ChevronDown, GripVertical, Plus, Search } from 'lucide-react'
 import { MUSCLE_ORDER, TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
-import type { CatalogExercise } from '@/lib/trainer/templateEditor'
+import { exerciseIdOf, type CatalogExercise } from '@/lib/trainer/templateEditor'
 
 /** ドラッグ中の種目を渡すときの dataTransfer の型名 */
 export const LIBRARY_DRAG_TYPE = 'application/x-auxlog-exercise'
 
-export const catalogKey = (e: CatalogExercise) => (e.exerciseMasterId ? `m:${e.exerciseMasterId}` : `t:${e.trainerExerciseId}`)
+export const catalogKey = (e: CatalogExercise) => exerciseIdOf(e)
 
 type Props = {
   catalog: CatalogExercise[]
@@ -39,6 +39,8 @@ export default function ExerciseLibrary({ catalog, onAdd, onCreate, disabled }: 
       label: 'その他',
       items: filtered.filter(e => e.exerciseMasterId && !MUSCLE_ORDER.includes(e.targetMuscle as TargetMuscle)),
     },
+    // 有酸素運動（2026-10-26）。プログラムではセットの代わりに目標の時間・距離を入れる
+    { key: 'cardio', label: '有酸素', items: filtered.filter(e => e.cardioMasterId) },
   ].filter(g => g.items.length > 0)
 
   const toggle = (key: string) =>
