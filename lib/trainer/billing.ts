@@ -63,3 +63,21 @@ export async function syncTrainerSubscription(stripe: Stripe, service: SupabaseC
   const { error } = await service.from('trainer_profiles').update(update).eq('user_id', userId)
   if (error) throw error
 }
+
+/**
+ * チームに参加を承認された時に、メンバー自身のプロプランを今の期間の終わりで解約する（2026-10-26 オーナー決定:
+ * 返金なし。承認された時からチームのビジネスプランで使える）。反映は Webhook と同じく Stripe から読み直して行う。
+ */
+export async function cancelOwnPlanForTeam(service: SupabaseClient, trainerId: string): Promise<void> {
+  const { data: profile } = await service
+    .from('trainer_profiles')
+    .select('stripe_subscription_id, subscription_status, cancel_at_period_end')
+    .eq('user_id', trainerId)
+    .maybeSingle()
+  const subId = profile?.stripe_subscription_id
+  if (!subId || profile.cancel_at_period_end || !isPaidStatus(profile.subscription_status as Stripe.Subscription.Status)) return
+  const stripe = getStripe()
+  if (!stripe) throw new Error('STRIPE_SECRET_KEY is not set')
+  await stripe.subscriptions.update(subId, { cancel_at_period_end: true })
+  await syncTrainerSubscription(stripe, service, subId)
+}

@@ -1,8 +1,10 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { Resend } from 'resend'
 import { validationError } from '@/lib/api/errors'
 import { trainerRpcError } from '@/lib/trainer/rpc'
+import { cancelOwnPlanForTeam } from '@/lib/trainer/billing'
 
 // ビジネスプランのチームの操作（2026-10-26）。権限・人数の判定はすべて DB の関数（lib/sql/trainer_team_2026-10-26.sql）。
 const ActionSchema = z.discriminatedUnion('action', [
@@ -51,5 +53,26 @@ export async function POST(request: Request) {
 
   const { data, error } = await call
   if (error) return trainerRpcError(error, 'チームの操作に失敗しました')
+
+  // 承認したメンバーが自分でプロプランを払っていれば、今の期間の終わりで解約する（二重に払わないため、2026-10-26）。
+  // 承認は確定済みなので、失敗しても承認は取り消さず、運営が手で解約できるようにメールで知らせる
+  if (a.action === 'decide' && a.approve) {
+    const service = createServiceClient()
+    const { data: membership } = await service.from('organization_memberships').select('trainer_id').eq('id', a.membership_id).maybeSingle()
+    if (membership) {
+      await cancelOwnPlanForTeam(service, membership.trainer_id).catch(e => {
+        console.error('[team-approve] failed to cancel member subscription', { trainerId: membership.trainer_id, error: e })
+        return notifySupport('[要対応] チーム承認時のプロプラン解約に失敗',
+          `メンバーのトレーナー ${membership.trainer_id} のプロプランを期間の終わりで解約できませんでした。Stripe で手動で解約してください。\n\n${e instanceof Error ? e.message : String(e)}`)
+      })
+    }
+  }
   return NextResponse.json({ ok: true, data })
+}
+
+async function notifySupport(subject: string, text: string) {
+  if (!process.env.RESEND_API_KEY) return
+  await new Resend(process.env.RESEND_API_KEY).emails
+    .send({ from: 'Auxlog <noreply@bloomines.com>', to: 'auxlog.support@gmail.com', subject, text })
+    .catch(e => console.error('[team-approve] failed to notify support', e))
 }
