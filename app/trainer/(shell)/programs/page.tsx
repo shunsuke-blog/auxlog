@@ -90,6 +90,7 @@ export default async function TrainerProgramsPage({ searchParams }: { searchPara
       initialCreating={(await searchParams).create === '1'}
       teamTemplates={teamTemplates}
       teamName={team.role === 'member' ? team.orgName : undefined}
+      sharedTeamName={team.role === 'owner' && team.active ? team.orgName : undefined}
     />
   )
 }

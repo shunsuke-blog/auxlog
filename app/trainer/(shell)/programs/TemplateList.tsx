@@ -126,7 +126,8 @@ async function postJson(url: string, body: unknown, method = 'POST') {
 export type TeamTemplate = { id: string; name: string; totalWeeks: number; daysPerWeek: number }
 
 // teamTemplates: チームの管理者が作ったテンプレート（メンバーは閲覧・クライアントへの割り当てだけ、2026-10-26）
-export default function TemplateList({ templates, initialCreating = false, teamTemplates = [], teamName }: { templates: TemplateSummary[]; initialCreating?: boolean; teamTemplates?: TeamTemplate[]; teamName?: string }) {
+// sharedTeamName: 管理者の時のチーム名。自分のテンプレートがメンバーに共有されていることを出す（2026-10-26 オーナー指摘）
+export default function TemplateList({ templates, initialCreating = false, teamTemplates = [], teamName, sharedTeamName }: { templates: TemplateSummary[]; initialCreating?: boolean; teamTemplates?: TeamTemplate[]; teamName?: string; sharedTeamName?: string }) {
   const router = useRouter()
   // ダッシュボードの「プログラムを作成」から来た時（?create=1）は作成ダイアログを開いた状態にする
   const [creating, setCreating] = useState(initialCreating)
@@ -205,6 +206,9 @@ export default function TemplateList({ templates, initialCreating = false, teamT
       </div>
 
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-3">
+        {sharedTeamName && (
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">ここで作ったプログラムは、{sharedTeamName}のトレーナーにも共有されます（トレーナーは選んで使うだけで、編集はできません）。</p>
+        )}
         {error && <p className="text-sm text-red-500">{error}</p>}
         {templates.length === 0 ? (
           <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-16">

@@ -52,6 +52,16 @@ export async function POST(request: Request) {
   }
 
   const { data, error } = await call
+  // 「担当する」を外せない時: メンバーがいなければ担当替えの先が無いので、別の案内にする（2026-10-26 オーナー指摘）
+  if (error?.hint === 'owner_has_clients') {
+    const { data: org } = await supabase.from('organizations').select('id').eq('owner_user_id', user.id).maybeSingle()
+    const { count } = org
+      ? await supabase.from('organization_memberships').select('id', { count: 'exact', head: true }).eq('organization_id', org.id).eq('status', 'approved')
+      : { count: 0 }
+    if (!count) {
+      return NextResponse.json({ error: 'ご自身が担当しているクライアントがいます。トレーナーを招待して担当替えするか、契約を終了してから変更してください' }, { status: 409 })
+    }
+  }
   if (error) return trainerRpcError(error, 'チームの操作に失敗しました')
 
   // 承認したメンバーが自分でプロプランを払っていれば、今の期間の終わりで解約する（二重に払わないため、2026-10-26）。
