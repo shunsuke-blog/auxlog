@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getTrainerProfile } from '@/lib/trainer/session'
-import { getTeamContext, TEAM_MAX_TRAINERS, teamTrainerCount } from '@/lib/trainer/team'
+import { getTeamContext, teamTrainerCount } from '@/lib/trainer/team'
 import { loadTraineeRows } from '@/lib/trainer/trainees'
 import TraineeListItem from '../TraineeListItem'
 import TraineeDetailPanel from '../TraineeDetailPanel'
@@ -14,8 +14,8 @@ import {
 // - チームが無い: ビジネスなら作成、そうでなければ招待コードで参加を申請
 // - メンバー: チームの名前・管理者・抜ける
 // - 管理者: 招待コード・トレーナーの承認／外す・自分も担当するか・メンバーのクライアントの閲覧（?member=）と担当替え
-export default async function TrainerTeamPage({ searchParams }: { searchParams: Promise<{ member?: string; id?: string }> }) {
-  const { member: memberId, id: selectedId } = await searchParams
+export default async function TrainerTeamPage({ searchParams }: { searchParams: Promise<{ member?: string; id?: string; welcome?: string }> }) {
+  const { member: memberId, id: selectedId, welcome } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
@@ -74,18 +74,22 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
     <div>
       {header}
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 max-w-2xl">
+        {/* ビジネスの支払いの直後はこの画面に戻る。Webhook の反映が数秒遅れることがある */}
+        {welcome === '1' && team.role === 'none' && profile?.plan !== 'business' && (
+          <p className="px-4 py-3 rounded-2xl bg-brand-soft text-sm text-black">お申し込みありがとうございます。プランの反映まで数秒かかることがあります。表示が変わらない時は、ページを読み込み直してください。</p>
+        )}
         {team.role === 'none' && (
           <>
             {profile?.plan === 'business' ? (
               <Card title="チームを作る">
-                <p className="text-sm text-zinc-500">ビジネスプランでは、トレーナー3名までのチームでクライアントを管理できます。チームを作ると、ほかのトレーナーに渡す招待コードが発行されます。</p>
-                <CreateTeamForm />
+                <p className="text-sm text-zinc-500">チームを作ると、ほかのトレーナーに渡す招待コードが発行されます。トレーナーは3名まで、4名以上は1名につき ¥5,000 / 月（税込）で追加できます（ご相談のうえ）。</p>
+                <CreateTeamForm displayName={profile.display_name} />
               </Card>
             ) : (
               <Card title="チームを作る">
                 <p className="text-sm text-zinc-500">
-                  トレーナー3名までのチームでクライアントを管理するには、ビジネスプラン（¥19,800 / 月・税込）が必要です。
-                  ビジネスプランはお問い合わせのうえでお申し込みいただけます。
+                  複数のトレーナーでクライアントを管理するには、ビジネスプラン（¥19,800〜 / 月・税込、トレーナー3名まで）が必要です。
+                  4名以上は1名につき ¥5,000 / 月（税込）で追加できます（ご相談のうえ）。お申し込みはお問い合わせのうえで承ります。
                 </p>
                 <a href="mailto:auxlog.support@gmail.com?subject=ビジネスプランのお問い合わせ" className="inline-flex items-center gap-1 text-sm font-medium text-brand-text hover:underline">
                   お問い合わせ<ChevronRight className="w-4 h-4" />
@@ -132,7 +136,8 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
             )}
             <Card title="チーム">
               <RenameTeam name={team.orgName} />
-              <p className="text-sm text-zinc-500 tabular-nums">トレーナー {teamTrainerCount(team)} / {TEAM_MAX_TRAINERS}名</p>
+              <p className="text-sm text-zinc-500 tabular-nums">トレーナー {teamTrainerCount(team)} / {team.seatLimit}名</p>
+              <p className="text-xs text-zinc-500">トレーナーを増やす場合は<a href="mailto:auxlog.support@gmail.com?subject=トレーナー枠の追加" className="mx-0.5 underline hover:text-black">お問い合わせ</a>ください（1名につき ¥5,000 / 月・税込、ご相談のうえ追加できます）。</p>
               <OwnerIsTrainerToggle value={team.ownerIsTrainer} />
             </Card>
 

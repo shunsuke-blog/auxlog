@@ -3,8 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-// next: 登録後の戻り先（管理者用の登録ページから来た時はそのページに戻す）
-export default function TrainerStartForm({ email, next = '/trainer/dashboard' }: { email: string | null; next?: string }) {
+export default function TrainerStartForm({ email }: { email: string | null }) {
   const router = useRouter()
   const [displayName, setDisplayName] = useState('')
   const [saving, setSaving] = useState(false)
@@ -24,7 +23,7 @@ export default function TrainerStartForm({ email, next = '/trainer/dashboard' }:
         const data = await res.json().catch(() => ({}))
         throw new Error((data as { error?: string }).error ?? 'トレーナー登録に失敗しました')
       }
-      router.replace(next)
+      router.replace('/trainer/dashboard')
       router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'トレーナー登録に失敗しました')

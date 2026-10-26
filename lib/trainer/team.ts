@@ -4,7 +4,8 @@ import type { TrainerPlan } from './session'
 // ビジネスプランのチーム（2026-10-26）。DB の判定は lib/sql/trainer_team_2026-10-26.sql。
 // チームが有効なのは管理者のプランがビジネスの間だけ（管理者が解約するとメンバーは自分のプランに戻る）。
 
-export const TEAM_MAX_TRAINERS = 3
+/** ビジネスプランの基本のトレーナー枠。4名以上はご相談のうえ追加（organizations.extra_trainer_seats） */
+export const TEAM_BASE_TRAINERS = 3
 
 export type TeamMember = { membershipId: string; trainerId: string; name: string; status: 'pending' | 'approved' }
 
@@ -13,12 +14,12 @@ export type TeamContext =
   /** 参加を申請中（管理者の承認待ち） */
   | { role: 'pending'; orgName: string | null }
   | { role: 'member'; orgId: string; orgName: string; ownerId: string; ownerName: string; active: boolean }
-  | { role: 'owner'; orgId: string; orgName: string; ownerIsTrainer: boolean; active: boolean; inviteCode: string | null; members: TeamMember[] }
+  | { role: 'owner'; orgId: string; orgName: string; ownerIsTrainer: boolean; seatLimit: number; active: boolean; inviteCode: string | null; members: TeamMember[] }
 
 export async function getTeamContext(supabase: SupabaseClient, userId: string): Promise<TeamContext> {
   const { data: owned } = await supabase
     .from('organizations')
-    .select('id, name, owner_is_trainer, owner_user_id')
+    .select('id, name, owner_is_trainer, owner_user_id, extra_trainer_seats')
     .eq('owner_user_id', userId)
     .maybeSingle()
   if (owned) {
@@ -37,6 +38,7 @@ export async function getTeamContext(supabase: SupabaseClient, userId: string): 
       orgId: owned.id,
       orgName: owned.name,
       ownerIsTrainer: owned.owner_is_trainer,
+      seatLimit: TEAM_BASE_TRAINERS + (owned.extra_trainer_seats ?? 0),
       active: profile?.plan === 'business',
       inviteCode: invite?.code ?? null,
       members: (memberships ?? []).map(m => ({ membershipId: m.id, trainerId: m.trainer_id, name: nameOf.get(m.trainer_id) ?? 'トレーナー', status: m.status })),

@@ -32,14 +32,41 @@ const inputClass = 'w-full px-4 py-3 rounded-xl border border-zinc-200 bg-white 
 const primaryClass = 'h-11 px-5 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
 const secondaryClass = 'h-9 px-3 rounded-lg border border-zinc-200 bg-white text-sm text-black cursor-pointer hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed'
 
-export function CreateTeamForm() {
+// プランを申し込んだ後に、チームの名前・管理者の表示名・自分もクライアントを担当するかを決める（2026-10-26 オーナー指摘:
+// 管理者用の登録ページは仮の名前で登録し、プランを確定させてからここで選んでもらう）
+export function CreateTeamForm({ displayName }: { displayName: string }) {
   const { busy, error, run } = useTeamAction()
   const [name, setName] = useState('')
+  const [myName, setMyName] = useState(displayName)
+  const [ownerIsTrainer, setOwnerIsTrainer] = useState<boolean | null>(null)
   return (
-    <form onSubmit={e => { e.preventDefault(); run({ action: 'create', name }) }} className="space-y-3">
-      <input required maxLength={40} value={name} onChange={e => setName(e.target.value)} placeholder="チームの名前（例: ◯◯ジム）" className={inputClass} />
+    <form onSubmit={e => { e.preventDefault(); if (ownerIsTrainer != null) run({ action: 'create', name, display_name: myName, owner_is_trainer: ownerIsTrainer }) }} className="space-y-4">
+      <label className="block text-xs text-zinc-500 space-y-1">
+        <span>チームの名前</span>
+        <input required maxLength={40} value={name} onChange={e => setName(e.target.value)} placeholder="例: ◯◯ジム" className={inputClass} />
+      </label>
+      <label className="block text-xs text-zinc-500 space-y-1">
+        <span>あなたの名前（チームのトレーナーとクライアントに表示されます）</span>
+        <input required maxLength={40} value={myName} onChange={e => setMyName(e.target.value)} className={inputClass} />
+      </label>
+      <fieldset className="space-y-2">
+        <legend className="text-xs text-zinc-500">あなたもクライアントを担当しますか？</legend>
+        {[
+          { value: true, label: '担当する', note: '管理しながら、自分のクライアントも持ちます。自分もトレーナー枠に数えます。' },
+          { value: false, label: '担当しない（管理だけ）', note: 'チームの管理とプログラムの作成だけ行います。トレーナー枠は、ほかのトレーナーに使えます。' },
+        ].map(o => (
+          <label key={String(o.value)} className={`flex items-start gap-3 px-4 py-3 rounded-xl border cursor-pointer ${ownerIsTrainer === o.value ? 'border-brand bg-brand-soft' : 'border-zinc-200 bg-white hover:bg-zinc-50'}`}>
+            <input type="radio" name="owner_is_trainer" checked={ownerIsTrainer === o.value} onChange={() => setOwnerIsTrainer(o.value)} className="mt-0.5 accent-[var(--brand)]" />
+            <span className="text-sm text-black">
+              {o.label}
+              <span className="block text-xs text-zinc-500">{o.note}</span>
+            </span>
+          </label>
+        ))}
+        <p className="text-xs text-zinc-500">あとからチームの画面で変えられます。</p>
+      </fieldset>
       {error && <p className="text-sm text-red-500">{error}</p>}
-      <button type="submit" disabled={busy || !name.trim()} className={primaryClass}>{busy ? '作成中…' : 'チームを作る'}</button>
+      <button type="submit" disabled={busy || !name.trim() || !myName.trim() || ownerIsTrainer == null} className={primaryClass}>{busy ? '作成中…' : 'チームを作る'}</button>
     </form>
   )
 }
@@ -127,7 +154,7 @@ export function OwnerIsTrainerToggle({ value }: { value: boolean }) {
         />
         <span className="text-sm text-black">
           自分もクライアントを担当する
-          <span className="block text-xs text-zinc-500">担当する場合は自分を含めてトレーナー3名、担当しない場合はほかのトレーナー3名まで参加できます。</span>
+          <span className="block text-xs text-zinc-500">担当する場合は自分もトレーナー枠に数えます。担当しない場合は、枠をすべてほかのトレーナーに使えます。</span>
         </span>
       </label>
       {error && <p className="text-sm text-red-500">{error}</p>}
