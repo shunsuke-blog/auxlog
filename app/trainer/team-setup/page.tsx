@@ -41,7 +41,9 @@ export default async function TeamSetupPage({ searchParams }: { searchParams: Pr
 
 function Frame({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="light-only min-h-screen flex items-center justify-center bg-white px-6 py-10">
+    // スマホは上から並べる（中身が画面より長く、中央寄せだと見出しが切れて開くことがある。2026-10-26 オーナー指摘）。
+    // 高さは dvh: iPhone の Safari では 100vh が見えている高さより大きい
+    <div className="light-only min-h-dvh flex items-start md:items-center justify-center bg-white px-6 py-10">
       <div className="w-full max-w-md space-y-5">
         <div className="text-center space-y-1">
           <p className="text-sm text-zinc-500">Auxlog for トレーナー</p>
