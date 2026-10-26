@@ -30,7 +30,7 @@ export default function TrainerNav({ collapsed, onToggle }: { collapsed: boolean
           {!collapsed && (
             <div className="min-w-0">
               <p className="text-lg font-semibold text-black dark:text-white">Auxlog</p>
-              <p className="text-xs text-zinc-400">トレーナー</p>
+              <p className="text-xs text-zinc-400">for トレーナー</p>
             </div>
           )}
           <button
