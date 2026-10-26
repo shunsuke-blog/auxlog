@@ -21,10 +21,9 @@ export default async function BusinessInvitePage({ params }: { params: Promise<{
   if (!profile) {
     const tentative = (user.email ?? '').split('@')[0].slice(0, 40) || '管理者'
     const { error: registerError } = await supabase.rpc('register_as_trainer', { p_display_name: tentative })
-    // ログイン直後は同じページが2回続けて開かれる（ログイン画面の router.replace と router.refresh）ため、
-    // もう片方が先に登録を済ませていることがある。読み直して、それでも無い時だけ失敗にする（2026-10-26）。
-    profile = await getTrainerProfile(supabase, user.id)
-    if (!profile) {
+    // 読み直さずに、登録した内容をそのまま使う。サーバーコンポーネントでは同じ GET の fetch が1回の描画の中で
+    // 使い回される（Next.js の request memoization）ため、読み直すと登録前の null が返ってくる（2026-10-26 本番で発生）。
+    if (registerError) {
       console.error('[business-invite] register_as_trainer failed', { userId: user.id, error: registerError })
       return (
         <Frame title="ビジネスプランのご案内">
@@ -33,6 +32,7 @@ export default async function BusinessInvitePage({ params }: { params: Promise<{
         </Frame>
       )
     }
+    profile = { user_id: user.id, display_name: tentative, plan: 'starter' }
   }
 
   const { error } = await supabase.rpc('redeem_business_invite', { p_token: token })
