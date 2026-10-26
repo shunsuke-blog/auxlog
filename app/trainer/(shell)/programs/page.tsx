@@ -32,7 +32,7 @@ export default async function TrainerProgramsPage({ searchParams }: { searchPara
     // そのテンプレートから共有したプランのうち、進行中（共有済み・開始済み）で契約が続いているもの
     supabase
       .from('coaching_plans')
-      .select('based_on_plan_id, status, current_week, total_weeks, link_id, trainer_trainee_links(trainee_display_name, status)')
+      .select('based_on_plan_id, status, current_week, total_weeks, link_id, trainer_trainee_links(trainee_display_name, status, trainer_id, trainee_id)')
       .not('link_id', 'is', null)
       .eq('trainer_id', user.id)
       .in('status', ['shared', 'active']),
@@ -53,12 +53,13 @@ export default async function TrainerProgramsPage({ searchParams }: { searchPara
     current_week: number
     total_weeks: number
     link_id: string
-    trainer_trainee_links: { trainee_display_name: string; status: 'invited' | 'active' | 'paused' | 'ended' } | null
+    trainer_trainee_links: { trainee_display_name: string; status: 'invited' | 'active' | 'paused' | 'ended'; trainer_id: string; trainee_id: string | null } | null
   }
   const usage = new Map<string, TemplateSummary['trainees']>()
   for (const p of (shared ?? []) as unknown as SharedRow[]) {
     const link = p.trainer_trainee_links
-    if (!p.based_on_plan_id || !link || link.status === 'ended') continue
+    // 自分に割り当てたプラン（自分自身との契約）はクライアントではないので数えない（2026-10-26 オーナー指摘）
+    if (!p.based_on_plan_id || !link || link.status === 'ended' || link.trainee_id === link.trainer_id) continue
     const list = usage.get(p.based_on_plan_id) ?? []
     list.push({ linkId: p.link_id, name: link.trainee_display_name, linkStatus: link.status, planStatus: p.status, currentWeek: p.current_week, totalWeeks: p.total_weeks })
     usage.set(p.based_on_plan_id, list)
