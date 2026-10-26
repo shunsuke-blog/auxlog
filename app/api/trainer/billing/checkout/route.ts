@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     subscription_data: { metadata: { kind: TRAINER_SUBSCRIPTION_KIND, user_id: user.id, plan } },
     locale: 'ja',
     // ビジネスは支払いの後にチームを作る画面へ（名前・自分も担当するかを選ぶ）
-    success_url: plan === 'business' ? `${appUrl}/trainer/team?welcome=1` : `${appUrl}/trainer/settings?billing=success`,
+    success_url: plan === 'business' ? `${appUrl}/trainer/team-setup?welcome=1` : `${appUrl}/trainer/settings?billing=success`,
     cancel_url: `${appUrl}/trainer/settings`,
   })
   return NextResponse.json({ url: session.url })

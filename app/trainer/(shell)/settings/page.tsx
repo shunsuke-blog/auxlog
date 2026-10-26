@@ -3,6 +3,7 @@ import { getTrainerProfile } from '@/lib/trainer/session'
 import { loadPlanUsage } from '@/lib/trainer/plan_usage'
 import LogoutButton from '@/app/(app)/settings/LogoutButton'
 import BillingButton, { ChangePlanButton } from './BillingButton'
+import InquiryForm from '@/components/trainer/InquiryForm'
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' })
 
@@ -107,10 +108,9 @@ function PlanOption({ name, price, note, children }: { name: string; price: stri
 // ビジネスはお問い合わせのうえで、運営から管理者用の登録ページを送る（2026-10-26 オーナー決定）
 function BusinessInquiry() {
   return (
-    <p className="text-sm text-black dark:text-white">
-      チームでのご利用は
-      <a href="mailto:auxlog.support@gmail.com?subject=ビジネスプランのお問い合わせ" className="mx-0.5 font-medium text-brand-text underline">お問い合わせ</a>
-      ください。ご案内のうえ、お申し込みいただけるようにします。
-    </p>
+    <div className="space-y-2">
+      <p className="text-sm text-black dark:text-white">チームでのご利用はお問い合わせください。ご案内のうえ、お申し込みいただけるようにします。</p>
+      <InquiryForm kind="business" />
+    </div>
   )
 }

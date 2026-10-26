@@ -12,6 +12,11 @@ export default async function TrainerLayout({ children }: { children: React.Reac
   if (!user) redirect('/login?next=/trainer/dashboard')
   const profile = await getTrainerProfile(supabase, user.id)
   if (!profile) redirect('/trainer/start')
+  // ビジネスでチームがまだ無い間は、チームを作るだけの画面にする（2026-10-26 オーナー指摘）
+  if (profile.plan === 'business') {
+    const { data: owned } = await supabase.from('organizations').select('id').eq('owner_user_id', user.id).maybeSingle()
+    if (!owned) redirect('/trainer/team-setup')
+  }
 
   const [usage, cookieStore] = await Promise.all([loadPlanUsage(supabase, user.id, profile.plan), cookies()])
   const collapsed = cookieStore.get(NAV_COLLAPSED_COOKIE)?.value === '1'

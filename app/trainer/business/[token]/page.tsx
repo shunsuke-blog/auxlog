@@ -51,7 +51,7 @@ export default async function BusinessInvitePage({ params }: { params: Promise<{
     return (
       <Frame title="ビジネスプランをご利用中です">
         <p className="text-sm text-zinc-500 leading-relaxed">「チーム」からチームを作り、トレーナーを招待できます。</p>
-        <Link href="/trainer/team?welcome=1" className="block w-full py-3 rounded-xl bg-brand hover:bg-brand-hover text-center text-sm font-medium text-on-brand">チームへ</Link>
+        <Link href="/trainer/team-setup" className="block w-full py-3 rounded-xl bg-brand hover:bg-brand-hover text-center text-sm font-medium text-on-brand">チームへ</Link>
       </Frame>
     )
   }
