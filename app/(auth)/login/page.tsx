@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { safeNextPath } from '@/lib/trainer/session'
+import { otpSendErrorMessage } from '@/lib/auth/otp_error'
 import { Dumbbell, AlertCircle, Mail } from 'lucide-react'
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -53,7 +54,7 @@ function LoginContent() {
     })
     setEmailBusy(false)
     if (error) {
-      setEmailError('コードを送信できませんでした。メールアドレスを確認して、しばらくしてからもう一度お試しください。')
+      setEmailError(otpSendErrorMessage(error))
       return
     }
     setCodeSent(true)
