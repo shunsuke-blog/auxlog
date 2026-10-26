@@ -10,7 +10,7 @@ import type { TemplateOption } from './TemplateOneRmFields'
 import { ReassignSelect } from './team/TeamActions'
 import { formatMonthDay, todayInJapan, weekDateRange } from '@/lib/coaching/week_dates'
 
-const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' })
+const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' })
 
 // トレーニーの詳細: 契約の状態とプラン、契約期間内の記録、（契約中のみ）自己ベストと1RM。
 // 自分の行（isSelf）は契約の表示・名前の変更・契約の終了の代わりに、自分のトレーニー画面を開くボタンと

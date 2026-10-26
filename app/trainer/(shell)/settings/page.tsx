@@ -5,7 +5,7 @@ import LogoutButton from '@/app/(app)/settings/LogoutButton'
 import BillingButton, { ChangePlanButton } from './BillingButton'
 import InquiryForm from '@/components/trainer/InquiryForm'
 
-const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' })
+const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' })
 
 // トレーナーの設定: プラン（課金、2026-10-26）・アカウント・ログアウト。
 // プロ ¥9,800/月・ビジネス ¥19,800/月（税込）は Stripe で申し込み、プロ⇔ビジネスは日割りで切り替え、
