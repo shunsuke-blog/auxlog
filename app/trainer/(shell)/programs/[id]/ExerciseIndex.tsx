@@ -31,7 +31,7 @@ export default function ExerciseIndex({ options, activeId, onSelect }: { options
         </select>
       )}
     </div>
-    <aside className="hidden lg:block lg:p-4 lg:w-72 lg:shrink-0 lg:overflow-y-auto lg:border-r border-zinc-100 dark:border-zinc-900 lg:bg-zinc-50 lg:dark:bg-zinc-950 space-y-4">
+    <aside className="hidden lg:block lg:p-6 lg:w-80 lg:shrink-0 lg:overflow-y-auto lg:border-r border-zinc-100 dark:border-zinc-900 lg:bg-zinc-50 lg:dark:bg-zinc-950 space-y-4">
       {options.length === 0 && <p className="text-xs text-zinc-400">まだ種目がありません。Dayごとの表示で種目を追加してください。</p>}
       {groups.map(g => (
         <div key={g.key} className="space-y-1.5">
