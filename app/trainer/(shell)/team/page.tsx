@@ -85,11 +85,13 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
         {team.role === 'none' && (
           <>
             {/* ビジネスでチームが無い人は (shell)/layout.tsx で /trainer/team-setup に移るので、ここは作成の案内だけ */}
-            <Card title="チームを作る">
-              <p className="text-sm text-zinc-500">
-                複数のトレーナーでクライアントを管理するには、ビジネスプラン（¥19,800〜 / 月・税込、トレーナー3名まで）が必要です。
-                4名以上はご相談ください。お申し込みはお問い合わせのうえで承ります。
-              </p>
+            <Card title="チームで使う">
+              <p className="text-sm text-zinc-500">ビジネスプランでは、複数のトレーナーでクライアントとプログラムをまとめて管理できます。</p>
+              <div className="px-4 py-3 rounded-xl border border-line space-y-0.5">
+                <p className="text-sm font-semibold text-black">トレーナー3名まで ¥19,800 / 月（税込）</p>
+                <p className="text-xs text-zinc-500">4名以上はご相談ください。</p>
+              </div>
+              <p className="text-sm text-zinc-500">お申し込みは、お問い合わせのうえで承ります。</p>
               <InquiryForm kind="business" />
             </Card>
             <Card title="チームに参加する">
