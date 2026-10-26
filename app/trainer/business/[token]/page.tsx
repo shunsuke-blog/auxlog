@@ -58,10 +58,6 @@ export default async function BusinessInvitePage({ params }: { params: Promise<{
 
   return (
     <Frame title="ビジネスプランのお申し込み">
-      <div className="px-4 py-3 rounded-xl border border-line space-y-1">
-        <p className="text-sm font-semibold text-black">ビジネスプラン ¥19,800〜 / 月（税込）</p>
-        <p className="text-sm text-zinc-500 leading-relaxed">クライアント無制限。トレーナー3名までのチームで、クライアントの閲覧・担当替え・プログラムの共有ができます。4名以上は1名につき ¥5,000 / 月（税込）で追加できます（ご相談のうえ）。</p>
-      </div>
       <p className="text-sm text-zinc-500 leading-relaxed">お申し込みの後に、チームの名前と、あなたもクライアントを担当するかを選んでいただきます。</p>
       {profile.plan === 'pro' ? (
         <p className="text-sm text-zinc-500 leading-relaxed">プロプランをご利用中です。設定の「プラン」から、日割りでビジネスプランに切り替えられます。</p>

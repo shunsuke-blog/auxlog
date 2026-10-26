@@ -61,7 +61,7 @@ export default async function TrainerSettingsPage({ searchParams }: { searchPara
               <PlanOption name="プロプラン" price="¥9,800" note="クライアント30名まで。">
                 <BillingButton kind="checkout" plan="pro" label="プロプランにする" primary />
               </PlanOption>
-              <PlanOption name="ビジネスプラン" price="¥19,800〜" note="クライアント無制限。トレーナー3名までのチームで、クライアントの閲覧・担当替え・プログラムの共有ができます。4名以上は1名につき ¥5,000 / 月（税込）で追加できます（ご相談のうえ）。">
+              <PlanOption name="ビジネスプラン" price="¥19,800〜" note="クライアント無制限。トレーナー3名までのチームで、クライアントの閲覧・担当替え・プログラムの共有ができます。4名以上はご相談ください。">
                 {businessAllowed ? <BillingButton kind="checkout" plan="business" label="ビジネスプランにする" primary /> : <BusinessInquiry />}
               </PlanOption>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">表示価格は税込です。いつでも解約でき、解約しても期間の終わりまで使えます。</p>
@@ -69,7 +69,7 @@ export default async function TrainerSettingsPage({ searchParams }: { searchPara
           )}
           {/* 切り替えは Stripe の契約がある時だけ（手動でプロにしたデモのアカウント等には出さない） */}
           {plan === 'pro' && sub?.stripe_customer_id && (
-            <PlanOption name="ビジネスプラン" price="¥19,800〜" note="クライアント無制限。トレーナー3名までのチームを作れます。4名以上は1名につき ¥5,000 / 月（税込）で追加できます（ご相談のうえ）。">
+            <PlanOption name="ビジネスプラン" price="¥19,800〜" note="クライアント無制限。トレーナー3名までのチームを作れます。4名以上はご相談ください。">
               {businessAllowed ? <ChangePlanButton plan="business" label="ビジネスプランに切り替える" confirmMessage={'ビジネスプランに切り替えますか？\n今日から使えます。今月の残りの日数分の差額は、次回の請求で精算されます。'} /> : <BusinessInquiry />}
             </PlanOption>
           )}

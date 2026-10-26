@@ -82,14 +82,14 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
           <>
             {profile?.plan === 'business' ? (
               <Card title="チームを作る">
-                <p className="text-sm text-zinc-500">チームを作ると、ほかのトレーナーに渡す招待コードが発行されます。トレーナーは3名まで、4名以上は1名につき ¥5,000 / 月（税込）で追加できます（ご相談のうえ）。</p>
+                <p className="text-sm text-zinc-500">チームを作ると、ほかのトレーナーに渡す招待コードが発行されます。</p>
                 <CreateTeamForm displayName={profile.display_name} />
               </Card>
             ) : (
               <Card title="チームを作る">
                 <p className="text-sm text-zinc-500">
                   複数のトレーナーでクライアントを管理するには、ビジネスプラン（¥19,800〜 / 月・税込、トレーナー3名まで）が必要です。
-                  4名以上は1名につき ¥5,000 / 月（税込）で追加できます（ご相談のうえ）。お申し込みはお問い合わせのうえで承ります。
+                  4名以上はご相談ください。お申し込みはお問い合わせのうえで承ります。
                 </p>
                 <a href="mailto:auxlog.support@gmail.com?subject=ビジネスプランのお問い合わせ" className="inline-flex items-center gap-1 text-sm font-medium text-brand-text hover:underline">
                   お問い合わせ<ChevronRight className="w-4 h-4" />
@@ -137,7 +137,7 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
             <Card title="チーム">
               <RenameTeam name={team.orgName} />
               <p className="text-sm text-zinc-500 tabular-nums">トレーナー {teamTrainerCount(team)} / {team.seatLimit}名</p>
-              <p className="text-xs text-zinc-500">トレーナーを増やす場合は<a href="mailto:auxlog.support@gmail.com?subject=トレーナー枠の追加" className="mx-0.5 underline hover:text-black">お問い合わせ</a>ください（1名につき ¥5,000 / 月・税込、ご相談のうえ追加できます）。</p>
+              <p className="text-xs text-zinc-500">トレーナーを増やす場合は<a href="mailto:auxlog.support@gmail.com?subject=トレーナー枠の追加" className="mx-0.5 underline hover:text-black">お問い合わせ</a>ください。</p>
               <OwnerIsTrainerToggle value={team.ownerIsTrainer} />
             </Card>
 
