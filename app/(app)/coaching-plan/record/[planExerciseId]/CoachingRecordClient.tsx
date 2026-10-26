@@ -56,7 +56,7 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
   // チェックしていないセットがある時の「このまま保存しますか？」（セルフモードと同じ）
   const [confirmingPending, setConfirmingPending] = useState(false)
 
-  // 記録中の「Record! / Vol Up!」と「前回 ▶ 今回」の総挙上量（セルフモードと同じ）
+  // 記録中の「Record! / Volume Up!」と「前回 ▶ 今回」の総挙上量（セルフモードと同じ）
   const workingSets = sets.filter(s => !s.is_warmup)
   const badge = calcBadge(workingSets, workingSets.length > 0 && workingSets.every(s => s.done), prevBest ?? undefined)
   const doneWorking = workingSets.filter(s => s.done)
@@ -168,7 +168,7 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
             <div className="flex items-center gap-2">
               {badge && (
                 <span className={`text-xs font-bold animate-pulse shrink-0 ${badge === 'record' ? 'px-2 py-0.5 rounded-full bg-pr text-on-pr' : 'text-emerald-500'}`}>
-                  {badge === 'record' ? 'Record!' : badge === 'volume_up' ? 'Vol Up!' : 'GOOD!'}
+                  {badge === 'record' ? 'Record!' : badge === 'volume_up' ? 'Volume Up!' : 'Good Job!'}
                 </span>
               )}
               <span className="ml-auto text-xs text-zinc-400 tabular-nums">

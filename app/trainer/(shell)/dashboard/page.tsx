@@ -6,12 +6,13 @@ import { formatActivityTime, HIGHLIGHT_DAYS, TRAINER_PLANS } from '@/lib/trainer
 import { getTrainerProfile } from '@/lib/trainer/session'
 import AddTraineeButton, { type TemplateOption } from '../AddTraineeButton'
 import { ProgressBar } from '../TraineeListItem'
+import ActionBand, { type Item } from './ActionBand'
 
 const fmtDay = (iso: string) => iso.slice(5, 10).replace('-', '/').replace(/^0/, '')
 
 // トレーナーのダッシュボード（2026-10-25、オーナーのデザイン案の配置。色は他のタブと同じ）。ログインした時の最初の画面。
-// 上: 数字のカード（契約中・今週完了した種目・1RM更新）。左: 最近のアクティビティ・成果のハイライト。
-// 右: 今週の進捗・ToDo・アラート。スマホは縦に並べる。人の名前を押すと契約者一覧の詳細を開く。
+// 一番上: 対応すること（アラート・ToDo）。その下: 数字のカード。左: 最近のアクティビティ・成果のハイライト。
+// 右: 今週の進捗。スマホは縦に並べる。人の名前を押すとクライアント一覧の詳細を開く。
 export default async function TrainerDashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -61,6 +62,8 @@ export default async function TrainerDashboardPage() {
       </div>
 
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-4">
+        <ActionBand alerts={alertItems} todos={todoItems} />
+
         <section className="space-y-3">
           <h2 className="text-xs font-semibold text-zinc-400 ">クイック統計</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -78,11 +81,11 @@ export default async function TrainerDashboardPage() {
           </div>
         </section>
 
-        {/* PC は左に「アクティビティ・ハイライト」、右に「ToDo・アラート・今週の進捗」の2列。スマホは1列で、最初に見るべき
-            ToDo・アラートをクイック統計の直後に出す（列の囲みを display: contents にして order で並べる、2026-10-25） */}
+        {/* PC は左に「アクティビティ・ハイライト」、右に「今週の進捗」の2列。スマホは1列で今週の進捗を先に出す
+            （列の囲みを display: contents にして order で並べる） */}
         <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start">
           <div className="max-lg:contents lg:space-y-4">
-            <Card title="最近のアクティビティ" className="max-lg:order-3">
+            <Card title="最近のアクティビティ" className="max-lg:order-2">
               {activity.length === 0 ? (
                 <Empty>まだアクティビティはありません。</Empty>
               ) : (
@@ -105,7 +108,7 @@ export default async function TrainerDashboardPage() {
               )}
             </Card>
 
-            <Card title="成果のハイライト" className="max-lg:order-4">
+            <Card title="成果のハイライト" className="max-lg:order-3">
               {highlights.length === 0 ? (
                 <Empty>直近{HIGHLIGHT_DAYS / 7}週間で推定1RMを更新した種目はまだありません。</Empty>
               ) : (
@@ -127,24 +130,7 @@ export default async function TrainerDashboardPage() {
           </div>
 
           <div className="max-lg:contents lg:space-y-4">
-            {/* ToDo（トレーナーがやる作業）とアラート（トレーニーの様子の異変）を分ける（2026-10-25 オーナー決定）。
-                該当者がいない項目は出さない */}
-            <Card title="ToDo" className="max-lg:order-1">
-              {todoItems.length === 0 ? (
-                <Empty>ToDoはありません。</Empty>
-              ) : (
-                <ItemList items={todoItems} />
-              )}
-            </Card>
-
-            <Card title="アラート" className="max-lg:order-2">
-              {alertItems.length === 0 ? (
-                <Empty>アラートはありません。</Empty>
-              ) : (
-                <ItemList items={alertItems} urgent />
-              )}
-            </Card>
-            <Card title="今週の進捗" className="max-lg:order-5">
+            <Card title="今週の進捗" className="max-lg:order-1">
               {week.people.length === 0 ? (
                 <Empty>進行中のプランがあるクライアントはいません。</Empty>
               ) : (
@@ -194,25 +180,6 @@ function Stat({ label, value, unit, note }: { label: string; value: string; unit
         {value}{unit && <span className="ml-0.5 text-base md:text-lg">{unit}</span>}
       </p>
     </div>
-  )
-}
-
-type Item = { linkId: string; name: string; text: string }
-
-function ItemList({ items, urgent }: { items: Item[]; urgent?: boolean }) {
-  return (
-    <ul className="divide-y divide-zinc-100 dark:divide-zinc-900">
-      {items.map((it, i) => (
-        <li key={`${it.linkId}-${i}`}>
-          <Link href={`/trainer?id=${it.linkId}`} className="flex items-start gap-2.5 py-2.5 hover:underline">
-            <p className="text-sm text-black dark:text-white">
-              <span className="font-semibold">{it.name}</span>
-              <span className={urgent ? 'text-red-600 dark:text-red-400' : 'text-zinc-500 dark:text-zinc-400'}>: {it.text}</span>
-            </p>
-          </Link>
-        </li>
-      ))}
-    </ul>
   )
 }
 

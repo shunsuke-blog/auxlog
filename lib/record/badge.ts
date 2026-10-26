@@ -1,6 +1,6 @@
 import type { SetData } from '@/components/record/SetRow'
 
-// 記録中に出す「Record! / Vol Up! / GOOD!」の判定（セルフモードの記録画面とコーチングモードの記録画面で共通）。
+// 記録中に出す「Record! / Volume Up! / Good Job!」の判定（セルフモードの記録画面とコーチングモードの記録画面で共通）。
 // ワーキングセットをすべてチェックした時だけ出す。前回までの自己ベスト（exercise_bests）と比べて、
 // 最大重量（同じ重量なら回数）が上回れば record、総挙上量が上回れば volume_up、それ以外は done。
 

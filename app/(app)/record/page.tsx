@@ -495,7 +495,7 @@ function RecordContent() {
                           <span className={`text-xs font-bold animate-pulse shrink-0 ${
                             badge === 'record' ? 'px-2 py-0.5 rounded-full bg-pr text-on-pr' : 'text-emerald-500'
                           }`}>
-                            {badge === 'record' ? 'Record!' : badge === 'volume_up' ? 'Vol Up!' : 'GOOD!'}
+                            {badge === 'record' ? 'Record!' : badge === 'volume_up' ? 'Volume Up!' : 'Good Job!'}
                           </span>
                         )}
                       </div>

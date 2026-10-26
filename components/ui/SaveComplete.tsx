@@ -13,9 +13,9 @@ type Props = {
 // 自己ベスト更新（record）だけタイトルをゴールドにする（ふだんのティールと違う「特別な瞬間」、2026-10-25）
 // 絵文字ではなく線のアイコンにする（hallmark の audit 2026-10-26）
 const CONTENT: Record<SaveResult, { icon: LucideIcon; title: string; sub: string }> = {
-  record:     { icon: Trophy,     title: 'Record!',     sub: '自己ベスト更新！' },
-  volume_up:  { icon: TrendingUp, title: 'Volume Up!',  sub: '総負荷が上がった' },
-  good_job:   { icon: Check,      title: 'Good Job!',   sub: 'よく頑張りました' },
+  record:     { icon: Trophy,     title: 'Record!',     sub: 'New personal best' },
+  volume_up:  { icon: TrendingUp, title: 'Volume Up!',  sub: 'Total volume went up' },
+  good_job:   { icon: Check,      title: 'Good Job!',   sub: 'Nice work' },
 }
 
 export default function SaveComplete({ onDone, result }: Props) {

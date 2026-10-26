@@ -24,7 +24,7 @@ export type CoachingRecordData = {
   isBodyweight: boolean
   prefill: PrefillSet[]
   alreadyRecorded: boolean
-  /** 前回までの自己ベスト（記録中の「Record! / Vol Up!」と「前回 ▶ 今回」の総挙上量に使う）。初めての種目は null */
+  /** 前回までの自己ベスト（記録中の「Record! / Volume Up!」と「前回 ▶ 今回」の総挙上量に使う）。初めての種目は null */
   prevBest: { weight: number; reps: number; volume: number; totalReps: number } | null
   /** 今の週の予定の開始日より前（週を早く進めた）。オーバーワークの注意を出す（セルフモードと同じ、2026-10-25） */
   beforeWeekStart: boolean
