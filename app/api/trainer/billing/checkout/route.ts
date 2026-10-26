@@ -20,11 +20,15 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabase
     .from('trainer_profiles')
-    .select('display_name, plan, stripe_customer_id')
+    .select('display_name, plan, stripe_customer_id, business_allowed')
     .eq('user_id', user.id)
     .maybeSingle()
   if (!profile) return NextResponse.json({ error: 'トレーナー登録がありません' }, { status: 403 })
   if (profile.plan !== 'starter') return NextResponse.json({ error: 'すでに有料プランです。プランの切り替えは設定の「プラン」から行えます' }, { status: 409 })
+  // ビジネスはお問い合わせ制: 運営が許可したトレーナーだけ（管理者用の登録ページで許可される）
+  if (plan === 'business' && !profile.business_allowed) {
+    return NextResponse.json({ error: 'ビジネスプランはお問い合わせのうえでお申し込みいただけます' }, { status: 403 })
+  }
   // チームのメンバーはチームのビジネスプランで使える（二重に払わない）
   const team = await getTeamContext(supabase, user.id)
   if (team.role === 'member' || team.role === 'pending') {

@@ -18,11 +18,15 @@ export async function POST(request: Request) {
   const priceId = priceIdOf(parsed.data.plan)
   if (!stripe || !priceId) return NextResponse.json({ error: '現在ご利用いただけません' }, { status: 503 })
 
-  const { data: profile } = await supabase.from('trainer_profiles').select('plan, stripe_subscription_id').eq('user_id', user.id).maybeSingle()
+  const { data: profile } = await supabase.from('trainer_profiles').select('plan, stripe_subscription_id, business_allowed').eq('user_id', user.id).maybeSingle()
   if (!profile?.stripe_subscription_id || profile.plan === 'starter') {
     return NextResponse.json({ error: '有料プランの契約がありません' }, { status: 409 })
   }
   if (profile.plan === parsed.data.plan) return NextResponse.json({ ok: true })
+  // ビジネスはお問い合わせ制（運営が許可したトレーナーだけ）
+  if (parsed.data.plan === 'business' && !profile.business_allowed) {
+    return NextResponse.json({ error: 'ビジネスプランはお問い合わせのうえでお申し込みいただけます' }, { status: 403 })
+  }
 
   const sub = await stripe.subscriptions.retrieve(profile.stripe_subscription_id)
   const item = sub.items.data[0]

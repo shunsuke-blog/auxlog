@@ -18,6 +18,9 @@ export const RULE_MESSAGES: Record<string, string> = {
   team_full: 'チームのトレーナーは3名までです',
   owner_has_clients: 'ご自身が担当しているクライアントがいます。先に担当替えしてから変更してください',
   not_in_team: 'チームに参加していません',
+  business_invite_invalid: 'このページは使えません（すでに使われたか、取り消されています）。お手数ですが運営までお問い合わせください',
+  business_invite_expired: 'このページの有効期限が切れています。お手数ですが運営までお問い合わせください',
+  business_invite_email: 'このページは別のメールアドレス宛てです。運営からご案内したメールアドレスでログインし直してください',
   over_limit: '今のプランの上限を超えているため、この操作はできません。契約を終了して上限内に戻すか、プロプランにしてください',
 }
 

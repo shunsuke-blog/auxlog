@@ -16,12 +16,14 @@ export default async function TrainerSettingsPage({ searchParams }: { searchPara
   if (!user) return null
   const [profile, { data: sub }] = await Promise.all([
     getTrainerProfile(supabase, user.id),
-    supabase.from('trainer_profiles').select('stripe_customer_id, subscription_status, current_period_end, cancel_at_period_end').eq('user_id', user.id).maybeSingle(),
+    supabase.from('trainer_profiles').select('stripe_customer_id, subscription_status, current_period_end, cancel_at_period_end, business_allowed').eq('user_id', user.id).maybeSingle(),
   ])
   const plan = profile?.plan ?? 'starter'
   const usage = await loadPlanUsage(supabase, user.id, plan)
   const inTeam = usage.team.role === 'member' && usage.team.active
   const paid = plan === 'pro' || plan === 'business'
+  // ビジネスはお問い合わせ制（2026-10-26）: 運営が許可したトレーナー（管理者用の登録ページを開いた人）だけ申し込める
+  const businessAllowed = sub?.business_allowed === true
 
   return (
     <div>
@@ -60,7 +62,7 @@ export default async function TrainerSettingsPage({ searchParams }: { searchPara
                 <BillingButton kind="checkout" plan="pro" label="プロプランにする" primary />
               </PlanOption>
               <PlanOption name="ビジネスプラン" price="¥19,800" note="クライアント無制限。トレーナー3名までのチームで、クライアントの閲覧・担当替え・プログラムの共有ができます。">
-                <BillingButton kind="checkout" plan="business" label="ビジネスプランにする" primary />
+                {businessAllowed ? <BillingButton kind="checkout" plan="business" label="ビジネスプランにする" primary /> : <BusinessInquiry />}
               </PlanOption>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">表示価格は税込です。いつでも解約でき、解約しても期間の終わりまで使えます。</p>
             </div>
@@ -68,7 +70,7 @@ export default async function TrainerSettingsPage({ searchParams }: { searchPara
           {/* 切り替えは Stripe の契約がある時だけ（手動でプロにしたデモのアカウント等には出さない） */}
           {plan === 'pro' && sub?.stripe_customer_id && (
             <PlanOption name="ビジネスプラン" price="¥19,800" note="クライアント無制限。トレーナー3名までのチームを作れます。">
-              <ChangePlanButton plan="business" label="ビジネスプランに切り替える" confirmMessage={'ビジネスプランに切り替えますか？\n今日から使えます。今月の残りの日数分の差額は、次回の請求で精算されます。'} />
+              {businessAllowed ? <ChangePlanButton plan="business" label="ビジネスプランに切り替える" confirmMessage={'ビジネスプランに切り替えますか？\n今日から使えます。今月の残りの日数分の差額は、次回の請求で精算されます。'} /> : <BusinessInquiry />}
             </PlanOption>
           )}
           {plan === 'business' && sub?.stripe_customer_id && (
@@ -99,5 +101,16 @@ function PlanOption({ name, price, note, children }: { name: string; price: stri
       </div>
       {children}
     </div>
+  )
+}
+
+// ビジネスはお問い合わせのうえで、運営から管理者用の登録ページを送る（2026-10-26 オーナー決定）
+function BusinessInquiry() {
+  return (
+    <p className="text-sm text-black dark:text-white">
+      チームでのご利用は
+      <a href="mailto:auxlog.support@gmail.com?subject=ビジネスプランのお問い合わせ" className="mx-0.5 font-medium text-brand-text underline">お問い合わせ</a>
+      ください。ご案内のうえ、お申し込みいただけるようにします。
+    </p>
   )
 }

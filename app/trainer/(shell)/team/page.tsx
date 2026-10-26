@@ -85,10 +85,11 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
               <Card title="チームを作る">
                 <p className="text-sm text-zinc-500">
                   トレーナー3名までのチームでクライアントを管理するには、ビジネスプラン（¥19,800 / 月・税込）が必要です。
+                  ビジネスプランはお問い合わせのうえでお申し込みいただけます。
                 </p>
-                <Link href="/trainer/settings" className="inline-flex items-center gap-1 text-sm font-medium text-brand-text hover:underline">
-                  プランを見る<ChevronRight className="w-4 h-4" />
-                </Link>
+                <a href="mailto:auxlog.support@gmail.com?subject=ビジネスプランのお問い合わせ" className="inline-flex items-center gap-1 text-sm font-medium text-brand-text hover:underline">
+                  お問い合わせ<ChevronRight className="w-4 h-4" />
+                </a>
               </Card>
             )}
             <Card title="チームに参加する">
