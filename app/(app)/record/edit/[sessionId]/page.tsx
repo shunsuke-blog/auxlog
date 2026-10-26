@@ -9,6 +9,8 @@ import { useToast } from '@/hooks/useToast'
 import Toast from '@/components/ui/Toast'
 import CircleCheck from '@/components/ui/CircleCheck'
 import type { UserExercise } from '@/types'
+import CardioInputs, { cardioInputFrom, type CardioInputValue } from '@/components/record/CardioInputs'
+import { parseCardioInput } from '@/lib/record/cardio'
 
 type ExerciseSets = {
   exerciseId: string
@@ -16,6 +18,8 @@ type ExerciseSets = {
   isBodyweight: boolean
   enabled: boolean
   sets: SetData[]
+  /** 有酸素運動の種目なら、時間・距離・消費カロリーの入力（2026-10-26）。セットの代わりに1回分を記録する */
+  cardio?: CardioInputValue
 }
 
 type PreservedSet = {
@@ -25,6 +29,10 @@ type PreservedSet = {
   reps: number
   rir: boolean
   is_warmup: boolean
+  // 有酸素の記録は時間・距離・消費カロリーも引き継ぐ（落とすと別の種目を編集した時に消えてしまう）
+  duration_seconds: number | null
+  distance_km: number | null
+  calories_kcal: number | null
 }
 
 function EditContent() {
@@ -84,13 +92,17 @@ function EditContent() {
           .map((s: {
             exercise_id: string; set_number: number; weight_kg: number
             reps: number; rir: boolean; is_warmup: boolean
+            duration_seconds: number | null; distance_km: number | string | null; calories_kcal: number | null
           }) => ({
             exercise_id: s.exercise_id,
             set_number: s.set_number,
-            weight_kg: s.weight_kg,
+            weight_kg: Number(s.weight_kg),
             reps: s.reps,
             rir: s.rir,
             is_warmup: s.is_warmup ?? false,
+            duration_seconds: s.duration_seconds ?? null,
+            distance_km: s.distance_km != null ? Number(s.distance_km) : null,
+            calories_kcal: s.calories_kcal ?? null,
           }))
         setPreservedSets(others)
       }
@@ -113,6 +125,10 @@ function EditContent() {
 
         if (!grouped.has(exId)) {
           grouped.set(exId, { exerciseId: exId, exerciseName: exName, isBodyweight, enabled: true, sets: [] })
+        }
+        if (set.duration_seconds != null) {
+          grouped.get(exId)!.cardio = cardioInputFrom(set)
+          continue
         }
         grouped.get(exId)!.sets.push({
           set_number: set.set_number,
@@ -201,7 +217,19 @@ function EditContent() {
   const handleSave = async () => {
     setSaving(true)
 
-    const editedSets = exerciseSets.filter(ex => ex.enabled).flatMap(ex =>
+    // 有酸素の種目は、時間・距離・消費カロリーの1回分にする
+    const cardioSets = []
+    for (const ex of exerciseSets.filter(e => e.enabled && e.cardio)) {
+      const parsed = parseCardioInput(ex.cardio!)
+      if (!parsed) {
+        showToast(`${ex.exerciseName}の時間・距離・消費カロリーを確認してください`)
+        setSaving(false)
+        return
+      }
+      cardioSets.push({ exercise_id: ex.exerciseId, set_number: 1, weight_kg: 0, reps: 0, rir: false, is_warmup: false, ...parsed })
+    }
+
+    const editedSets = exerciseSets.filter(ex => ex.enabled && !ex.cardio).flatMap(ex =>
       ex.sets
         .filter(s => s.weight_kg !== '' && s.reps !== '')
         .map(s => ({
@@ -215,7 +243,7 @@ function EditContent() {
     )
 
     // 個別編集時: 編集対象外の種目のセットを合わせて送る
-    const sets = [...editedSets, ...preservedSets]
+    const sets = [...editedSets, ...cardioSets, ...preservedSets]
 
     const res = await fetch(`/api/sessions/${sessionId}`, {
       method: 'PATCH',
@@ -256,8 +284,9 @@ function EditContent() {
     }
   }
 
+  // 編集画面から足せるのは筋トレの種目だけ（有酸素はホームの「種目を追加」から記録する）
   const addableExercises = allExercises.filter(
-    ex => !exerciseSets.some(es => es.exerciseId === ex.id)
+    ex => !ex.is_cardio && !exerciseSets.some(es => es.exerciseId === ex.id)
   )
 
   const singleExerciseEdit = !isFullEdit && exerciseSets.length === 1
@@ -319,7 +348,14 @@ function EditContent() {
                 <h2 className="text-base font-semibold text-black dark:text-white">{ex.exerciseName}</h2>
               )}
             </div>
-            {ex.enabled && (
+            {ex.enabled && ex.cardio && (
+              <CardioInputs
+                value={ex.cardio}
+                onChange={v => setExerciseSets(prev => prev.map((e, i) => (i === exIdx ? { ...e, cardio: v } : e)))}
+                tracksDistance
+              />
+            )}
+            {ex.enabled && !ex.cardio && (
               <>
                 <div className="space-y-2.5">
                   {ex.sets.map((set, setIdx) => (

@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, CheckCircle2, Plus } from 'lucide-react'
 import type { UserProgramEnrollment, ProgramSuggestion, ProgramPhase, TargetMuscle } from '@/types'
-import { TARGET_MUSCLE_LABELS } from '@/types'
+import { TARGET_MUSCLE_LABELS, CARDIO_MUSCLE } from '@/types'
+import { formatCardio, type CardioRecord } from '@/lib/record/cardio'
 import ProgramSlotCard from './ProgramSlotCard'
 import NotCountedBadge from './NotCountedBadge'
 import GrowthReportModal from './GrowthReportModal'
@@ -108,7 +109,7 @@ const PHASE_DESCRIPTIONS: Record<ProgramPhase, string> = {
 }
 
 // dbId は user_program_day_extras.id（削除に使用）、id は user_exercises.id（記録ページで使用）
-type ExtraExercise = { dbId: string; id: string | null; name: string; target_muscle?: string; last_weight_kg?: number | null; last_reps?: number | null }
+type ExtraExercise = { dbId: string; id: string | null; name: string; target_muscle?: string; last_weight_kg?: number | null; last_reps?: number | null; last_cardio?: CardioRecord | null }
 type WeekStatus = {
   completed_exercise_ids: string[]
   all_complete: boolean
@@ -486,7 +487,7 @@ export default function ProgramDayView({ enrollment }: Props) {
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex-1 min-w-0">
                         <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium mb-0.5">
-                          {ex.target_muscle ? TARGET_MUSCLE_LABELS[ex.target_muscle as TargetMuscle] ?? '追加種目' : '追加種目'}
+                          {ex.target_muscle === CARDIO_MUSCLE ? '有酸素' : ex.target_muscle ? TARGET_MUSCLE_LABELS[ex.target_muscle as TargetMuscle] ?? '追加種目' : '追加種目'}
                         </p>
                         <h3 className={`text-[15px] font-bold leading-snug ${isDone ? 'text-zinc-400 dark:text-zinc-500' : 'text-black dark:text-white'}`}>
                           {ex.name}
@@ -498,6 +499,11 @@ export default function ProgramDayView({ enrollment }: Props) {
                       }
                     </div>
                     {!isDone && notCounted && <NotCountedBadge />}
+                    {ex.last_cardio && (
+                      <p className="text-[12px] text-zinc-400 dark:text-zinc-500">
+                        前回 {formatCardio(ex.last_cardio)}
+                      </p>
+                    )}
                     {ex.last_weight_kg != null && (
                       <p className="text-[12px] text-zinc-400 dark:text-zinc-500">
                         前回 {ex.last_weight_kg}kg × {ex.last_reps}回

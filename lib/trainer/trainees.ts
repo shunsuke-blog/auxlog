@@ -3,6 +3,7 @@ import { BASE_CATEGORIES_BY_RANK, LEG_DEFAULT_CATEGORY } from '@/lib/constants/p
 import { MUSCLE_ORDER, type TargetMuscle } from '@/types'
 import { selectInChunks } from '@/lib/supabase/chunk'
 import { parseTraineeActivity, traineeAlerts, weekProgress, type TraineeActivity, type TraineeAlert, type WeekProgress } from './traineeStatus'
+import { formatCardio } from '@/lib/record/cardio'
 
 // トレーナー画面の一覧・詳細のデータ読み込み。すべてトレーナー本人のセッション（RLS）で読むため、
 // 契約期間外の記録や他人のトレーニーのデータはDB側で除外される（can_trainer_view 等）。
@@ -128,7 +129,8 @@ const SLOT_LABELS = new Map([...BASE_CATEGORIES_BY_RANK.values(), LEG_DEFAULT_CA
 
 export type TraineeDetail = {
   /** offPlan: プランの種目に紐付いていない記録（トレーニーがホームの「種目を追加」から記録した種目） */
-  sessions: { id: string; trainedOn: string; exercises: { name: string; offPlan: boolean; sets: { weightKg: number; reps: number; isWarmup: boolean }[] }[] }[]
+  /** cardio: 有酸素運動の記録なら「30分 · 5.0km（6:00/km）」（2026-10-26。その時 sets は使わない） */
+  sessions: { id: string; trainedOn: string; exercises: { name: string; offPlan: boolean; cardio: string | null; sets: { weightKg: number; reps: number; isWarmup: boolean }[] }[] }[]
   /** 部位の順（胸 → 背中 → 肩 → 腕 → 脚 → 体幹 → その他）、同じ部位は重量の重い順（2026-10-25 オーナー決定） */
   bests: { name: string; targetMuscle: TargetMuscle | null; weightKg: number; reps: number }[]
   oneRms: { label: string; oneRmKg: number; recordedAt: string }[]
@@ -137,7 +139,7 @@ export type TraineeDetail = {
 type SessionDetailRow = {
   id: string
   trained_at: string
-  training_sets: { set_number: number; weight_kg: number; reps: number; is_warmup: boolean; exercise_id: string; plan_exercise_id: string | null; user_exercises: { custom_name: string | null; exercise_master: { name: string } | null } | null }[]
+  training_sets: { set_number: number; weight_kg: number; reps: number; is_warmup: boolean; duration_seconds: number | null; distance_km: number | string | null; calories_kcal: number | null; exercise_id: string; plan_exercise_id: string | null; user_exercises: { custom_name: string | null; exercise_master: { name: string } | null } | null }[]
 }
 
 // 詳細: 見える範囲（契約期間内）の直近の記録20件と、契約中なら自己ベスト・1RM（RLSで契約中のみ読める）
@@ -145,7 +147,7 @@ export async function loadTraineeDetail(supabase: SupabaseClient, traineeId: str
   const [{ data: sessions }, { data: bests }, { data: oneRms }] = await Promise.all([
     supabase
       .from('training_sessions')
-      .select('id, trained_at, training_sets(set_number, weight_kg, reps, is_warmup, exercise_id, plan_exercise_id, user_exercises(custom_name, exercise_master(name)))')
+      .select('id, trained_at, training_sets(set_number, weight_kg, reps, is_warmup, duration_seconds, distance_km, calories_kcal, exercise_id, plan_exercise_id, user_exercises(custom_name, exercise_master(name)))')
       .eq('user_id', traineeId)
       .order('trained_at', { ascending: false })
       .limit(20),
@@ -178,10 +180,11 @@ export async function loadTraineeDetail(supabase: SupabaseClient, traineeId: str
 
   return {
     sessions: ((sessions ?? []) as unknown as SessionDetailRow[]).map(s => {
-      const byExercise = new Map<string, { name: string; offPlan: boolean; sets: { setNumber: number; weightKg: number; reps: number; isWarmup: boolean }[] }>()
+      const byExercise = new Map<string, { name: string; offPlan: boolean; cardio: string | null; sets: { setNumber: number; weightKg: number; reps: number; isWarmup: boolean }[] }>()
       for (const t of s.training_sets) {
-        const entry = byExercise.get(t.exercise_id) ?? { name: t.user_exercises?.exercise_master?.name ?? t.user_exercises?.custom_name ?? '', offPlan: true, sets: [] }
+        const entry = byExercise.get(t.exercise_id) ?? { name: t.user_exercises?.exercise_master?.name ?? t.user_exercises?.custom_name ?? '', offPlan: true, cardio: null, sets: [] }
         if (t.plan_exercise_id) entry.offPlan = false
+        if (t.duration_seconds != null) entry.cardio = formatCardio(t)
         entry.sets.push({ setNumber: t.set_number, weightKg: Number(t.weight_kg), reps: t.reps, isWarmup: t.is_warmup })
         byExercise.set(t.exercise_id, entry)
       }
@@ -191,6 +194,7 @@ export async function loadTraineeDetail(supabase: SupabaseClient, traineeId: str
         exercises: [...byExercise.values()].map(e => ({
           name: e.name,
           offPlan: e.offPlan,
+          cardio: e.cardio,
           sets: e.sets.sort((a, b) => a.setNumber - b.setNumber).map(({ weightKg, reps, isWarmup }) => ({ weightKg, reps, isWarmup })),
         })),
       }

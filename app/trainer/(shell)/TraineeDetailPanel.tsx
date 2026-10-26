@@ -142,7 +142,7 @@ export default async function TraineeDetailPanel({ row, templates, selfName, rea
                       {e.offPlan && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">プラン外</span>}
                     </p>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-                      {e.sets.map(st => `${st.isWarmup ? 'W ' : ''}${st.weightKg}kg×${st.reps}`).join(' / ')}
+                      {e.cardio ?? e.sets.map(st => `${st.isWarmup ? 'W ' : ''}${st.weightKg}kg×${st.reps}`).join(' / ')}
                     </p>
                   </div>
                 ))}

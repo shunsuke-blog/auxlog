@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, Plus, Search, X } from 'lucide-react'
-import { MUSCLE_ORDER, TARGET_MUSCLE_LABELS } from '@/types'
+import { MUSCLE_ORDER, TARGET_MUSCLE_LABELS, CARDIO_MUSCLE } from '@/types'
 
 type MasterExercise = { id: string; name: string; target_muscle: string }
+type CardioExercise = { id: string; name: string }
 
 function groupByMuscle(list: MasterExercise[]) {
   return [
@@ -30,6 +31,9 @@ export default function AddExerciseOverlay({ excludedNames, note, onPicked, onCl
   const [masterExercises, setMasterExercises] = useState<MasterExercise[]>([])
   // exercise_master.id → user_exercises.id のマップ
   const [masterToUserExId, setMasterToUserExId] = useState<Map<string, string>>(new Map())
+  // 有酸素運動（cardio_master、2026-10-26）。cardio_master.id → user_exercises.id のマップ
+  const [cardioExercises, setCardioExercises] = useState<CardioExercise[]>([])
+  const [cardioToUserExId, setCardioToUserExId] = useState<Map<string, string>>(new Map())
   const [masterLoading, setMasterLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   // マスタに無い名前で追加する場合だけ、部位を選ぶサブステップを挟む（モバイル版と同じ、2026-08-05。
@@ -45,24 +49,30 @@ export default function AddExerciseOverlay({ excludedNames, note, onPicked, onCl
     ])
       .then(([masterData, userExData]) => {
         setMasterExercises(masterData.exercises ?? [])
+        setCardioExercises(masterData.cardio ?? [])
         const map = new Map<string, string>()
+        const cardioMap = new Map<string, string>()
         for (const ue of (userExData.exercises ?? [])) {
           if (ue.exercise_master_id) map.set(ue.exercise_master_id, ue.id)
+          if (ue.cardio_master_id) cardioMap.set(ue.cardio_master_id, ue.id)
         }
         setMasterToUserExId(map)
+        setCardioToUserExId(cardioMap)
       })
       .catch(() => {})
       .finally(() => setMasterLoading(false))
   }, [])
 
-  const pick = async (ex: { id: string | null; masterId: string | null; name: string; target_muscle?: string }) => {
+  const pick = async (ex: { id: string | null; masterId: string | null; cardioId?: string; name: string; target_muscle?: string }) => {
     if (busy) return
     setBusy(true)
     let finalId = ex.id
     // user_exercises 未登録の場合は自動登録してIDを取得
     if (!finalId) {
       try {
-        const body = ex.masterId
+        const body = ex.cardioId
+          ? { cardio_master_id: ex.cardioId }
+          : ex.masterId
           ? { exercise_master_id: ex.masterId }
           : { custom_name: ex.name, custom_target_muscle: ex.target_muscle, is_compound: false }
         const res = await fetch('/api/exercises', {
@@ -81,6 +91,8 @@ export default function AddExerciseOverlay({ excludedNames, note, onPicked, onCl
 
   const trimmedQuery = searchQuery.trim()
   const filteredMaster = trimmedQuery ? masterExercises.filter(e => e.name.includes(trimmedQuery)) : masterExercises
+  const filteredCardio = (trimmedQuery ? cardioExercises.filter(e => e.name.includes(trimmedQuery)) : cardioExercises)
+    .filter(e => !excludedNames.has(e.name))
 
   return (
       // 下のタブ（z-50）より前面に出す。高さは見えている画面（dvh）に合わせ、iPhone の Safari でキーボードを閉じた後に
@@ -142,6 +154,13 @@ export default function AddExerciseOverlay({ excludedNames, note, onPicked, onCl
                   {TARGET_MUSCLE_LABELS[m]}
                 </button>
               ))}
+              <button
+                onClick={() => pick({ id: null, masterId: null, name: pendingCustomName, target_muscle: CARDIO_MUSCLE })}
+                disabled={busy}
+                className="py-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900"
+              >
+                有酸素
+              </button>
             </div>
           ) : masterLoading ? (
             <p className="text-sm text-zinc-400 text-center py-12">読み込み中…</p>
@@ -169,8 +188,24 @@ export default function AddExerciseOverlay({ excludedNames, note, onPicked, onCl
                 </div>
               ))}
 
+              {/* 有酸素運動は部位のあと（2026-10-26）。記録は時間・距離・消費カロリー */}
+              {filteredCardio.length > 0 && (
+                <div>
+                  <p className="sticky top-0 z-10 px-5 pt-4 pb-1.5 text-xs font-semibold text-zinc-400 bg-white dark:bg-black">有酸素</p>
+                  {filteredCardio.map(ex => (
+                    <button
+                      key={ex.id}
+                      onClick={() => pick({ id: cardioToUserExId.get(ex.id) ?? null, masterId: null, cardioId: ex.id, name: ex.name })}
+                      className="w-full flex items-center px-5 py-4 text-left border-b border-zinc-50 dark:border-zinc-900 active:bg-zinc-50 dark:active:bg-zinc-900 transition-colors"
+                    >
+                      <span className="text-[15px] text-black dark:text-white">{ex.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* DBにない場合は自由入力で追加 */}
-              {trimmedQuery && !filteredMaster.some(e => e.name === trimmedQuery) && (
+              {trimmedQuery && !filteredMaster.some(e => e.name === trimmedQuery) && !cardioExercises.some(e => e.name === trimmedQuery) && (
                 <button
                   onClick={() => setPendingCustomName(trimmedQuery)}
                   className="w-full flex items-center gap-3 px-5 py-4 text-left border-b border-zinc-50 dark:border-zinc-900 active:bg-zinc-50 dark:active:bg-zinc-900 transition-colors"
@@ -182,7 +217,7 @@ export default function AddExerciseOverlay({ excludedNames, note, onPicked, onCl
                 </button>
               )}
 
-              {!masterLoading && filteredMaster.length === 0 && !trimmedQuery && (
+              {!masterLoading && filteredMaster.length === 0 && filteredCardio.length === 0 && !trimmedQuery && (
                 <p className="text-sm text-zinc-400 text-center py-12">種目が見つかりません</p>
               )}
             </>

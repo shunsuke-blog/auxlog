@@ -6,6 +6,7 @@ import FatigueSelector from '@/components/record/FatigueSelector'
 import SetRow, { type SetData } from '@/components/record/SetRow'
 import CircleCheck from '@/components/ui/CircleCheck'
 import AddExerciseModal from '@/components/record/AddExerciseModal'
+import CardioRecordForm from '@/components/record/CardioRecordForm'
 import PendingSetsModal from '@/components/record/PendingSetsModal'
 import { Plus, ChevronLeft } from 'lucide-react'
 import type { UserExercise, Suggestion, TargetMuscle } from '@/types'
@@ -205,7 +206,7 @@ function RecordContent() {
       } else {
         // suggest が空の場合: 既に取得済みの exercises を使う（再フェッチ不要）
         setExerciseSets(
-          (fetchedExercises ?? []).map(ex => ({
+          (fetchedExercises ?? []).filter(ex => !ex.is_cardio).map(ex => ({
             exercise: ex,
             enabled: true,
             sets: Array.from({ length: ex.default_sets }, (_, i) => makeSet({
@@ -398,6 +399,18 @@ function RecordContent() {
     )
   }
 
+  // 有酸素の種目は、時間・距離・消費カロリーを入れる画面にする（2026-10-26）
+  if (fromHome && exerciseSets.length === 1 && exerciseSets[0].exercise.is_cardio) {
+    return (
+      <CardioRecordForm
+        exercise={exerciseSets[0].exercise}
+        isBeforeWeekStart={isBeforeWeekStart}
+        onBack={() => guardedPush('/')}
+        setIsDirty={setIsDirty}
+      />
+    )
+  }
+
   const showGroupHeader = !fromHome && exerciseSets.length > 1
   const groups = showGroupHeader
     ? MUSCLE_ORDER
@@ -414,7 +427,7 @@ function RecordContent() {
     : '記録入力'
 
   const addableExercises = allAvailableExercises.filter(
-    ex => !exerciseSets.some(es => es.exercise.id === ex.id)
+    ex => !ex.is_cardio && !exerciseSets.some(es => es.exercise.id === ex.id)
   )
 
   return (

@@ -89,6 +89,9 @@ export async function PATCH(
       rir: s.rir,
       is_warmup: s.is_warmup ?? false,
       plan_exercise_id: planExerciseByExercise.get(s.exercise_id) ?? null,
+      duration_seconds: s.duration_seconds ?? null,
+      distance_km: s.distance_km ?? null,
+      calories_kcal: s.calories_kcal ?? null,
     }))
     const { error: insertError } = await supabase.from('training_sets').insert(rows)
     // 契約・プランが終了済みだと紐付けはトリガーで拒否されるため、紐付けなしで記録だけ残す

@@ -12,7 +12,7 @@ export default async function HistoryPage() {
   const [{ data: sessionsData }, { data: exercisesData }, { data: enrollment }] = await Promise.all([
     supabase
       .from('training_sessions')
-      .select('*, training_sets(id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup, created_at)')
+      .select('*, training_sets(id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup, duration_seconds, distance_km, calories_kcal, created_at)')
       .eq('user_id', user.id)
       .order('trained_at', { ascending: false })
       .limit(365),

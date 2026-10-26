@@ -86,6 +86,8 @@ function makeExercise(id: string, name: string, overrides: Partial<UserExercise>
     recent_session_ids: [],
     requires_one_rm: false,
     movement_pattern: null,
+    is_cardio: false,
+    cardio_master_id: null,
     ...overrides,
   }
 }

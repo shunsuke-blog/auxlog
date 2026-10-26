@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
+type LastRecord = { weight_kg: number; reps: number; duration_seconds: number | null; distance_km: number | null; calories_kcal: number | null }
+
 export async function GET(request: Request) {
   const supabase = await createClient(request)
   const { data: { user } } = await supabase.auth.getUser()
@@ -23,7 +25,7 @@ export async function GET(request: Request) {
   // 毎週続ける種目はプログラム画面からカスタムスロット（user_custom_slots）として追加する。
   const { data, error } = await supabase
     .from('user_program_day_extras')
-    .select('id, exercise_id, user_exercises(custom_name, exercise_master(name, target_muscle))')
+    .select('id, exercise_id, user_exercises(custom_name, custom_target_muscle, exercise_master(name, target_muscle))')
     .eq('enrollment_id', enrollment.id)
     .eq('day_number', day)
     .eq('week_number', enrollment.current_week)
@@ -34,14 +36,14 @@ export async function GET(request: Request) {
   type Row = {
     id: string
     exercise_id: string
-    user_exercises: { custom_name: string | null; exercise_master: { name: string; target_muscle: string } | null } | null
+    user_exercises: { custom_name: string | null; custom_target_muscle: string | null; exercise_master: { name: string; target_muscle: string } | null } | null
   }
 
   const rows = (data ?? []) as unknown as Row[]
   const exerciseIds = rows.map(r => r.exercise_id)
 
   // 直前の記録重量を取得
-  const lastWeightMap = new Map<string, { weight_kg: number; reps: number }>()
+  const lastWeightMap = new Map<string, LastRecord>()
   if (exerciseIds.length > 0) {
     const { data: recentSessions } = await supabase
       .from('training_sessions')
@@ -54,25 +56,32 @@ export async function GET(request: Request) {
     if (sessionIds.length > 0) {
       const { data: sets } = await supabase
         .from('training_sets')
-        .select('exercise_id, weight_kg, reps, session_id')
+        .select('exercise_id, weight_kg, reps, session_id, duration_seconds, distance_km, calories_kcal')
         .in('exercise_id', exerciseIds)
         .in('session_id', sessionIds)
         .eq('is_warmup', false)
 
       // sessionIds は trained_at 降順なので、インデックスが小さいほど新しい
       const sessionOrder = new Map(sessionIds.map((id, i) => [id, i]))
-      type WeightEntry = { weight_kg: number; reps: number; sessionIdx: number }
+      type WeightEntry = LastRecord & { sessionIdx: number }
       const bestByExercise = new Map<string, WeightEntry>()
       for (const set of sets ?? []) {
         const exId = set.exercise_id as string
         const idx = sessionOrder.get(set.session_id as string) ?? Infinity
         const existing = bestByExercise.get(exId)
         if (!existing || idx < existing.sessionIdx) {
-          bestByExercise.set(exId, { weight_kg: set.weight_kg as number, reps: set.reps as number, sessionIdx: idx })
+          bestByExercise.set(exId, {
+            weight_kg: set.weight_kg as number,
+            reps: set.reps as number,
+            duration_seconds: set.duration_seconds as number | null,
+            distance_km: set.distance_km as number | null,
+            calories_kcal: set.calories_kcal as number | null,
+            sessionIdx: idx,
+          })
         }
       }
       for (const [exId, entry] of bestByExercise) {
-        lastWeightMap.set(exId, { weight_kg: entry.weight_kg, reps: entry.reps })
+        lastWeightMap.set(exId, entry)
       }
     }
   }
@@ -82,9 +91,21 @@ export async function GET(request: Request) {
     const name = (ue && !Array.isArray(ue))
       ? (ue.exercise_master?.name ?? ue.custom_name ?? '')
       : ''
-    const target_muscle = (ue && !Array.isArray(ue)) ? ue.exercise_master?.target_muscle ?? null : null
+    const target_muscle = (ue && !Array.isArray(ue)) ? (ue.exercise_master?.target_muscle ?? ue.custom_target_muscle ?? null) : null
     const last = lastWeightMap.get(r.exercise_id)
-    return { dbId: r.id, id: r.exercise_id, name, target_muscle, last_weight_kg: last?.weight_kg ?? null, last_reps: last?.reps ?? null }
+    // 有酸素の前回は時間・距離・消費カロリーで返す。重量・回数は返さない（公開中の古いアプリに「0kg × 0回」と出さないため）
+    const lastCardio = last?.duration_seconds != null
+      ? { duration_seconds: last.duration_seconds, distance_km: last.distance_km, calories_kcal: last.calories_kcal }
+      : null
+    return {
+      dbId: r.id,
+      id: r.exercise_id,
+      name,
+      target_muscle,
+      last_weight_kg: lastCardio ? null : last?.weight_kg ?? null,
+      last_reps: lastCardio ? null : last?.reps ?? null,
+      last_cardio: lastCardio,
+    }
   })
 
   return NextResponse.json({ extras })

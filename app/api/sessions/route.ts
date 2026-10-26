@@ -48,6 +48,9 @@ export async function POST(request: Request) {
     rir: s.rir,
     is_warmup: s.is_warmup ?? false,
     plan_exercise_id: s.plan_exercise_id ?? null,
+    duration_seconds: s.duration_seconds ?? null,
+    distance_km: s.distance_km ?? null,
+    calories_kcal: s.calories_kcal ?? null,
   }))
 
   const { error: setsError } = await supabase
@@ -70,9 +73,11 @@ export async function POST(request: Request) {
     if (fillError) console.error('[fill_plan_weights]', fillError.message)
   }
 
-  // exercise_bests テーブルで自己最高記録と比較・更新
-  const workingSets = sets.filter(s => !s.is_warmup)
+  // exercise_bests テーブルで自己最高記録と比較・更新。有酸素の記録（時間あり）は重量・回数が無いので数えない
+  const workingSets = sets.filter(s => !s.is_warmup && s.duration_seconds == null)
   const exerciseIds = [...new Set(workingSets.map(s => s.exercise_id))]
+  // 「前回の記録」の参照（recent_session_ids）は有酸素も含める
+  const recordedExerciseIds = [...new Set(sets.filter(s => !s.is_warmup).map(s => s.exercise_id))]
   let is_improved = false
   let is_volume_up = false
 
@@ -145,9 +150,11 @@ export async function POST(request: Request) {
     })
     const { error: bestsError } = await supabase.from('exercise_bests').upsert(upserts)
     if (bestsError) console.error('[exercise_bests upsert]', bestsError.message)
+  }
 
+  if (recordedExerciseIds.length > 0) {
     const { error: rpcError } = await supabase.rpc('update_recent_session_ids', {
-      p_exercise_ids: exerciseIds,
+      p_exercise_ids: recordedExerciseIds,
       p_session_id: session.id,
     })
     if (rpcError) console.error('[update_recent_session_ids]', rpcError.message)
@@ -169,7 +176,7 @@ export async function GET(request: Request) {
 
   const { data: sessions, error, count } = await supabase
     .from('training_sessions')
-    .select('*, training_sets(id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup, created_at)', { count: 'exact' })
+    .select('*, training_sets(id, session_id, exercise_id, set_number, weight_kg, reps, rir, is_warmup, duration_seconds, distance_km, calories_kcal, created_at)', { count: 'exact' })
     .eq('user_id', user.id)
     .order('trained_at', { ascending: false })
     .range(offset, offset + limit - 1)

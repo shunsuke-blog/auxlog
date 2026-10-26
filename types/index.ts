@@ -97,6 +97,24 @@ export type UserExercise = {
    *  （その場合requires_one_rmも常にfalseなので、hasOneRm判定でこのフィールドが
    *  参照されることはない）。 */
   movement_pattern: string | null;
+  /** 有酸素運動の種目か（custom_target_muscle = 'cardio'、2026-10-26）。記録は時間・距離・消費カロリーで、
+   *  提案・自己ベスト・部位ごとのセット数には数えない。target_muscle は部位の型に無いので仮の値になる */
+  is_cardio: boolean;
+  /** 有酸素の一覧（cardio_master）から追加した種目なら、その ID */
+  cardio_master_id: string | null;
+};
+
+/** 有酸素運動の種目の印（user_exercises.custom_target_muscle に入れる値） */
+export const CARDIO_MUSCLE = 'cardio';
+
+/** 有酸素運動の種目の一覧（cardio_master） */
+export type CardioMaster = {
+  id: string;
+  code: string;
+  name: string;
+  sort_order: number;
+  /** 距離を入れる欄を出すか（縄跳び・ステアクライマーは出さない） */
+  tracks_distance: boolean;
 };
 
 export type TrainingSet = {
@@ -109,6 +127,10 @@ export type TrainingSet = {
   rir: boolean;
   is_warmup: boolean;
   created_at: string;
+  /** 有酸素運動の記録だけ（2026-10-26）。重量・回数は 0 */
+  duration_seconds?: number | null;
+  distance_km?: number | null;
+  calories_kcal?: number | null;
 };
 
 export type TrainingSession = {

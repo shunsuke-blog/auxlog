@@ -47,6 +47,8 @@ export async function recomputeExerciseBests(supabase: SupabaseClient, userId: s
         .eq('training_sessions.user_id', userId)
         .eq('exercise_id', exerciseId)
         .eq('is_warmup', false)
+        // 有酸素の記録（時間あり）は自己ベストに数えない
+        .is('duration_seconds', null)
         .order('id')
         .range(from, from + PAGE - 1)
       if (error) return

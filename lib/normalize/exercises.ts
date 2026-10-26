@@ -1,5 +1,5 @@
 import type { UserExercise, TargetMuscle, IntensityTechnique } from '@/types'
-import { TARGET_MUSCLE_LABELS } from '@/types'
+import { TARGET_MUSCLE_LABELS, CARDIO_MUSCLE } from '@/types'
 import { TRAINING } from '@/lib/constants/training'
 
 /**
@@ -22,6 +22,7 @@ export type RawUserExercise = {
   is_compound?: boolean
   created_at: string
   recent_session_ids?: string[] | null
+  cardio_master_id?: string | null
   exercise_master: { name: string; target_muscle: string; is_bodyweight: boolean; is_compound?: boolean; intensity_technique?: IntensityTechnique; requires_one_rm?: boolean; movement_pattern?: string | null } | null
 }
 
@@ -81,6 +82,8 @@ function normalizeExercise(e: RawUserExercise): UserExercise {
     movement_pattern,
     weight_increment_kg,
     recent_session_ids: e.recent_session_ids ?? [],
+    is_cardio: e.custom_target_muscle === CARDIO_MUSCLE,
+    cardio_master_id: e.cardio_master_id ?? null,
   }
 }
 

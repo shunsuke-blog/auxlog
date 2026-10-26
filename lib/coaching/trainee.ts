@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { formatCardio } from '@/lib/record/cardio'
 
 // トレーニー側のコーチングモードのデータ読み込み。すべてトレーニー本人のセッション（RLS）で読む。
 // プランを読めるのは契約中（active）で、共有済み・開始済みのプランだけ（can_read_plan）。
@@ -329,12 +330,12 @@ export type OffPlanRecord = { exerciseId: string; name: string; trainedOn: strin
 export async function loadOffPlanRecords(supabase: SupabaseClient, userId: string, from: string, to: string): Promise<OffPlanRecord[]> {
   const { data } = await supabase
     .from('training_sets')
-    .select('exercise_id, set_number, weight_kg, reps, is_warmup, training_sessions!inner(user_id, trained_at), user_exercises(custom_name, exercise_master(name))')
+    .select('exercise_id, set_number, weight_kg, reps, is_warmup, duration_seconds, distance_km, calories_kcal, training_sessions!inner(user_id, trained_at), user_exercises(custom_name, exercise_master(name))')
     .eq('training_sessions.user_id', userId)
     .gte('training_sessions.trained_at', from)
     .lte('training_sessions.trained_at', to)
     .is('plan_exercise_id', null)
-  type Row = { exercise_id: string; set_number: number; weight_kg: number | string; reps: number; is_warmup: boolean; training_sessions: { trained_at: string }; user_exercises: { custom_name: string | null; exercise_master: { name: string } | null } | null }
+  type Row = { exercise_id: string; set_number: number; weight_kg: number | string; reps: number; is_warmup: boolean; duration_seconds: number | null; distance_km: number | string | null; calories_kcal: number | null; training_sessions: { trained_at: string }; user_exercises: { custom_name: string | null; exercise_master: { name: string } | null } | null }
   const byKey = new Map<string, { exerciseId: string; name: string; trainedOn: string; sets: Row[] }>()
   for (const r of (data ?? []) as unknown as Row[]) {
     const key = `${r.exercise_id}:${r.training_sessions.trained_at}`
@@ -348,6 +349,8 @@ export async function loadOffPlanRecords(supabase: SupabaseClient, userId: strin
       exerciseId: e.exerciseId,
       name: e.name,
       trainedOn: e.trainedOn,
-      sets: e.sets.filter(s => !s.is_warmup).sort((a, b) => a.set_number - b.set_number).map(s => `${Number(s.weight_kg)}kg×${s.reps}`).join(' / '),
+      // 有酸素は「30分 · 5.0km（6:00/km）」の形（2026-10-26）
+      sets: e.sets.filter(s => !s.is_warmup).sort((a, b) => a.set_number - b.set_number)
+        .map(s => (s.duration_seconds != null ? formatCardio(s) : `${Number(s.weight_kg)}kg×${s.reps}`)).join(' / '),
     }))
 }

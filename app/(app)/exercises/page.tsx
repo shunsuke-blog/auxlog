@@ -198,7 +198,9 @@ export default function ExercisesPage() {
     showToast('種目と履歴を削除しました')
   }
 
-  const grouped = exercises.reduce<Partial<Record<TargetMuscle, UserExercise[]>>>((acc, ex) => {
+  // 有酸素は部位のまとまりに入れず、最後に「有酸素」として出す（2026-10-26）
+  const cardio = exercises.filter(ex => ex.is_cardio)
+  const grouped = exercises.filter(ex => !ex.is_cardio).reduce<Partial<Record<TargetMuscle, UserExercise[]>>>((acc, ex) => {
     if (!acc[ex.target_muscle]) acc[ex.target_muscle] = []
     acc[ex.target_muscle]!.push(ex)
     return acc
@@ -223,13 +225,12 @@ export default function ExercisesPage() {
             <p className="text-sm">種目がまだ登録されていません</p>
           </div>
         ) : (
-          MUSCLE_ORDER.map(muscle => {
-            const group = grouped[muscle]
+          [...MUSCLE_ORDER.map(muscle => ({ key: muscle as string, label: TARGET_MUSCLE_LABELS[muscle], group: grouped[muscle] })), { key: 'cardio', label: '有酸素', group: cardio }].map(({ key, label, group }) => {
             if (!group?.length) return null
             return (
-              <div key={muscle}>
+              <div key={key}>
                 <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500  mb-3">
-                  {TARGET_MUSCLE_LABELS[muscle]}
+                  {label}
                 </h2>
                 <div className="space-y-2">
                   {group.map(ex => (

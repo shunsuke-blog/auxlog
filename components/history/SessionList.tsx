@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Pencil, ChevronDown, PenLine } from 'lucide-react'
 import type { UserExercise, HistorySession } from '@/types'
+import { formatCardio } from '@/lib/record/cardio'
 
 type Props = {
   sessions: HistorySession[]
@@ -63,7 +64,7 @@ export default function SessionList({ sessions, exercises }: Props) {
                 <span className="text-xs text-zinc-400">疲労度 {session.fatigue_level}</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {/* 有酸素ボリューム */}
+                {/* 総ボリューム（重量×回数） */}
                 {session.total_volume > 0 && (
                   <span className="text-xs text-zinc-400">
                     {session.total_volume.toLocaleString()}kg
@@ -94,6 +95,24 @@ export default function SessionList({ sessions, exercises }: Props) {
                 if (exSets.length === 0) return null
 
                 const name = exercise?.name ?? '不明な種目'
+                // 有酸素は時間・距離・消費カロリーを1行で出す（セットの表は出さない、2026-10-26）
+                const cardioSet = exSets.find(s => s.duration_seconds != null)
+                if (cardioSet) {
+                  return (
+                    <div key={exId} className="flex items-center w-full">
+                      <div className="flex-1 flex items-center justify-between gap-3 px-5 py-3 min-w-0">
+                        <span className="text-sm text-zinc-700 dark:text-zinc-300 min-w-0">{name}</span>
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums text-right shrink-0">{formatCardio(cardioSet)}</span>
+                      </div>
+                      <Link
+                        href={`/record/edit/${cardioSet.session_id}?exerciseId=${exId}`}
+                        className="px-3 py-3 text-zinc-300 dark:text-zinc-700 hover:text-black dark:hover:text-white transition-colors shrink-0"
+                      >
+                        <PenLine className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
+                  )
+                }
                 const isBodyweight = exercise?.is_bodyweight ?? false
                 const maxWeight = Math.max(...exSets.map(s => s.weight_kg))
                 // 自重種目はウォームアップ除いた合計回数を表示

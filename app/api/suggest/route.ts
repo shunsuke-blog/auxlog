@@ -23,7 +23,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ suggestions: [], warnings: [] })
   }
 
-  const normalizedExercises = normalizeExercises(exercises)
+  // 有酸素は重量・回数の提案・部位のセット数の対象外（2026-10-26）
+  const normalizedExercises = normalizeExercises(exercises).filter(e => !e.is_cardio)
 
   // recent_session_ids（最大3件/種目）から対象セッション ID を収集
   const recentSessionIds = [...new Set(normalizedExercises.flatMap(e => e.recent_session_ids))]
