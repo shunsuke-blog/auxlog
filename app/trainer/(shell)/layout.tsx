@@ -12,16 +12,18 @@ export default async function TrainerLayout({ children }: { children: React.Reac
   if (!user) redirect('/login?next=/trainer/dashboard')
   const profile = await getTrainerProfile(supabase, user.id)
   if (!profile) redirect('/trainer/start')
-  // ビジネスでチームがまだ無い間は、チームを作るだけの画面にする（2026-10-26 オーナー指摘）
+  // ビジネスでチームがまだ無い間は、チームを作るだけの画面にする。管理だけの管理者はタブを減らす（2026-10-26 オーナー指摘）
+  let managerOnly = false
   if (profile.plan === 'business') {
-    const { data: owned } = await supabase.from('organizations').select('id').eq('owner_user_id', user.id).maybeSingle()
+    const { data: owned } = await supabase.from('organizations').select('owner_is_trainer').eq('owner_user_id', user.id).maybeSingle()
     if (!owned) redirect('/trainer/team-setup')
+    managerOnly = !owned.owner_is_trainer
   }
 
   const [usage, cookieStore] = await Promise.all([loadPlanUsage(supabase, user.id, profile.plan), cookies()])
   const collapsed = cookieStore.get(NAV_COLLAPSED_COOKIE)?.value === '1'
   return (
-    <TrainerShell initialCollapsed={collapsed}>
+    <TrainerShell initialCollapsed={collapsed} managerOnly={managerOnly}>
       {/* 有料プランをやめるなどして上限を超えている間は、テンプレートの作成・編集・招待などが止まる（DB の
           assert_trainer_within_limit）。なぜ止まっているか・どうすれば戻るかを全画面の上に出す（2026-10-26） */}
       {usage.over && usage.limit != null && (

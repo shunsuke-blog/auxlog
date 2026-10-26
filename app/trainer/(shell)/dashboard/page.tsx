@@ -1,10 +1,11 @@
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ClipboardPlus, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { loadDashboard } from '@/lib/trainer/dashboard_data'
 import { formatActivityTime, HIGHLIGHT_DAYS } from '@/lib/trainer/dashboard'
 import { loadPlanUsage } from '@/lib/trainer/plan_usage'
-import { getTeamContext, loadUsableTemplates } from '@/lib/trainer/team'
+import { getTeamContext, isManagerOnly, loadUsableTemplates } from '@/lib/trainer/team'
 import { getTrainerProfile } from '@/lib/trainer/session'
 import AddTraineeButton from '../AddTraineeButton'
 import { ProgressBar } from '../TraineeListItem'
@@ -25,6 +26,7 @@ export default async function TrainerDashboardPage() {
     getTrainerProfile(supabase, user.id),
     getTeamContext(supabase, user.id),
   ])
+  if (isManagerOnly(team)) redirect('/trainer/team')
   const [plan, templateOptions] = await Promise.all([
     loadPlanUsage(supabase, user.id, profile?.plan ?? 'starter', team),
     loadUsableTemplates(supabase, user.id, team),

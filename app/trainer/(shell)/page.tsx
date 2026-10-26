@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
@@ -7,7 +8,7 @@ import TraineeListItem from './TraineeListItem'
 import TraineeDetailPanel from './TraineeDetailPanel'
 import AddTraineeButton from './AddTraineeButton'
 import { loadPlanUsage } from '@/lib/trainer/plan_usage'
-import { getTeamContext, loadUsableTemplates } from '@/lib/trainer/team'
+import { getTeamContext, isManagerOnly, loadUsableTemplates } from '@/lib/trainer/team'
 
 // トレーニー一覧（2026-10-19 決定）: 一番上に自分自身、その下にトレーニー。契約終了はグレーで一番下。
 // 名前・状態・最後に記録した日・今週の進み具合（4 / 6 種目＋バー、スキップは別表示）・アラート「！」。
@@ -23,6 +24,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
     loadTraineeRows(supabase, user.id),
     getTeamContext(supabase, user.id),
   ])
+  if (isManagerOnly(team)) redirect('/trainer/team')
   const [plan, templateOptions] = await Promise.all([
     loadPlanUsage(supabase, user.id, profile?.plan ?? 'starter', team),
     loadUsableTemplates(supabase, user.id, team),

@@ -7,6 +7,11 @@ import type { TrainerPlan } from './session'
 /** ビジネスプランの基本のトレーナー枠。4名以上はご相談のうえ追加（organizations.extra_trainer_seats） */
 export const TEAM_BASE_TRAINERS = 3
 
+/** 管理だけの管理者（クライアントを担当しない）。ダッシュボード・クライアント一覧は出さず、チームを最初の画面にする（2026-10-26 オーナー決定） */
+export function isManagerOnly(team: TeamContext): boolean {
+  return team.role === 'owner' && team.active && !team.ownerIsTrainer
+}
+
 export type TeamMember = { membershipId: string; trainerId: string; name: string; status: 'pending' | 'approved' }
 
 export type TeamContext =

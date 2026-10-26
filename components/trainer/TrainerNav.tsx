@@ -7,17 +7,19 @@ import { Users, ClipboardList, LayoutDashboard, Settings, PanelLeftClose, PanelL
 // トレーナー画面のタブ（2026-10-19 決定: 一覧／プログラム（テンプレート管理）／ダッシュボード／設定。2026-10-19 に管理画面から改名）。
 // 2026-10-25: ダッシュボードを最初のタブにする（ログインした時の最初の画面、オーナー決定）。
 // 2026-10-26: ビジネスプランのチームを追加（参加・管理・チーム全体のクライアントの閲覧）。
+// 2026-10-26: 管理だけの管理者（クライアントを担当しない）は、チーム・プログラム・設定だけ。
 // PC（md以上）は左のサイドバー、スマホは下部のタブで表示する。
 const tabs = [
-  { href: '/trainer/dashboard', label: 'ダッシュボード', icon: LayoutDashboard },
-  { href: '/trainer', label: 'クライアント一覧', icon: Users },
+  { href: '/trainer/dashboard', label: 'ダッシュボード', icon: LayoutDashboard, forClients: true },
+  { href: '/trainer', label: 'クライアント一覧', icon: Users, forClients: true },
   { href: '/trainer/programs', label: 'プログラム', icon: ClipboardList },
   { href: '/trainer/team', label: 'チーム', icon: Building2 },
   { href: '/trainer/settings', label: '設定', icon: Settings },
 ]
 
-export default function TrainerNav({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+export default function TrainerNav({ collapsed, onToggle, managerOnly }: { collapsed: boolean; onToggle: () => void; managerOnly: boolean }) {
   const pathname = usePathname()
+  const shown = managerOnly ? tabs.filter(t => !('forClients' in t)) : tabs
   const isActive = (href: string) => (href === '/trainer' ? pathname === '/trainer' : pathname.startsWith(href))
 
   return (
@@ -45,7 +47,7 @@ export default function TrainerNav({ collapsed, onToggle }: { collapsed: boolean
           </button>
         </div>
         <nav className={`flex-1 space-y-1 ${collapsed ? 'px-2' : 'px-3'}`}>
-          {tabs.map(({ href, label, icon: Icon }) => {
+          {shown.map(({ href, label, icon: Icon }) => {
             const active = isActive(href)
             return (
               <Link
@@ -71,7 +73,7 @@ export default function TrainerNav({ collapsed, onToggle }: { collapsed: boolean
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex items-center max-w-lg mx-auto">
-          {tabs.map(({ href, label, icon: Icon }) => {
+          {shown.map(({ href, label, icon: Icon }) => {
             const active = isActive(href)
             return (
               <Link key={href} href={href} className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2.5">
