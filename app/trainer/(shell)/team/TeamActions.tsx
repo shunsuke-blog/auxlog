@@ -66,7 +66,9 @@ export function CreateTeamForm({ displayName }: { displayName: string }) {
         <p className="text-xs text-zinc-500">あとからチームの画面で変えられます。</p>
       </fieldset>
       {error && <p className="text-sm text-red-500">{error}</p>}
-      <button type="submit" disabled={busy || !name.trim() || !myName.trim() || ownerIsTrainer == null} className={primaryClass}>{busy ? '作成中…' : 'チームを作る'}</button>
+      <div className="flex justify-end">
+        <button type="submit" disabled={busy || !name.trim() || !myName.trim() || ownerIsTrainer == null} className={primaryClass}>{busy ? '作成中…' : 'チームを作る'}</button>
+      </div>
     </form>
   )
 }
