@@ -9,6 +9,8 @@ export type TraineeLink = {
   trainerName: string
   status: 'active' | 'paused'
   startedAt: string
+  /** トレーナーが自分自身に割り当てたプラン（自分自身との契約）。契約の終了・招待コードの入力の制限は出さない */
+  isSelf: boolean
 }
 
 export type LivePlan = {
@@ -51,7 +53,8 @@ export type CoachingDay = {
   exercises: CoachingExercise[]
 }
 
-/** トレーナー自身との契約を除いた、契約中・一時停止中の契約（トレーニーは同時に1件まで） */
+/** 契約中・一時停止中の契約（トレーナー自身との契約を除き、トレーニーは同時に1件まで）。
+ *  無ければ、トレーナーが自分自身に割り当てたプランがある時だけ自分自身との契約（2026-10-26） */
 export async function getTraineeLink(supabase: SupabaseClient, userId: string): Promise<TraineeLink | null> {
   const { data } = await supabase
     .from('trainer_trainee_links')
@@ -60,7 +63,7 @@ export async function getTraineeLink(supabase: SupabaseClient, userId: string): 
     .neq('trainer_id', userId)
     .in('status', ['active', 'paused'])
     .maybeSingle()
-  if (!data) return null
+  if (!data) return getSelfLink(supabase, userId)
   const { data: profile } = await supabase
     .from('trainer_profiles')
     .select('display_name')
@@ -72,7 +75,21 @@ export async function getTraineeLink(supabase: SupabaseClient, userId: string): 
     trainerName: profile?.display_name ?? 'トレーナー',
     status: data.status,
     startedAt: data.started_at,
+    isSelf: false,
   }
+}
+
+async function getSelfLink(supabase: SupabaseClient, userId: string): Promise<TraineeLink | null> {
+  const { data } = await supabase
+    .from('trainer_trainee_links')
+    .select('id, started_at, trainee_display_name, coaching_plans!inner(id)')
+    .eq('trainee_id', userId)
+    .eq('trainer_id', userId)
+    .eq('status', 'active')
+    .in('coaching_plans.status', ['shared', 'active'])
+    .maybeSingle()
+  if (!data) return null
+  return { linkId: data.id, trainerId: userId, trainerName: data.trainee_display_name, status: 'active', startedAt: data.started_at, isSelf: true }
 }
 
 export async function getLivePlan(supabase: SupabaseClient, linkId: string): Promise<LivePlan | null> {

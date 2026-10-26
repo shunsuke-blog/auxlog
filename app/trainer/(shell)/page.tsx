@@ -30,7 +30,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
   const plan = TRAINER_PLANS[profile?.plan ?? 'starter']
   const templateOptions: TemplateOption[] = (templates ?? []).map(t => ({ id: t.id as string, name: t.name as string }))
 
-  const selected = rows.find(r => r.linkId === selectedId && !r.isSelf) ?? null
+  const selected = rows.find(r => r.linkId === selectedId) ?? null
 
   return (
     // 見出しの帯は一覧と詳細の両方の上に、右端まで伸ばす（2026-10-25 オーナー指摘）。PC は帯の下を一覧と詳細の2列にし、
@@ -44,17 +44,16 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
       <section className={`md:w-[420px] md:shrink-0 md:border-r border-zinc-100 dark:border-zinc-900 md:overflow-y-auto ${selected ? 'hidden md:block' : ''}`}>
         <div className="px-4 py-4 space-y-2">
           {rows.filter(r => r.isSelf).map(r => (
-            // 自分の行はトレーニー用の画面へ切り替える（prefetch しない: Cookieを立てるルートのため）
+            // 自分の行も他のクライアントと同じく右に詳細を出す。自分のトレーニー画面へは詳細のボタンから（2026-10-26）
             <Link
               key={r.linkId}
-              href="/trainer/self"
-              prefetch={false}
-              className="flex items-center justify-between px-4 py-3.5 rounded-2xl trainer-card hover:bg-zinc-50 dark:hover:bg-zinc-950"
+              href={`/trainer?id=${r.linkId}`}
+              className={`flex items-center justify-between px-4 py-3.5 rounded-2xl ${r.linkId === selected?.linkId ? 'border border-brand bg-brand-soft' : 'trainer-card hover:bg-zinc-50 dark:hover:bg-zinc-950'}`}
             >
               <div>
                 <p className="text-sm font-semibold text-black dark:text-white">{profile?.display_name ?? r.name}（自分）</p>
                 <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                  自分のトレーニングを開く{r.lastTrainedOn && <span className="ml-3">最終記録 {r.lastTrainedOn.slice(5).replace('-', '/')}</span>}
+                  {r.plan && r.plan.status !== 'ended' ? r.plan.name : 'セルフモード'}{r.lastTrainedOn && <span className="ml-3">最終記録 {r.lastTrainedOn.slice(5).replace('-', '/')}</span>}
                 </p>
               </div>
               <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
@@ -77,7 +76,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
               <ChevronLeft className="w-4 h-4" />
               一覧
             </Link>
-            <TraineeDetailPanel row={selected} />
+            <TraineeDetailPanel row={selected} templates={templateOptions} selfName={profile?.display_name ?? selected.name} />
           </>
         ) : (
           <div className="flex items-center justify-center h-full py-24 text-sm text-zinc-400 dark:text-zinc-500">

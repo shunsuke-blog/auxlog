@@ -23,22 +23,25 @@ export default function ActionBand({ alerts, todos }: { alerts: Item[]; todos: I
 
   return (
     <section className="px-4 md:px-5 py-4 rounded-2xl trainer-card space-y-3">
-      <h2 className="text-xs font-semibold text-zinc-400">対応すること</h2>
+      {/* 開く・閉じるボタンは見出しの右に置き、押した後もマウスの位置を変えずに押し直せるようにする（2026-10-26 オーナー指摘） */}
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xs font-semibold text-zinc-400">対応すること</h2>
+        {hidden > 0 && (
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            aria-expanded={open}
+            className="text-sm font-medium text-brand-text hover:underline"
+          >
+            {open ? '閉じる' : `ほか${hidden}件を表示`}
+          </button>
+        )}
+      </div>
       <div className="grid gap-4 md:grid-cols-2 md:gap-6">
         {/* アラート（トレーニーの様子の異変）を先、ToDo（トレーナーがやる作業）を後に */}
         <Group title="アラート" items={alerts} open={open} urgent />
         <Group title="ToDo" items={todos} open={open} />
       </div>
-      {hidden > 0 && (
-        <button
-          type="button"
-          onClick={() => setOpen(o => !o)}
-          aria-expanded={open}
-          className="text-sm font-medium text-brand-text hover:underline"
-        >
-          {open ? '閉じる' : `ほか${hidden}件を表示`}
-        </button>
-      )}
     </section>
   )
 }

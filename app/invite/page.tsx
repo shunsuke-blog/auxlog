@@ -14,5 +14,5 @@ export default async function InvitePage() {
     supabase.from('user_program_enrollments').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
   ])
 
-  return <InviteForm currentTrainerName={link?.trainerName ?? null} hasSelfProgram={!!enrollment} />
+  return <InviteForm currentTrainerName={link && !link.isSelf ? link.trainerName : null} hasSelfProgram={!!enrollment} />
 }

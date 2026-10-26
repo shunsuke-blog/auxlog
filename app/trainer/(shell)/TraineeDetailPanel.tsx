@@ -5,17 +5,29 @@ import { loadTraineeDetail, type TraineeRow } from '@/lib/trainer/trainees'
 import { ProgressBar, STATUS_LABELS } from './TraineeListItem'
 import DetailActions from './DetailActions'
 import TraineeNameEditor from './TraineeNameEditor'
+import SelfPlanActions from './SelfPlanActions'
+import type { TemplateOption } from './TemplateOneRmFields'
 import { formatMonthDay, todayInJapan, weekDateRange } from '@/lib/coaching/week_dates'
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' })
 
 // トレーニーの詳細: 契約の状態とプラン、契約期間内の記録、（契約中のみ）自己ベストと1RM。
-export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
+// 自分の行（isSelf）は契約の表示・名前の変更・契約の終了の代わりに、自分のトレーニー画面を開くボタンと
+// 自分に割り当てるプログラムの変更を出す（2026-10-26）。
+export default async function TraineeDetailPanel({ row, templates, selfName }: { row: TraineeRow; templates: TemplateOption[]; selfName: string }) {
   const supabase = await createClient()
   const detail = row.traineeId && row.status !== 'invited' ? await loadTraineeDetail(supabase, row.traineeId) : null
 
   return (
     <div className="px-4 md:px-6 py-4 md:py-6 space-y-5">
+      {row.isSelf ? (
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold text-black dark:text-white">{selfName}（自分）</h2>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            {row.plan && row.plan.status !== 'ended' ? '割り当てたプログラムで記録しています' : 'セルフモード（自動で作るプログラム）で記録しています'}
+          </p>
+        </div>
+      ) : (
       <div className="space-y-1">
         <div className="flex items-center gap-2 min-w-0">
           <TraineeNameEditor key={row.name} linkId={row.linkId} name={row.name} />
@@ -25,6 +37,7 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
           {row.startedAt ? `契約期間 ${fmtDate(row.startedAt)} 〜 ${row.endedAt ? fmtDate(row.endedAt) : ''}` : 'まだ招待コードが入力されていません'}
         </p>
       </div>
+      )}
 
       {row.alerts.length > 0 && (
         <div className="px-4 py-3 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/40 space-y-1">
@@ -37,7 +50,7 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
         </div>
       )}
 
-      {row.plan && (
+      {row.plan && !(row.isSelf && row.plan.status === 'ended') && (
         <div className="px-5 py-4 rounded-2xl trainer-card space-y-2">
           <p className="text-xs font-semibold text-zinc-400 ">プラン</p>
           <p className="text-sm font-semibold text-black dark:text-white">{row.plan.name}</p>
@@ -64,7 +77,9 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
         </div>
       )}
 
-      <DetailActions linkId={row.linkId} status={row.status} invite={row.invite} />
+      {row.isSelf
+        ? <SelfPlanActions templates={templates} hasPlan={!!row.plan && row.plan.status !== 'ended'} />
+        : <DetailActions linkId={row.linkId} status={row.status} invite={row.invite} />}
 
       {detail && (detail.oneRms.length > 0 || detail.bests.length > 0) && (
         <div className="grid md:grid-cols-2 gap-4">
@@ -97,7 +112,7 @@ export default async function TraineeDetailPanel({ row }: { row: TraineeRow }) {
 
       {detail && (
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-zinc-400 ">記録（契約期間内・直近20回）</p>
+          <p className="text-xs font-semibold text-zinc-400 ">{row.isSelf ? '記録（直近20回）' : '記録（契約期間内・直近20回）'}</p>
           {detail.sessions.length === 0 ? (
             <p className="text-sm text-zinc-400 dark:text-zinc-500 py-4">まだ記録がありません。</p>
           ) : (
