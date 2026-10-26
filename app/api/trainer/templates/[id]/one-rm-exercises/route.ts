@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { loadTemplateOneRmExercises } from '@/lib/trainer/templateOneRm'
 
-// トレーニー追加のダイアログで、選んだテンプレートの1RMを聞く種目を返す（RLS で自分のテンプレートだけ読める）
+// トレーニー追加のダイアログで、選んだテンプレートの1RMを聞く種目を返す（RLS で自分のテンプレートと、チームの管理者のテンプレートだけ読める）
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient(request)
   const { data: { user } } = await supabase.auth.getUser()

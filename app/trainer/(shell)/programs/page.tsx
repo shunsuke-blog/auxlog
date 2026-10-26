@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import TemplateList, { type TemplateSummary } from './TemplateList'
+import TemplateList, { type TeamTemplate, type TemplateSummary } from './TemplateList'
+import { getTeamContext } from '@/lib/trainer/team'
 
 type TemplateRow = {
   id: string
@@ -11,15 +12,20 @@ type TemplateRow = {
   plan_days: { day_number: number; week_number: number }[]
 }
 
-// プログラム（テンプレート）一覧。テンプレート = link_id が null の coaching_plans（RLSで自分の分だけ読める）。
+// プログラム（テンプレート）一覧。テンプレート = link_id が null の coaching_plans。
+// チームの管理者はメンバーのテンプレートも RLS で読めるため、自分のものに絞る。メンバーには管理者のテンプレートを別に出す。
 export default async function TrainerProgramsPage({ searchParams }: { searchParams: Promise<{ create?: string }> }) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const team = await getTeamContext(supabase, user.id)
 
-  const [{ data: templates }, { data: shared }] = await Promise.all([
+  const [{ data: templates }, { data: shared }, { data: teamRows }] = await Promise.all([
     supabase
       .from('coaching_plans')
       .select('id, name, total_weeks, updated_at, source, generation_inputs, plan_days(day_number, week_number)')
       .is('link_id', null)
+      .eq('trainer_id', user.id)
       // 日数を出すだけなので Week 1 の Day だけ読む（全週は読まない、レビュー対応 M5）
       .eq('plan_days.week_number', 1)
       .order('updated_at', { ascending: false }),
@@ -28,7 +34,17 @@ export default async function TrainerProgramsPage({ searchParams }: { searchPara
       .from('coaching_plans')
       .select('based_on_plan_id, status, current_week, total_weeks, link_id, trainer_trainee_links(trainee_display_name, status)')
       .not('link_id', 'is', null)
+      .eq('trainer_id', user.id)
       .in('status', ['shared', 'active']),
+    team.role === 'member' && team.active
+      ? supabase
+        .from('coaching_plans')
+        .select('id, name, total_weeks, plan_days(day_number, week_number)')
+        .is('link_id', null)
+        .eq('trainer_id', team.ownerId)
+        .eq('plan_days.week_number', 1)
+        .order('updated_at', { ascending: false })
+      : Promise.resolve({ data: [] }),
   ])
 
   type SharedRow = {
@@ -60,5 +76,19 @@ export default async function TrainerProgramsPage({ searchParams }: { searchPara
     updatedAt: t.updated_at,
   }))
 
-  return <TemplateList templates={summaries} initialCreating={(await searchParams).create === '1'} />
+  const teamTemplates: TeamTemplate[] = ((teamRows ?? []) as { id: string; name: string; total_weeks: number; plan_days: { day_number: number }[] }[]).map(t => ({
+    id: t.id,
+    name: t.name,
+    totalWeeks: t.total_weeks,
+    daysPerWeek: Math.max(0, ...t.plan_days.map(d => d.day_number)),
+  }))
+
+  return (
+    <TemplateList
+      templates={summaries}
+      initialCreating={(await searchParams).create === '1'}
+      teamTemplates={teamTemplates}
+      teamName={team.role === 'member' ? team.orgName : undefined}
+    />
+  )
 }

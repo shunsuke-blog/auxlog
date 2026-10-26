@@ -51,7 +51,7 @@ export async function loadTraineeRows(supabase: SupabaseClient, trainerId: strin
     supabase.from('trainer_invites').select('link_id, code, expires_at, created_at').in('link_id', linkIds).is('used_at', null).is('revoked_at', null).order('created_at', { ascending: false }),
     // 最後の記録日と停滞アラート用のセットは DB で集計して1つの値で受け取る（行のまま読むと
     // 1000行の上限で黙って切れるため）。契約期間外の記録は RLS で除かれる
-    activity !== undefined || traineeIds.length === 0 ? Promise.resolve({ data: activity ?? null }) : supabase.rpc('trainer_trainee_activity', { p_since: since }),
+    activity !== undefined || traineeIds.length === 0 ? Promise.resolve({ data: activity ?? null }) : supabase.rpc('trainer_trainee_activity', { p_since: since, p_trainer: trainerId }),
   ])
 
   // 契約ごとに表示するプラン: 進行中（共有済み・開始済み）を優先し、無ければ最新

@@ -22,12 +22,13 @@ export function ProgressBar({ done, total }: { done: number; total: number }) {
   )
 }
 
-export default function TraineeListItem({ row, selected }: { row: TraineeRow; selected: boolean }) {
+// href: チームの管理者がメンバーのクライアントを見る時は、チーム画面の中で詳細を開く（2026-10-26）
+export default function TraineeListItem({ row, selected, href }: { row: TraineeRow; selected: boolean; href?: string }) {
   const ended = row.status === 'ended'
   const startsLater = row.plan?.startDate && row.plan.startDate > todayInJapan() ? row.plan.startDate : null
   return (
     <Link
-      href={`/trainer?id=${row.linkId}`}
+      href={href ?? `/trainer?id=${row.linkId}`}
       className={`block px-4 py-3.5 rounded-2xl transition-colors ${
         selected ? 'border border-brand bg-brand-soft' : 'trainer-card hover:bg-zinc-50'
       } ${ended ? 'opacity-50' : ''}`}

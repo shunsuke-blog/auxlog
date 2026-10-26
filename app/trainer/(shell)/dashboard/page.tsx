@@ -2,9 +2,11 @@ import Link from 'next/link'
 import { ClipboardPlus, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { loadDashboard } from '@/lib/trainer/dashboard_data'
-import { formatActivityTime, HIGHLIGHT_DAYS, TRAINER_PLANS } from '@/lib/trainer/dashboard'
+import { formatActivityTime, HIGHLIGHT_DAYS } from '@/lib/trainer/dashboard'
+import { loadPlanUsage } from '@/lib/trainer/plan_usage'
+import { getTeamContext, loadUsableTemplates } from '@/lib/trainer/team'
 import { getTrainerProfile } from '@/lib/trainer/session'
-import AddTraineeButton, { type TemplateOption } from '../AddTraineeButton'
+import AddTraineeButton from '../AddTraineeButton'
 import { ProgressBar } from '../TraineeListItem'
 import ActionBand, { type Item } from './ActionBand'
 
@@ -18,14 +20,16 @@ export default async function TrainerDashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const now = new Date()
-  const [data, { data: templates }, profile] = await Promise.all([
+  const [data, profile, team] = await Promise.all([
     loadDashboard(supabase, user.id, now),
-    supabase.from('coaching_plans').select('id, name').is('link_id', null).order('updated_at', { ascending: false }),
     getTrainerProfile(supabase, user.id),
+    getTeamContext(supabase, user.id),
   ])
-  const plan = TRAINER_PLANS[profile?.plan ?? 'starter']
+  const [plan, templateOptions] = await Promise.all([
+    loadPlanUsage(supabase, user.id, profile?.plan ?? 'starter', team),
+    loadUsableTemplates(supabase, user.id, team),
+  ])
   const limitReached = plan.limit != null && data.usedSlots >= plan.limit
-  const templateOptions: TemplateOption[] = (templates ?? []).map(t => ({ id: t.id as string, name: t.name as string }))
   const { week, activity, highlights, todos } = data
   // ToDo: やることを先に書く。アラート: 今の様子（契約者一覧のアラートと同じ文言）
   const todoItems: Item[] = [

@@ -7,6 +7,7 @@ import DetailActions from './DetailActions'
 import TraineeNameEditor from './TraineeNameEditor'
 import SelfPlanActions from './SelfPlanActions'
 import type { TemplateOption } from './TemplateOneRmFields'
+import { ReassignSelect } from './team/TeamActions'
 import { formatMonthDay, todayInJapan, weekDateRange } from '@/lib/coaching/week_dates'
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' })
@@ -14,7 +15,15 @@ const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { yea
 // トレーニーの詳細: 契約の状態とプラン、契約期間内の記録、（契約中のみ）自己ベストと1RM。
 // 自分の行（isSelf）は契約の表示・名前の変更・契約の終了の代わりに、自分のトレーニー画面を開くボタンと
 // 自分に割り当てるプログラムの変更を出す（2026-10-26）。
-export default async function TraineeDetailPanel({ row, templates, selfName }: { row: TraineeRow; templates: TemplateOption[]; selfName: string }) {
+// readOnly: チームの管理者がメンバーのクライアントを見る時（名前の変更・招待・契約の終了は出さない）。
+// reassign: チームの管理者には担当替えを出す（2026-10-26）
+export default async function TraineeDetailPanel({ row, templates, selfName, readOnly = false, reassign }: {
+  row: TraineeRow
+  templates: TemplateOption[]
+  selfName: string
+  readOnly?: boolean
+  reassign?: { currentTrainerId: string; trainers: { id: string; name: string }[] }
+}) {
   const supabase = await createClient()
   const detail = row.traineeId && row.status !== 'invited' ? await loadTraineeDetail(supabase, row.traineeId) : null
 
@@ -30,7 +39,9 @@ export default async function TraineeDetailPanel({ row, templates, selfName }: {
       ) : (
       <div className="space-y-1">
         <div className="flex items-center gap-2 min-w-0">
-          <TraineeNameEditor key={row.name} linkId={row.linkId} name={row.name} />
+          {readOnly
+            ? <h2 className="text-xl font-semibold text-black dark:text-white truncate">{row.name}</h2>
+            : <TraineeNameEditor key={row.name} linkId={row.linkId} name={row.name} />}
           <span className="text-xs font-semibold px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">{STATUS_LABELS[row.status]}</span>
         </div>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -79,7 +90,11 @@ export default async function TraineeDetailPanel({ row, templates, selfName }: {
 
       {row.isSelf
         ? <SelfPlanActions templates={templates} hasPlan={!!row.plan && row.plan.status !== 'ended'} />
-        : <DetailActions linkId={row.linkId} status={row.status} invite={row.invite} />}
+        : !readOnly && <DetailActions linkId={row.linkId} status={row.status} invite={row.invite} />}
+
+      {reassign && !row.isSelf && row.status !== 'ended' && reassign.trainers.length > 1 && (
+        <ReassignSelect linkId={row.linkId} currentTrainerId={reassign.currentTrainerId} trainers={reassign.trainers} />
+      )}
 
       {detail && (detail.oneRms.length > 0 || detail.bests.length > 0) && (
         <div className="grid md:grid-cols-2 gap-4">

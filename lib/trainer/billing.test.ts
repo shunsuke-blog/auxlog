@@ -5,7 +5,7 @@ import { trainerSubscriptionUpdate } from './billing'
 
 const sub = (over: Partial<Stripe.Subscription>) => ({
   id: 'sub_1', status: 'active', cancel_at_period_end: false, cancel_at: null,
-  items: { data: [{ current_period_end: 1798000000 }] }, metadata: {}, ...over,
+  items: { data: [{ current_period_end: 1798000000, price: { metadata: { auxlog_plan: 'trainer_pro' } } }] }, metadata: {}, ...over,
 }) as unknown as Stripe.Subscription
 
 test('trainerSubscriptionUpdate: 支払い中（再試行中を含む）はプロ、終了・未払いはスターター', () => {
@@ -21,4 +21,10 @@ test('trainerSubscriptionUpdate: 更新日は品目から、解約予約は canc
   assert.equal(u.current_period_end, new Date(1798000000 * 1000).toISOString())
   assert.equal(u.cancel_at_period_end, true)
   assert.equal(trainerSubscriptionUpdate(sub({})).cancel_at_period_end, false)
+})
+
+test('trainerSubscriptionUpdate: 価格の metadata でビジネスを見分ける', () => {
+  const business = sub({ items: { data: [{ current_period_end: 1798000000, price: { metadata: { auxlog_plan: 'trainer_business' } } }] } as unknown as Stripe.Subscription['items'] })
+  assert.equal(trainerSubscriptionUpdate(business).plan, 'business')
+  assert.equal(trainerSubscriptionUpdate({ ...business, status: 'canceled' } as Stripe.Subscription).plan, 'starter')
 })

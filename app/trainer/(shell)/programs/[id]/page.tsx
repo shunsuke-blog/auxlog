@@ -8,9 +8,12 @@ type DayRow = { id: string; week_number: number; day_number: number; label: stri
 export default async function TemplateEditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) notFound()
 
+  // 編集できるのは自分のテンプレートだけ（チームのテンプレートは RLS で読めても編集画面は出さない）
   const [{ data: plan }, { data: days }, { data: master }, { data: own }] = await Promise.all([
-    supabase.from('coaching_plans').select('id, name, total_weeks, link_id').eq('id', id).is('link_id', null).maybeSingle(),
+    supabase.from('coaching_plans').select('id, name, total_weeks, link_id').eq('id', id).is('link_id', null).eq('trainer_id', user.id).maybeSingle(),
     supabase
       .from('plan_days')
       .select(`id, week_number, day_number, label,
@@ -21,7 +24,7 @@ export default async function TemplateEditorPage({ params }: { params: Promise<{
       .order('week_number')
       .order('day_number'),
     supabase.from('exercise_master').select('id, name, target_muscle, movement_pattern, requires_one_rm').order('sort_order'),
-    supabase.from('trainer_exercises').select('id, name, target_muscle').order('created_at'),
+    supabase.from('trainer_exercises').select('id, name, target_muscle').eq('trainer_id', user.id).order('created_at'),
   ])
 
   if (!plan) notFound()

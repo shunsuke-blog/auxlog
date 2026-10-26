@@ -2,15 +2,17 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, ClipboardList, LayoutDashboard, Settings, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Users, ClipboardList, LayoutDashboard, Settings, PanelLeftClose, PanelLeftOpen, Building2 } from 'lucide-react'
 
 // トレーナー画面のタブ（2026-10-19 決定: 一覧／プログラム（テンプレート管理）／ダッシュボード／設定。2026-10-19 に管理画面から改名）。
 // 2026-10-25: ダッシュボードを最初のタブにする（ログインした時の最初の画面、オーナー決定）。
+// 2026-10-26: ビジネスプランのチームを追加（参加・管理・チーム全体のクライアントの閲覧）。
 // PC（md以上）は左のサイドバー、スマホは下部のタブで表示する。
 const tabs = [
   { href: '/trainer/dashboard', label: 'ダッシュボード', icon: LayoutDashboard },
   { href: '/trainer', label: 'クライアント一覧', icon: Users },
   { href: '/trainer/programs', label: 'プログラム', icon: ClipboardList },
+  { href: '/trainer/team', label: 'チーム', icon: Building2 },
   { href: '/trainer/settings', label: '設定', icon: Settings },
 ]
 

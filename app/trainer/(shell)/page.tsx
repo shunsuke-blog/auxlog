@@ -5,8 +5,9 @@ import { getTrainerProfile } from '@/lib/trainer/session'
 import { loadTraineeRows } from '@/lib/trainer/trainees'
 import TraineeListItem from './TraineeListItem'
 import TraineeDetailPanel from './TraineeDetailPanel'
-import AddTraineeButton, { type TemplateOption } from './AddTraineeButton'
-import { TRAINER_PLANS, usedTraineeSlots } from '@/lib/trainer/dashboard'
+import AddTraineeButton from './AddTraineeButton'
+import { loadPlanUsage } from '@/lib/trainer/plan_usage'
+import { getTeamContext, loadUsableTemplates } from '@/lib/trainer/team'
 
 // トレーニー一覧（2026-10-19 決定）: 一番上に自分自身、その下にトレーニー。契約終了はグレーで一番下。
 // 名前・状態・最後に記録した日・今週の進み具合（4 / 6 種目＋バー、スキップは別表示）・アラート「！」。
@@ -17,18 +18,15 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const [profile, rows, { data: templates }] = await Promise.all([
+  const [profile, rows, team] = await Promise.all([
     getTrainerProfile(supabase, user.id),
     loadTraineeRows(supabase, user.id),
-    supabase
-      .from('coaching_plans')
-      .select('id, name')
-      .is('link_id', null)
-      .order('updated_at', { ascending: false }),
+    getTeamContext(supabase, user.id),
   ])
-
-  const plan = TRAINER_PLANS[profile?.plan ?? 'starter']
-  const templateOptions: TemplateOption[] = (templates ?? []).map(t => ({ id: t.id as string, name: t.name as string }))
+  const [plan, templateOptions] = await Promise.all([
+    loadPlanUsage(supabase, user.id, profile?.plan ?? 'starter', team),
+    loadUsableTemplates(supabase, user.id, team),
+  ])
 
   const selected = rows.find(r => r.linkId === selectedId) ?? null
 
@@ -38,7 +36,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
     <div className="md:h-screen md:flex md:flex-col">
       <div className={`sticky top-0 z-10 shrink-0 trainer-header h-14 md:h-[72px] px-4 md:px-6 items-center justify-between ${selected ? 'hidden md:flex' : 'flex'}`}>
         <h1 className="text-xl font-semibold text-black dark:text-white">クライアント一覧</h1>
-        <AddTraineeButton templates={templateOptions} limitReached={plan.limit != null && usedTraineeSlots(rows) >= plan.limit} limit={plan.limit ?? 0} planLabel={plan.label} />
+        <AddTraineeButton templates={templateOptions} limitReached={plan.limit != null && plan.used >= plan.limit} limit={plan.limit ?? 0} planLabel={plan.label} />
       </div>
       <div className="md:flex md:flex-1 md:min-h-0">
       <section className={`md:w-[420px] md:shrink-0 md:border-r border-zinc-100 dark:border-zinc-900 md:overflow-y-auto ${selected ? 'hidden md:block' : ''}`}>
@@ -76,7 +74,19 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
               <ChevronLeft className="w-4 h-4" />
               一覧
             </Link>
-            <TraineeDetailPanel row={selected} templates={templateOptions} selfName={profile?.display_name ?? selected.name} />
+            <TraineeDetailPanel
+              row={selected}
+              templates={templateOptions}
+              selfName={profile?.display_name ?? selected.name}
+              // チームの管理者は、自分のクライアントをチームのトレーナーに担当替えできる（2026-10-26）
+              reassign={team.role === 'owner' && team.active ? {
+                currentTrainerId: user.id,
+                trainers: [
+                  { id: user.id, name: `${profile?.display_name ?? '自分'}（自分）` },
+                  ...team.members.filter(m => m.status === 'approved').map(m => ({ id: m.trainerId, name: m.name })),
+                ],
+              } : undefined}
+            />
           </>
         ) : (
           <div className="flex items-center justify-center h-full py-24 text-sm text-zinc-400 dark:text-zinc-500">

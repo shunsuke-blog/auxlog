@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { getStripe, TRAINER_SUBSCRIPTION_KIND } from '@/lib/trainer/billing'
+import { z } from 'zod'
+import { getStripe, priceIdOf, TRAINER_SUBSCRIPTION_KIND } from '@/lib/trainer/billing'
+import { getTeamContext } from '@/lib/trainer/team'
 
-// プロプランの申し込み（2026-10-26）: Stripe のお支払いページ（Checkout）の URL を返す。
+const CheckoutSchema = z.object({ plan: z.enum(['pro', 'business']).default('pro') })
+
+// プロ・ビジネスの申し込み（2026-10-26）: Stripe のお支払いページ（Checkout）の URL を返す。
 // プランの反映は支払いの後に Webhook が行う（ここでは plan を書き換えない）。
 export async function POST(request: Request) {
   const supabase = await createClient(request)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { plan } = CheckoutSchema.parse(await request.json().catch(() => ({})))
   const stripe = getStripe()
-  const priceId = process.env.STRIPE_TRAINER_PRO_PRICE_ID
+  const priceId = priceIdOf(plan)
   if (!stripe || !priceId) return NextResponse.json({ error: '現在お申し込みを受け付けていません' }, { status: 503 })
 
   const { data: profile } = await supabase
@@ -19,7 +24,12 @@ export async function POST(request: Request) {
     .eq('user_id', user.id)
     .maybeSingle()
   if (!profile) return NextResponse.json({ error: 'トレーナー登録がありません' }, { status: 403 })
-  if (profile.plan !== 'starter') return NextResponse.json({ error: 'すでに有料プランです。プランの変更はお支払いの管理から行えます' }, { status: 409 })
+  if (profile.plan !== 'starter') return NextResponse.json({ error: 'すでに有料プランです。プランの切り替えは設定の「プラン」から行えます' }, { status: 409 })
+  // チームのメンバーはチームのビジネスプランで使える（二重に払わない）
+  const team = await getTeamContext(supabase, user.id)
+  if (team.role === 'member' || team.role === 'pending') {
+    return NextResponse.json({ error: 'チームに参加中（申請中を含む）のため、ご自身での申し込みは不要です' }, { status: 409 })
+  }
 
   // Stripe の顧客は1トレーナーに1つ。trainer_profiles への書き込みはサービスロールだけ
   let customerId = profile.stripe_customer_id as string | null
@@ -40,7 +50,7 @@ export async function POST(request: Request) {
     customer: customerId,
     client_reference_id: user.id,
     line_items: [{ price: priceId, quantity: 1 }],
-    subscription_data: { metadata: { kind: TRAINER_SUBSCRIPTION_KIND, user_id: user.id, plan: 'pro' } },
+    subscription_data: { metadata: { kind: TRAINER_SUBSCRIPTION_KIND, user_id: user.id, plan } },
     locale: 'ja',
     success_url: `${appUrl}/trainer/settings?billing=success`,
     cancel_url: `${appUrl}/trainer/settings`,

@@ -123,7 +123,10 @@ async function postJson(url: string, body: unknown, method = 'POST') {
   return data as { id?: string }
 }
 
-export default function TemplateList({ templates, initialCreating = false }: { templates: TemplateSummary[]; initialCreating?: boolean }) {
+export type TeamTemplate = { id: string; name: string; totalWeeks: number; daysPerWeek: number }
+
+// teamTemplates: チームの管理者が作ったテンプレート（メンバーは閲覧・クライアントへの割り当てだけ、2026-10-26）
+export default function TemplateList({ templates, initialCreating = false, teamTemplates = [], teamName }: { templates: TemplateSummary[]; initialCreating?: boolean; teamTemplates?: TeamTemplate[]; teamName?: string }) {
   const router = useRouter()
   // ダッシュボードの「プログラムを作成」から来た時（?create=1）は作成ダイアログを開いた状態にする
   const [creating, setCreating] = useState(initialCreating)
@@ -248,6 +251,21 @@ export default function TemplateList({ templates, initialCreating = false }: { t
               </div>
             </div>
           ))
+        )}
+
+        {teamTemplates.length > 0 && (
+          <div className="pt-4 space-y-3">
+            <div>
+              <h2 className="text-sm font-semibold text-black dark:text-white">{teamName}のプログラム</h2>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">管理者が作成したプログラムです。クライアントの追加の時に選べます（編集は管理者だけ）。</p>
+            </div>
+            {teamTemplates.map(t => (
+              <div key={t.id} className="px-4 md:px-5 py-4 rounded-2xl trainer-card space-y-1">
+                <p className="text-sm font-semibold text-black dark:text-white">{t.name}</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">{t.totalWeeks}週間・週{t.daysPerWeek}日</p>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
