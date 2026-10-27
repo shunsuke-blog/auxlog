@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   }
   if (error) return trainerRpcError(error, 'チームの操作に失敗しました')
 
-  // 承認したメンバーが自分でプロプランを払っていれば、今の期間の終わりで解約する（二重に払わないため、2026-10-26）。
+  // 承認したメンバーが自分で有料プラン（ベーシック・プロ）を払っていれば、今の期間の終わりで解約する（二重に払わないため、2026-10-26）。
   // 承認は確定済みなので、失敗しても承認は取り消さず、運営が手で解約できるようにメールで知らせる
   if (a.action === 'decide' && a.approve) {
     const service = createServiceClient()
@@ -72,8 +72,8 @@ export async function POST(request: Request) {
     if (membership) {
       await cancelOwnPlanForTeam(service, membership.trainer_id).catch(e => {
         console.error('[team-approve] failed to cancel member subscription', { trainerId: membership.trainer_id, error: e })
-        return notifySupport('[要対応] チーム承認時のプロプラン解約に失敗',
-          `メンバーのトレーナー ${membership.trainer_id} のプロプランを期間の終わりで解約できませんでした。Stripe で手動で解約してください。\n\n${e instanceof Error ? e.message : String(e)}`)
+        return notifySupport('[要対応] チーム承認時の有料プラン解約に失敗',
+          `メンバーのトレーナー ${membership.trainer_id} の有料プランを期間の終わりで解約できませんでした。Stripe で手動で解約してください。\n\n${e instanceof Error ? e.message : String(e)}`)
       })
     }
   }

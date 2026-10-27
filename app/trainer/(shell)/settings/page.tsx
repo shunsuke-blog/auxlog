@@ -3,12 +3,14 @@ import { getTrainerProfile } from '@/lib/trainer/session'
 import { loadPlanUsage } from '@/lib/trainer/plan_usage'
 import LogoutButton from '@/app/(app)/settings/LogoutButton'
 import BillingButton, { ChangePlanButton } from './BillingButton'
+import { PAID_PLANS, PAID_PLAN_INFO, type PaidPlan } from '@/lib/trainer/billing'
+import { TRAINER_PLANS } from '@/lib/trainer/dashboard'
 import InquiryForm from '@/components/trainer/InquiryForm'
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' })
 
 // トレーナーの設定: プラン（課金、2026-10-26）・アカウント・ログアウト。
-// プロ ¥9,800/月・ビジネス ¥19,800/月（税込）は Stripe で申し込み、プロ⇔ビジネスは日割りで切り替え、
+// ベーシック ¥2,980/月・プロ ¥6,800/月・ビジネス ¥19,800/月（税込、2026-10-27 改定）は Stripe で申し込み、有料プラン同士は日割りで切り替え、
 // カードの変更・解約・領収書は Stripe のお客様ポータル。チームのメンバーはチームのビジネスプランで使う。
 export default async function TrainerSettingsPage({ searchParams }: { searchParams: Promise<{ billing?: string }> }) {
   const { billing } = await searchParams
@@ -22,7 +24,7 @@ export default async function TrainerSettingsPage({ searchParams }: { searchPara
   const plan = profile?.plan ?? 'starter'
   const usage = await loadPlanUsage(supabase, user.id, plan)
   const inTeam = usage.team.role === 'member' && usage.team.active
-  const paid = plan === 'pro' || plan === 'business'
+  const paid = plan !== 'starter'
   // ビジネスはお問い合わせ制（2026-10-26）: 運営が許可したトレーナー（管理者用の登録ページを開いた人）だけ申し込める
   const businessAllowed = sub?.business_allowed === true
 
@@ -59,25 +61,27 @@ export default async function TrainerSettingsPage({ searchParams }: { searchPara
 
           {plan === 'starter' && !inTeam && usage.team.role !== 'pending' && (
             <div className="space-y-3 pt-1">
-              <PlanOption name="プロプラン" price="¥9,800" note="クライアント30名まで。">
-                <BillingButton kind="checkout" plan="pro" label="プロプランにする" primary />
-              </PlanOption>
-              <PlanOption name="ビジネスプラン" price="¥19,800" note="トレーナー3名までのチームで、クライアント無制限。クライアントの閲覧・担当替え・プログラムの共有ができます。4名以上はご相談ください。">
-                {businessAllowed ? <BillingButton kind="checkout" plan="business" label="ビジネスプランにする" primary /> : <BusinessInquiry />}
-              </PlanOption>
+              {PAID_PLANS.map(p => (
+                <PlanOption key={p} name={PAID_PLAN_INFO[p].name} price={PAID_PLAN_INFO[p].price} note={PAID_PLAN_INFO[p].note}>
+                  {p === 'business' && !businessAllowed
+                    ? <BusinessInquiry />
+                    : <BillingButton kind="checkout" plan={p} label={`${PAID_PLAN_INFO[p].name}にする`} primary />}
+                </PlanOption>
+              ))}
               <p className="text-xs text-zinc-500 dark:text-zinc-400">表示価格は税込です。いつでも解約でき、解約しても期間の終わりまで使えます。</p>
             </div>
           )}
-          {/* 切り替えは Stripe の契約がある時だけ（手動でプロにしたデモのアカウント等には出さない） */}
-          {plan === 'pro' && sub?.stripe_customer_id && (
-            <PlanOption name="ビジネスプラン" price="¥19,800" note="トレーナー3名までのチームで、クライアント無制限。4名以上はご相談ください。">
-              {businessAllowed ? <ChangePlanButton plan="business" label="ビジネスプランに切り替える" confirmMessage={'ビジネスプランに切り替えますか？\n今日から使えます。今月の残りの日数分の差額は、次回の請求で精算されます。'} /> : <BusinessInquiry />}
-            </PlanOption>
-          )}
-          {plan === 'business' && sub?.stripe_customer_id && (
-            <PlanOption name="プロプラン" price="¥9,800" note="クライアント30名まで（チームは使えなくなります）。">
-              <ChangePlanButton plan="pro" label="プロプランに切り替える" confirmMessage={'プロプランに切り替えますか？\nチームは止まり、メンバーのトレーナーはそれぞれのプランに戻ります。差額は次回の請求で精算されます。'} />
-            </PlanOption>
+          {/* 切り替えは Stripe の契約がある時だけ（手動で有料プランにしたデモのアカウント等には出さない） */}
+          {plan !== 'starter' && sub?.stripe_customer_id && (
+            <div className="space-y-3 pt-1">
+              {PAID_PLANS.filter(p => p !== plan).map(p => (
+                <PlanOption key={p} name={PAID_PLAN_INFO[p].name} price={PAID_PLAN_INFO[p].price} note={PAID_PLAN_INFO[p].note}>
+                  {p === 'business' && !businessAllowed
+                    ? <BusinessInquiry />
+                    : <ChangePlanButton plan={p} label={`${PAID_PLAN_INFO[p].name}に切り替える`} confirmMessage={changeMessage(plan, p, usage.used)} />}
+                </PlanOption>
+              ))}
+            </div>
           )}
           {sub?.stripe_customer_id && <BillingButton kind="portal" label="お支払いの管理（カードの変更・解約・領収書）" />}
         </div>
@@ -91,6 +95,20 @@ export default async function TrainerSettingsPage({ searchParams }: { searchPara
       </div>
     </div>
   )
+}
+
+// 切り替えの確認の文。上げる時は今日から使えること、下げる時はチームが止まること・上限を超えることを伝える
+function changeMessage(from: PaidPlan, to: PaidPlan, used: number): string {
+  const up = PAID_PLANS.indexOf(to) > PAID_PLANS.indexOf(from)
+  const lines = [`${PAID_PLAN_INFO[to].name}に切り替えますか？`]
+  if (up) lines.push('今日から使えます。今月の残りの日数分の差額は、次回の請求で精算されます。')
+  else {
+    if (from === 'business') lines.push('チームは止まり、メンバーのトレーナーはそれぞれのプランに戻ります。')
+    const limit = TRAINER_PLANS[to].limit
+    if (limit != null && used > limit) lines.push(`今のクライアント（${used}名）が上限（${limit}名）を超えるため、${used - limit}名の契約を終了するまで、プログラムの作成・編集と招待はできなくなります。`)
+    lines.push('差額は次回の請求で精算されます。')
+  }
+  return lines.join('\n')
 }
 
 function PlanOption({ name, price, note, children }: { name: string; price: string; note: string; children: React.ReactNode }) {

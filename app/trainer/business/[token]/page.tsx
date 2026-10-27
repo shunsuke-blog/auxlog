@@ -59,13 +59,13 @@ export default async function BusinessInvitePage({ params }: { params: Promise<{
   return (
     <Frame title="ビジネスプランのお申し込み">
       <p className="text-sm text-zinc-500 leading-relaxed">お申し込みの後に、チームの名前と、あなたもクライアントを担当するかを選んでいただきます。</p>
-      {profile.plan === 'pro' ? (
-        <p className="text-sm text-zinc-500 leading-relaxed">プロプランをご利用中です。設定の「プラン」から、日割りでビジネスプランに切り替えられます。</p>
+      {profile.plan === 'basic' || profile.plan === 'pro' ? (
+        <p className="text-sm text-zinc-500 leading-relaxed">{profile.plan === 'basic' ? 'ベーシックプラン' : 'プロプラン'}をご利用中です。設定の「プラン」から、日割りでビジネスプランに切り替えられます。</p>
       ) : (
         <BillingButton kind="checkout" plan="business" label="お支払いへ進む" primary />
       )}
-      <Link href={profile.plan === 'pro' ? '/trainer/settings' : '/trainer/dashboard'} className="block text-center text-sm text-zinc-500 underline">
-        {profile.plan === 'pro' ? '設定を開く' : 'あとで申し込む（設定の「プラン」からも申し込めます）'}
+      <Link href={profile.plan === 'basic' || profile.plan === 'pro' ? '/trainer/settings' : '/trainer/dashboard'} className="block text-center text-sm text-zinc-500 underline">
+        {profile.plan === 'basic' || profile.plan === 'pro' ? '設定を開く' : 'あとで申し込む（設定の「プラン」からも申し込めます）'}
       </Link>
     </Frame>
   )

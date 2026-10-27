@@ -1,18 +1,42 @@
 import Stripe from 'stripe'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-// トレーナーの課金（2026-10-26）。プロ ¥9,800/月・ビジネス ¥19,800/月（税込）を Stripe Checkout で申し込み、
-// プロ⇔ビジネスの切り替えは日割りで差額を次の請求で精算（/api/trainer/billing/change）。カードの変更・解約・領収書は
+// トレーナーの課金（2026-10-26、2026-10-27 料金改定）。ベーシック ¥2,980/月・プロ ¥6,800/月・ビジネス ¥19,800/月（税込）を
+// Stripe Checkout で申し込み、有料プラン同士の切り替えは日割りで差額を次の請求で精算（/api/trainer/billing/change）。カードの変更・解約・領収書は
 // Stripe のお客様ポータルで行う。プランの反映は Webhook（app/api/webhooks/stripe）だけが行う。
 // サブスクの metadata.kind で、以前のセルフモードのサブスク（users テーブル）と区別する。
 
 export const TRAINER_SUBSCRIPTION_KIND = 'trainer_plan'
 
-export type PaidPlan = 'pro' | 'business'
+export type PaidPlan = 'basic' | 'pro' | 'business'
+
+export const PAID_PLANS: PaidPlan[] = ['basic', 'pro', 'business']
+
+/** 有料プランの表示（金額は税込。Stripe の価格と同じ値にする） */
+export const PAID_PLAN_INFO: Record<PaidPlan, { name: string; price: string; note: string }> = {
+  basic: { name: 'ベーシックプラン', price: '¥2,980', note: 'クライアント10名まで。' },
+  pro: { name: 'プロプラン', price: '¥6,800', note: 'クライアント30名まで。' },
+  business: { name: 'ビジネスプラン', price: '¥19,800', note: 'トレーナー3名までのチームで、クライアント無制限。クライアントの閲覧・担当替え・プログラムの共有ができます。4名以上はご相談ください。' },
+}
+
+/** 上限に達した時に案内する、一つ上のプラン */
+export function nextPlanOf(plan: 'starter' | PaidPlan): PaidPlan | null {
+  return plan === 'starter' ? 'basic' : plan === 'basic' ? 'pro' : plan === 'pro' ? 'business' : null
+}
+
+/** 上限に達した時の案内「ベーシックプラン（月¥2,980・クライアント10名まで）」。一つ上が無ければ null */
+export function upgradeHint(plan: 'starter' | PaidPlan): string | null {
+  const next = nextPlanOf(plan)
+  if (!next) return null
+  const limit = next === 'business' ? 'クライアント無制限' : next === 'basic' ? 'クライアント10名まで' : 'クライアント30名まで'
+  return `${PAID_PLAN_INFO[next].name}（月${PAID_PLAN_INFO[next].price}・${limit}）`
+}
 
 /** 申し込むプランの Stripe の価格（本番とテストで ID が違うので環境変数で持つ） */
 export function priceIdOf(plan: PaidPlan): string | undefined {
-  return plan === 'business' ? process.env.STRIPE_TRAINER_BUSINESS_PRICE_ID : process.env.STRIPE_TRAINER_PRO_PRICE_ID
+  return plan === 'business' ? process.env.STRIPE_TRAINER_BUSINESS_PRICE_ID
+    : plan === 'basic' ? process.env.STRIPE_TRAINER_BASIC_PRICE_ID
+    : process.env.STRIPE_TRAINER_PRO_PRICE_ID
 }
 
 export function getStripe(): Stripe | null {
@@ -37,8 +61,9 @@ export function trainerSubscriptionUpdate(sub: Stripe.Subscription): TrainerSubs
   // API 2025-03 以降、更新日はサブスクではなく品目（items）に付く
   const item = sub.items.data[0]
   const periodEnd = item?.current_period_end
-  // どのプランかは価格の metadata.auxlog_plan（trainer_pro / trainer_business）で見分ける
-  const paidPlan: PaidPlan = item?.price?.metadata?.auxlog_plan === 'trainer_business' ? 'business' : 'pro'
+  // どのプランかは価格の metadata.auxlog_plan（trainer_basic / trainer_pro / trainer_business）で見分ける
+  const tag = item?.price?.metadata?.auxlog_plan
+  const paidPlan: PaidPlan = tag === 'trainer_business' ? 'business' : tag === 'trainer_basic' ? 'basic' : 'pro'
   return {
     plan: isPaidStatus(sub.status) ? paidPlan : 'starter',
     stripe_subscription_id: sub.id,

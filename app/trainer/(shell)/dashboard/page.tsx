@@ -10,6 +10,7 @@ import { getTrainerProfile } from '@/lib/trainer/session'
 import AddTraineeButton from '../AddTraineeButton'
 import { ProgressBar } from '../TraineeListItem'
 import ActionBand, { type Item } from './ActionBand'
+import { upgradeHint } from '@/lib/trainer/billing'
 
 const fmtDay = (iso: string) => iso.slice(5, 10).replace('-', '/').replace(/^0/, '')
 
@@ -52,7 +53,7 @@ export default async function TrainerDashboardPage() {
       <div className="sticky top-0 z-10 trainer-header h-14 md:h-[72px] px-4 md:px-6 flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-black dark:text-white whitespace-nowrap">ダッシュボード</h1>
         <div className="flex items-center gap-2">
-          <AddTraineeButton templates={templateOptions} label="クライアントを追加" iconOnlyOnMobile limitReached={limitReached} limit={plan.limit ?? 0} planLabel={plan.label} />
+          <AddTraineeButton templates={templateOptions} label="クライアントを追加" iconOnlyOnMobile limitReached={limitReached} limit={plan.limit ?? 0} planLabel={plan.label} upgrade={upgradeHint(plan.plan)} />
           <Link
             href="/trainer/programs?create=1"
             aria-label="プログラムを作成"

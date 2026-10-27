@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import type { PaidPlan } from '@/lib/trainer/billing'
 
 // Stripe のお支払いページ（申し込み）・お客様ポータル（管理）へ移るボタン。URL はサーバーで作る
-export default function BillingButton({ kind, label, primary, plan }: { kind: 'checkout' | 'portal'; label: string; primary?: boolean; plan?: 'pro' | 'business' }) {
+export default function BillingButton({ kind, label, primary, plan }: { kind: 'checkout' | 'portal'; label: string; primary?: boolean; plan?: PaidPlan }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -38,8 +39,8 @@ export default function BillingButton({ kind, label, primary, plan }: { kind: 'c
   )
 }
 
-// プロ⇔ビジネスの切り替え（日割りで差額を次の請求で精算）。サーバーがその場でプランも反映する
-export function ChangePlanButton({ plan, label, confirmMessage }: { plan: 'pro' | 'business'; label: string; confirmMessage: string }) {
+// 有料プラン同士の切り替え（日割りで差額を次の請求で精算）。サーバーがその場でプランも反映する
+export function ChangePlanButton({ plan, label, confirmMessage }: { plan: PaidPlan; label: string; confirmMessage: string }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)

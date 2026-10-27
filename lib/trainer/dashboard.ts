@@ -117,11 +117,12 @@ export function formatActivityTime(iso: string, now: Date): { day: string; time:
 // ── 2026-10-25 追加: 目標未達・招待できる残り人数・今週まだ記録なし・スキップの多い種目・招待中で未入力 ──
 
 /**
- * トレーナーのプランと、契約できるクライアントの上限（2026-10-25 料金体系）。DB の trainer_trainee_limit()（追加を拒否する上限）と
- * 同じ値。limit が null は無制限（ビジネス）
+ * トレーナーのプランと、契約できるクライアントの上限（2026-10-27 料金体系、オーナーの資料に合わせてベーシックを新設）。
+ * DB の trainer_trainee_limit()（追加を拒否する上限）と同じ値。limit が null は無制限（ビジネス）
  */
-export const TRAINER_PLANS: Record<'starter' | 'pro' | 'business', { label: string; limit: number | null }> = {
+export const TRAINER_PLANS: Record<'starter' | 'basic' | 'pro' | 'business', { label: string; limit: number | null }> = {
   starter: { label: 'スタータープラン', limit: 3 },
+  basic: { label: 'ベーシックプラン', limit: 10 },
   pro: { label: 'プロプラン', limit: 30 },
   business: { label: 'ビジネスプラン', limit: null },
 }

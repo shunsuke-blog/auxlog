@@ -3,9 +3,9 @@ import { z } from 'zod'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getStripe, priceIdOf, syncTrainerSubscription } from '@/lib/trainer/billing'
 
-const ChangeSchema = z.object({ plan: z.enum(['pro', 'business']) })
+const ChangeSchema = z.object({ plan: z.enum(['basic', 'pro', 'business']) })
 
-// プロ⇔ビジネスの切り替え（2026-10-26 オーナー決定: 日割りで差額を次の請求で精算）。
+// 有料プラン同士の切り替え（2026-10-26 オーナー決定: 日割りで差額を次の請求で精算。2026-10-27 ベーシックを追加）。
 // Stripe のサブスクの価格を差し替え、画面にすぐ出るようその場でも反映する（Webhook でも同じ内容が届く）。
 export async function POST(request: Request) {
   const supabase = await createClient(request)

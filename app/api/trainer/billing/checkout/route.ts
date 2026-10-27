@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { getStripe, priceIdOf, TRAINER_SUBSCRIPTION_KIND } from '@/lib/trainer/billing'
 import { getTeamContext } from '@/lib/trainer/team'
 
-const CheckoutSchema = z.object({ plan: z.enum(['pro', 'business']).default('pro') })
+const CheckoutSchema = z.object({ plan: z.enum(['basic', 'pro', 'business']).default('pro') })
 
 // プロ・ビジネスの申し込み（2026-10-26）: Stripe のお支払いページ（Checkout）の URL を返す。
 // プランの反映は支払いの後に Webhook が行う（ここでは plan を書き換えない）。

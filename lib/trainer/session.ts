@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // 立っていなければ、トレーナーがトレーニー用の画面を開いてもトレーナー画面（/trainer）へ戻す。
 export const SELF_VIEW_COOKIE = 'auxlog_trainer_self_view'
 
-export type TrainerPlan = 'starter' | 'pro' | 'business'
+export type TrainerPlan = 'starter' | 'basic' | 'pro' | 'business'
 
 export type TrainerProfile = { user_id: string; display_name: string; plan: TrainerPlan }
 

@@ -25,8 +25,8 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
     getTeamContext(supabase, user.id),
     supabase.from('trainer_profiles').select('subscription_status, cancel_at_period_end, current_period_end').eq('user_id', user.id).maybeSingle(),
   ])
-  // 自分でプロプランを払っている人は、承認された時に今の期間の終わりで自動で解約される（2026-10-26 オーナー決定）
-  const ownPlanRenews = profile?.plan === 'pro' && sub != null && !sub.cancel_at_period_end
+  // 自分で有料プラン（ベーシック・プロ）を払っている人は、承認された時に今の期間の終わりで自動で解約される（2026-10-26 オーナー決定）
+  const ownPlanRenews = (profile?.plan === 'basic' || profile?.plan === 'pro') && sub != null && !sub.cancel_at_period_end
     && ['active', 'trialing', 'past_due'].includes(sub.subscription_status ?? '')
 
   const header = (
@@ -98,7 +98,7 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
               <p className="text-sm text-zinc-500">管理者から受け取った招待コードを入力してください。管理者が承認すると参加できます。参加中はチームのビジネスプランで、クライアントを無制限に担当できます。</p>
               {ownPlanRenews && (
                 <p className="text-sm text-black">
-                  ご自身のプロプランは、参加が承認されると{sub?.current_period_end ? `今のお支払い期間の終わり（${new Date(sub.current_period_end).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' })}）で` : '今のお支払い期間の終わりで'}自動で解約されます。
+                  ご自身の{profile?.plan === 'basic' ? 'ベーシックプラン' : 'プロプラン'}は、参加が承認されると{sub?.current_period_end ? `今のお支払い期間の終わり（${new Date(sub.current_period_end).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' })}）で` : '今のお支払い期間の終わりで'}自動で解約されます。
                   承認された時からチームのプランで使えます（お支払い済みの期間の返金はありません）。
                 </p>
               )}

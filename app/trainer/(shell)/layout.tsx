@@ -29,7 +29,7 @@ export default async function TrainerLayout({ children }: { children: React.Reac
       {usage.over && usage.limit != null && (
         <div className="px-4 md:px-6 py-3 bg-red-50 border-b border-red-100 text-sm text-red-700 leading-relaxed">
           {usage.label}のクライアントの上限（{usage.limit}名）を超えています（今は{usage.used}名）。
-          {usage.used - usage.limit}名の契約を終了するか、プロプランにするまで、プログラムの作成・編集と招待はできません。
+          {usage.used - usage.limit}名の契約を終了するか、上のプランにするまで、プログラムの作成・編集と招待はできません。
           クライアントの記録はこれまでどおり続きます。
           <Link href="/trainer/settings" className="ml-1 font-medium underline">プランを見る</Link>
         </div>
