@@ -16,7 +16,7 @@ export const PAID_PLANS: PaidPlan[] = ['basic', 'pro', 'business']
 export const PAID_PLAN_INFO: Record<PaidPlan, { name: string; price: string; note: string }> = {
   basic: { name: 'ベーシックプラン', price: '¥2,980', note: 'クライアント10名まで。' },
   pro: { name: 'プロプラン', price: '¥6,800', note: 'クライアント30名まで。' },
-  business: { name: 'ビジネスプラン', price: '¥19,800', note: 'トレーナー3名までのチームで、クライアント無制限。クライアントの閲覧・担当替え・プログラムの共有ができます。4名以上はご相談ください。' },
+  business: { name: 'ビジネスプラン', price: '¥19,800〜', note: 'クライアント無制限。トレーナーの人数に応じてお見積もりします。チームでクライアントの閲覧・担当替え・プログラムの共有ができます。' },
 }
 
 /** 上限に達した時に案内する、一つ上のプラン */

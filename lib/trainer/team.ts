@@ -4,7 +4,7 @@ import type { TrainerPlan } from './session'
 // ビジネスプランのチーム（2026-10-26）。DB の判定は lib/sql/trainer_team_2026-10-26.sql。
 // チームが有効なのは管理者のプランがビジネスの間だけ（管理者が解約するとメンバーは自分のプランに戻る）。
 
-/** ビジネスプランの基本のトレーナー枠。4名以上はご相談のうえ追加（organizations.extra_trainer_seats） */
+/** ビジネスプランの基本のトレーナー枠。画面には人数を出さず「人数に応じてお見積もり」とし、増やす時はご相談のうえ追加（organizations.extra_trainer_seats） */
 export const TEAM_BASE_TRAINERS = 3
 
 /** 管理だけの管理者（クライアントを担当しない）。ダッシュボード・クライアント一覧は出さず、チームを最初の画面にする（2026-10-26 オーナー決定） */

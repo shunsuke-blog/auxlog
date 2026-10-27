@@ -88,8 +88,8 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
             <Card title="チームで使う">
               <p className="text-sm text-zinc-500">ビジネスプランでは、複数のトレーナーでクライアントとプログラムをまとめて管理できます。</p>
               <div className="px-4 py-3 rounded-xl border border-line space-y-0.5">
-                <p className="text-sm font-semibold text-black">トレーナー3名まで ¥19,800 / 月（税込）</p>
-                <p className="text-xs text-zinc-500">4名以上はご相談ください。</p>
+                <p className="text-sm font-semibold text-black">¥19,800〜 / 月（税込）</p>
+                <p className="text-xs text-zinc-500">トレーナーの人数に応じてお見積もりします。</p>
               </div>
               <p className="text-sm text-zinc-500">お申し込みは、お問い合わせのうえで承ります。</p>
               <InquiryForm kind="business" />
