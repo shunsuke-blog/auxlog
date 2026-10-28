@@ -33,65 +33,69 @@ export default async function TrainerSettingsPage({ searchParams }: { searchPara
       <div className="sticky top-0 z-10 trainer-header h-14 md:h-[72px] px-4 md:px-6 flex items-center">
         <h1 className="text-xl font-semibold text-black dark:text-white">設定</h1>
       </div>
-      <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 max-w-xl">
-        {/* 支払いの直後は Webhook の反映が数秒遅れることがある */}
-        {billing === 'success' && plan === 'starter' && (
-          <p className="px-4 py-3 rounded-2xl bg-brand-soft text-sm text-black">お申し込みありがとうございます。プランの反映まで数秒かかることがあります。表示が変わらない時は、ページを読み込み直してください。</p>
-        )}
+      {/* PC ではビジネスのお問い合わせを右側（settings-side）に開く */}
+      <div className="px-4 md:px-6 py-4 md:py-6 xl:flex xl:items-start xl:gap-6">
+        <div className="space-y-4 max-w-xl xl:w-xl xl:shrink-0">
+          {/* 支払いの直後は Webhook の反映が数秒遅れることがある */}
+          {billing === 'success' && plan === 'starter' && (
+            <p className="px-4 py-3 rounded-2xl bg-brand-soft text-sm text-black">お申し込みありがとうございます。プランの反映まで数秒かかることがあります。表示が変わらない時は、ページを読み込み直してください。</p>
+          )}
 
-        <div className="px-5 py-4 rounded-2xl trainer-card space-y-3">
-          <h2 className="text-xs font-semibold text-zinc-400">プラン</h2>
-          <div>
-            <p className="text-base font-semibold text-black dark:text-white">{usage.label}</p>
-            {inTeam && usage.team.role === 'member' && (
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">チーム「{usage.team.orgName}」のビジネスプランで利用中です（お支払いは管理者）。</p>
-            )}
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 tabular-nums">
-              クライアント {usage.used}{usage.limit == null ? '名（無制限）' : ` / ${usage.limit}名`}
-            </p>
-            {paid && sub?.current_period_end && (
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                {sub.cancel_at_period_end ? `${fmtDate(sub.current_period_end)} で終了します（スタータープランに戻ります）` : `次回の更新日 ${fmtDate(sub.current_period_end)}`}
+          <div className="px-5 py-4 rounded-2xl trainer-card space-y-3">
+            <h2 className="text-xs font-semibold text-zinc-400">プラン</h2>
+            <div>
+              <p className="text-base font-semibold text-black dark:text-white">{usage.label}</p>
+              {inTeam && usage.team.role === 'member' && (
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">チーム「{usage.team.orgName}」のビジネスプランで利用中です（お支払いは管理者）。</p>
+              )}
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 tabular-nums">
+                クライアント {usage.used}{usage.limit == null ? '名（無制限）' : ` / ${usage.limit}名`}
               </p>
+              {paid && sub?.current_period_end && (
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  {sub.cancel_at_period_end ? `${fmtDate(sub.current_period_end)} で終了します（スタータープランに戻ります）` : `次回の更新日 ${fmtDate(sub.current_period_end)}`}
+                </p>
+              )}
+              {paid && sub?.subscription_status === 'past_due' && (
+                <p className="text-sm text-red-500">お支払いが確認できていません。お支払いの管理からカードを確認してください。</p>
+              )}
+            </div>
+
+            {plan === 'starter' && !inTeam && usage.team.role !== 'pending' && (
+              <div className="space-y-3 pt-1">
+                {PAID_PLANS.map(p => (
+                  <PlanOption key={p} name={PAID_PLAN_INFO[p].name} price={PAID_PLAN_INFO[p].price} note={PAID_PLAN_INFO[p].note}>
+                    {p === 'business' && !businessAllowed
+                      ? <BusinessInquiry />
+                      : <BillingButton kind="checkout" plan={p} label={`${PAID_PLAN_INFO[p].name}にする`} primary />}
+                  </PlanOption>
+                ))}
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">表示価格は税込です。いつでも解約でき、解約しても期間の終わりまで使えます。</p>
+              </div>
             )}
-            {paid && sub?.subscription_status === 'past_due' && (
-              <p className="text-sm text-red-500">お支払いが確認できていません。お支払いの管理からカードを確認してください。</p>
+            {/* 切り替えは Stripe の契約がある時だけ（手動で有料プランにしたデモのアカウント等には出さない） */}
+            {plan !== 'starter' && sub?.stripe_customer_id && (
+              <div className="space-y-3 pt-1">
+                {PAID_PLANS.filter(p => p !== plan).map(p => (
+                  <PlanOption key={p} name={PAID_PLAN_INFO[p].name} price={PAID_PLAN_INFO[p].price} note={PAID_PLAN_INFO[p].note}>
+                    {p === 'business' && !businessAllowed
+                      ? <BusinessInquiry />
+                      : <ChangePlanButton plan={p} label={`${PAID_PLAN_INFO[p].name}に切り替える`} confirmMessage={changeMessage(plan, p, usage.used)} />}
+                  </PlanOption>
+                ))}
+              </div>
             )}
+            {sub?.stripe_customer_id && <BillingButton kind="portal" label="お支払いの管理（カードの変更・解約・領収書）" />}
           </div>
 
-          {plan === 'starter' && !inTeam && usage.team.role !== 'pending' && (
-            <div className="space-y-3 pt-1">
-              {PAID_PLANS.map(p => (
-                <PlanOption key={p} name={PAID_PLAN_INFO[p].name} price={PAID_PLAN_INFO[p].price} note={PAID_PLAN_INFO[p].note}>
-                  {p === 'business' && !businessAllowed
-                    ? <BusinessInquiry />
-                    : <BillingButton kind="checkout" plan={p} label={`${PAID_PLAN_INFO[p].name}にする`} primary />}
-                </PlanOption>
-              ))}
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">表示価格は税込です。いつでも解約でき、解約しても期間の終わりまで使えます。</p>
-            </div>
-          )}
-          {/* 切り替えは Stripe の契約がある時だけ（手動で有料プランにしたデモのアカウント等には出さない） */}
-          {plan !== 'starter' && sub?.stripe_customer_id && (
-            <div className="space-y-3 pt-1">
-              {PAID_PLANS.filter(p => p !== plan).map(p => (
-                <PlanOption key={p} name={PAID_PLAN_INFO[p].name} price={PAID_PLAN_INFO[p].price} note={PAID_PLAN_INFO[p].note}>
-                  {p === 'business' && !businessAllowed
-                    ? <BusinessInquiry />
-                    : <ChangePlanButton plan={p} label={`${PAID_PLAN_INFO[p].name}に切り替える`} confirmMessage={changeMessage(plan, p, usage.used)} />}
-                </PlanOption>
-              ))}
-            </div>
-          )}
-          {sub?.stripe_customer_id && <BillingButton kind="portal" label="お支払いの管理（カードの変更・解約・領収書）" />}
+          <div className="px-5 py-4 rounded-2xl trainer-card space-y-3">
+            <h2 className="text-xs font-semibold text-zinc-400">アカウント</h2>
+            <p className="text-sm text-black dark:text-white">{profile?.display_name}</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">{user.email}</p>
+          </div>
+          <LogoutButton redirectTo="/trainer/login" />
         </div>
-
-        <div className="px-5 py-4 rounded-2xl trainer-card space-y-3">
-          <h2 className="text-xs font-semibold text-zinc-400">アカウント</h2>
-          <p className="text-sm text-black dark:text-white">{profile?.display_name}</p>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">{user.email}</p>
-        </div>
-        <LogoutButton redirectTo="/trainer/login" />
+        <div id="settings-side" className="hidden xl:block flex-1 min-w-0 max-w-md sticky top-[96px]" />
       </div>
     </div>
   )
@@ -128,7 +132,7 @@ function BusinessInquiry() {
   return (
     <div className="space-y-2">
       <p className="text-sm text-black dark:text-white">チームでのご利用はお問い合わせください。ご案内のうえ、お申し込みいただけるようにします。</p>
-      <InquiryForm kind="business" />
+      <InquiryForm kind="business" sidePanelId="settings-side" />
     </div>
   )
 }
