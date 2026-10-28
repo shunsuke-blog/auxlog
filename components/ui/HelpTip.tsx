@@ -3,12 +3,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { CircleHelp } from 'lucide-react'
 
-// 見出しの横に置く「？」。押すと説明の吹き出しを出す（外側を押す・Esc で閉じる）。
+// 見出しの横に置く「？」。マウスを乗せると説明の吹き出しを出し、外すと閉じる（2026-10-28 オーナー依頼）。
+// ホバーの無いスマホでは押して出す（外側を押す・Esc で閉じる）。
 // 横スクロールの枠の中でも切れないように、吹き出しは画面基準（fixed）で「？」の下に出す。
 export default function HelpTip({ label, children }: { label: string; children: React.ReactNode }) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const popRef = useRef<HTMLDivElement>(null)
+  // 直前の操作がマウスか。マウスはホバーで開け閉めするので、クリックでは切り替えない
+  const byMouse = useRef(false)
 
   useEffect(() => {
     if (!pos) return
@@ -33,8 +36,7 @@ export default function HelpTip({ label, children }: { label: string; children: 
     }
   }, [pos])
 
-  const toggle = () => {
-    if (pos) { setPos(null); return }
+  const open = () => {
     const r = buttonRef.current?.getBoundingClientRect()
     if (!r) return
     const width = 256
@@ -48,7 +50,9 @@ export default function HelpTip({ label, children }: { label: string; children: 
         ref={buttonRef}
         type="button"
         tabIndex={-1}
-        onClick={toggle}
+        onPointerEnter={e => { byMouse.current = e.pointerType === 'mouse'; if (byMouse.current) open() }}
+        onPointerLeave={e => { if (e.pointerType === 'mouse') setPos(null) }}
+        onClick={() => { if (byMouse.current) return; if (pos) setPos(null); else open() }}
         aria-label={`${label}の説明`}
         aria-expanded={pos != null}
         className="inline-flex align-middle ml-0.5 p-0.5 rounded-full text-zinc-400 hover:text-black dark:hover:text-white"
