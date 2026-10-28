@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronRight, Copy, Pencil, Plus, Sparkles, Trash2, X } from 'lucide-react'
+import { ChevronRight, Copy, FileSpreadsheet, Pencil, Plus, Sparkles, Trash2, X } from 'lucide-react'
 import { MAX_PRIORITY_MUSCLES, PRIORITY_MUSCLE_OPTION_LABELS, PRIORITY_MUSCLE_OPTION_ORDER, type PriorityMuscleOption } from '@/types'
 import { availableDays, resolveProgramType, type ProgramGender, type ProgramLevel } from '@/lib/coaching/base_templates'
+import ImportInput, { type MenuImportResponse } from './ImportInput'
+import ImportFlow from './ImportFlow'
 
 // セッション時間はオンボーディングと同じ帯の選択肢（60/75/90 は帯の内部代表値）
 const SESSION_OPTIONS = [
@@ -37,6 +39,8 @@ export type TemplateSummary = {
   source: 'engine' | 'template' | 'blank'
   /** Auxlogで作成した時の条件（複製は複製元の条件を引き継ぐ）。白紙から作成は null */
   inputs: {
+    /** 'import' は表から取り込んで作成（2026-10-28） */
+    method?: string
     session_minutes?: 60 | 75 | 90
     priority_muscles?: PriorityMuscleOption[]
     gender?: ProgramGender
@@ -49,6 +53,7 @@ export type TemplateSummary = {
 function templateDetails(t: TemplateSummary): [string, string][] {
   const base: [string, string][] = [['期間', `${t.totalWeeks}週間`], ['頻度', `週${t.daysPerWeek}日`]]
   if (!t.inputs) return [['作成方法', '白紙から作成'], ...base]
+  if (t.inputs.method === 'import') return [['作成方法', '表から取り込み'], ...base]
   const minutes = SESSION_OPTIONS.find(o => o.value === t.inputs?.session_minutes)?.label ?? '—'
   const priorities = t.inputs.priority_muscles?.length ? t.inputs.priority_muscles.map(m => PRIORITY_MUSCLE_OPTION_LABELS[m]).join('・') : 'なし'
   return [
@@ -131,7 +136,10 @@ export default function TemplateList({ templates, initialCreating = false, teamT
   const router = useRouter()
   // ダッシュボードの「プログラムを作成」から来た時（?create=1）は作成ダイアログを開いた状態にする
   const [creating, setCreating] = useState(initialCreating)
-  const [mode, setMode] = useState<'auxlog' | 'blank'>('auxlog')
+  // import は表から取り込む（2026-10-28）。タブの中で表を読み取り、読み取れたら一覧の代わりに確認の画面（ImportFlow）を出す
+  const [mode, setMode] = useState<'auxlog' | 'blank' | 'import'>('auxlog')
+  const [importing, setImporting] = useState<{ result: MenuImportResponse; fileName: string | null } | null>(null)
+  const [reading, setReading] = useState(false)
   const [name, setName] = useState('')
   const [weeks, setWeeks] = useState(9)
   const [days, setDays] = useState(3)
@@ -190,6 +198,16 @@ export default function TemplateList({ templates, initialCreating = false, teamT
       await postJson(`/api/trainer/templates/${t.id}`, {}, 'DELETE')
       router.refresh()
     })
+  }
+
+  if (importing) {
+    return (
+      <ImportFlow
+        result={importing.result}
+        fileName={importing.fileName}
+        onClose={() => { setImporting(null); router.refresh() }}
+      />
+    )
   }
 
   return (
@@ -305,25 +323,29 @@ export default function TemplateList({ templates, initialCreating = false, teamT
         // 上揃えにする: 「Auxlog で作成／白紙から作成」の切り替えで中身の高さが変わっても、
         // 切り替えボタンの位置が動かないようにする（2026-10-19 オーナー指摘。中央揃えだと上端がずれる）
         <div className="fixed inset-0 z-50 flex items-start justify-center px-6 pt-[10vh] pb-6 overflow-y-auto">
-          <div className="fixed inset-0 bg-black/60" onClick={busy ? undefined : () => setCreating(false)} />
-          <form onSubmit={handleCreate} className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
+          <div className="fixed inset-0 bg-black/60" onClick={busy || reading ? undefined : () => setCreating(false)} />
+          {/* 切り替えが3つになったので、PC では少し広げる（2026-10-28） */}
+          <form onSubmit={handleCreate} className="relative w-full max-w-sm sm:max-w-md bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
             <p className="text-base font-semibold text-black dark:text-white">新しいテンプレート</p>
 
             <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl">
-              {([['auxlog', 'Auxlog で作成'], ['blank', '白紙から作成']] as const).map(([m, label]) => (
+              {([['auxlog', 'Auxlog で作成'], ['blank', '白紙から作成'], ['import', '表から取り込む']] as const).map(([m, label]) => (
                 <button
                   key={m}
                   type="button"
+                  disabled={reading}
                   onClick={() => {
                     setMode(m)
                     // Auxlog で作成は、性別・レベルのテンプレートがある日数だけ（週1日は白紙からのみ）
                     if (m === 'auxlog' && !auxlogDays.includes(days)) setDays(auxlogDays.filter(d => d <= days).pop() ?? auxlogDays[0])
                   }}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-lg ${
+                  className={`flex-1 flex items-center justify-center gap-1 py-2 text-xs sm:text-sm font-medium whitespace-nowrap rounded-lg ${
                     mode === m ? 'bg-white dark:bg-zinc-800 text-brand-text font-semibold shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white'
                   }`}
                 >
-                  {m === 'auxlog' && <Sparkles className="w-3.5 h-3.5" />}
+                  {/* スマホの幅では3つが収まらないので、アイコンは sm 以上だけ */}
+                  {m === 'auxlog' && <Sparkles className="hidden sm:block w-3.5 h-3.5 shrink-0" />}
+                  {m === 'import' && <FileSpreadsheet className="hidden sm:block w-3.5 h-3.5 shrink-0" />}
                   {label}
                 </button>
               ))}
@@ -341,6 +363,14 @@ export default function TemplateList({ templates, initialCreating = false, teamT
               </div>
             )}
 
+            {mode === 'import' ? (
+              <ImportInput
+                onRead={(result, fileName) => { setCreating(false); setImporting({ result, fileName }) }}
+                onCancel={() => setCreating(false)}
+                onBusyChange={setReading}
+              />
+            ) : (
+            <>
             <input
               type="text"
               required
@@ -443,6 +473,8 @@ export default function TemplateList({ templates, initialCreating = false, teamT
                 {busy ? '作成中…' : '作成'}
               </button>
             </div>
+            </>
+            )}
           </form>
         </div>
       )}

@@ -4,7 +4,8 @@ import { useRef, useState } from 'react'
 import { Pencil } from 'lucide-react'
 
 // テンプレート名をその場で変える欄（ペンを押すと入力欄にカーソルが入る。欄の外に出ると保存）
-export default function TemplateNameInput({ planId, initialName }: { planId: string; initialName: string }) {
+// planId が null は取り込んだメニューの下書き（2026-10-28）。名前は保存の時にまとめて送るので、ここでは手元で持つだけ
+export default function TemplateNameInput({ planId, initialName, onChange }: { planId: string | null; initialName: string; onChange?: (name: string) => void }) {
   const [name, setName] = useState(initialName)
   const [savedName, setSavedName] = useState(initialName)
   const nameRef = useRef<HTMLInputElement>(null)
@@ -12,6 +13,7 @@ export default function TemplateNameInput({ planId, initialName }: { planId: str
   const saveName = async () => {
     const trimmed = name.trim()
     if (!trimmed || trimmed === savedName) { setName(savedName); return }
+    if (planId == null) { setSavedName(trimmed); onChange?.(trimmed); return }
     const res = await fetch(`/api/trainer/templates/${planId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

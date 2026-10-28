@@ -22,6 +22,7 @@ export const RULE_MESSAGES: Record<string, string> = {
   business_invite_expired: 'このページの有効期限が切れています。お手数ですが運営までお問い合わせください',
   business_invite_email: 'このページは別のメールアドレス宛てです。運営からご案内したメールアドレスでログインし直してください',
   over_limit: '今のプランの上限を超えているため、この操作はできません。契約を終了して上限内に戻すか、プロプランにしてください',
+  import_limit: '表の読み取りは1日20回までです。明日もう一度お試しください',
 }
 
 // トレーナー用RPCのエラーをHTTPレスポンスに変換する。RPC側は権限エラーを 42501、

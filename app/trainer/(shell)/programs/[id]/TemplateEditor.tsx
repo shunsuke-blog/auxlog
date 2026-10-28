@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ArrowDown, ArrowLeftRight, ArrowUp, ChevronLeft, Copy, GripVertical, Plus, Trash2 } from 'lucide-react'
 import ExercisePicker from './ExercisePicker'
 import SwapPicker, { type SwapScope } from './SwapPicker'
@@ -16,9 +17,11 @@ import {
   type CatalogExercise, type EditorExercise, type EditorSet,
 } from '@/lib/trainer/templateEditor'
 
-export type EditorDay = { id: string; weekNumber: number; dayNumber: number; exercises: EditorExercise[] }
+export type EditorDay = { id: string; weekNumber: number; dayNumber: number; label?: string | null; exercises: EditorExercise[] }
 
-type Props = { planId: string; initialName: string; totalWeeks: number; days: EditorDay[]; catalog: CatalogExercise[] }
+// planId が null は取り込んだメニューの下書き（2026-10-28）。DB にはまだ何も無く、「保存」で初めてテンプレートを作る。
+// 下書きはテンプレートの一覧の画面の中で開くので、「戻る」は onExit（保存するか確かめてから呼ぶ）
+type Props = { planId: string | null; initialName: string; totalWeeks: number; days: EditorDay[]; catalog: CatalogExercise[]; onExit?: () => void }
 type View = 'day' | 'exercise'
 
 /** Day の中の種目カードを並べ替えるときの dataTransfer の型名 */
@@ -29,11 +32,17 @@ const muscleLabel = muscleGroupLabel
 // テンプレートの編集。表示は「Day ごと」（週 → Day を選んでその日の種目を編集）と「種目ごと」
 // （種目を選んで、その種目が出てくる全週・全Dayのセットを並べて編集）を切り替えられる（2026-10-19 オーナー依頼）。
 // 重量は %1RM（トレーニー追加時に1RMから kg を計算）・kg（固定）・自動（前回記録から提案）のどれか。
-export default function TemplateEditor({ planId, initialName, totalWeeks, days, catalog: initialCatalog }: Props) {
+export default function TemplateEditor({ planId, initialName, totalWeeks, days, catalog: initialCatalog, onExit }: Props) {
+  const router = useRouter()
+  const isDraft = planId == null
+  const [draftName, setDraftName] = useState(initialName)
+  // 下書きを保存して作ったテンプレート（保存のあと、そのテンプレートの編集画面に移る）
+  const createdId = useRef<string | null>(null)
   // 最後に保存した内容（「保存しない」を選んだときの戻り先）と、編集中の内容
   const [savedByDay, setSavedByDay] = useState<Record<string, EditorExercise[]>>(() => Object.fromEntries(days.map(d => [d.id, d.exercises])))
   const [byDay, setByDay] = useState<Record<string, EditorExercise[]>>(savedByDay)
-  const [dirty, setDirty] = useState<Set<string>>(new Set())
+  // 下書きは全部の Day が未保存
+  const [dirty, setDirty] = useState<Set<string>>(() => new Set(isDraft ? days.map(d => d.id) : []))
   const [view, setView] = useState<View>('day')
   const [week, setWeek] = useState(1)
   const [dayId, setDayId] = useState(days.find(d => d.weekNumber === 1)?.id ?? days[0]?.id ?? '')
@@ -80,8 +89,45 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   const patchSet = (id: string, key: string, idx: number, patch: Partial<EditorSet>) =>
     patchExercise(id, key, e => ({ ...e, sets: e.sets.map((s, i) => (i === idx ? { ...s, ...patch } : s)) }))
 
+  // 下書きを保存する: 全部の Day を確かめてから、テンプレートを1回で作る（途中で失敗しても DB に何も残らない）
+  const createFromDraft = async (): Promise<boolean> => {
+    const name = draftName.trim()
+    if (!name) { setMessage({ kind: 'error', text: 'テンプレート名を入力してください' }); return false }
+    const payloadDays = []
+    for (const d of sortedDays) {
+      const payload = toSavePayload(byDay[d.id] ?? [])
+      if (!payload.ok) {
+        // 直す所が見えるよう、その Day を開く
+        setView('day'); setWeek(d.weekNumber); setDayId(d.id)
+        setMessage({ kind: 'error', text: `${label(d.id)}: ${payload.error}` })
+        return false
+      }
+      payloadDays.push({ week: d.weekNumber, day: d.dayNumber, label: d.label ?? null, exercises: payload.exercises })
+    }
+    setSaving(true)
+    setMessage(null)
+    try {
+      const res = await fetch('/api/trainer/templates/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, total_weeks: totalWeeks, days_per_week: Math.max(...days.map(d => d.dayNumber)), days: payloadDays }),
+      })
+      const data = await res.json().catch(() => ({})) as { id?: string; error?: string }
+      if (!res.ok || !data.id) throw new Error(data.error ?? '保存に失敗しました')
+      createdId.current = data.id
+      setDirty(new Set())
+      return true
+    } catch (e) {
+      setMessage({ kind: 'error', text: e instanceof Error ? e.message : '保存に失敗しました' })
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // 指定した Day を保存する。1件でも入力エラー・保存失敗があれば false
   const saveDays = async (ids: string[]): Promise<boolean> => {
+    if (isDraft) return createFromDraft()
     for (const id of ids) {
       const payload = toSavePayload(byDay[id] ?? [])
       if (!payload.ok) {
@@ -134,7 +180,12 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     if (target && target.id !== dayId) { setMessage(null); setWeek(w); setDayId(target.id) }
   }
 
-  const { pending, resolvePending } = useUnsavedLeaveGuard(dirty, saveDays, discardDays)
+  const { pending, resolvePending, confirmLeave } = useUnsavedLeaveGuard(dirty, saveDays, discardDays)
+
+  const handleSaveClick = async () => {
+    const ok = await saveDays([...dirty])
+    if (ok && createdId.current) router.replace(`/trainer/programs/${createdId.current}`)
+  }
 
   const move = (key: string, dir: -1 | 1) =>
     updateDay(dayId, list => {
@@ -266,10 +317,16 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       <div className="sticky top-0 z-10 trainer-header px-4 md:px-6 py-3 md:py-4 space-y-2 md:space-y-3">
         {/* 1行目は表示を切り替えても高さ・位置が変わらない（切り替えボタンの位置を固定する） */}
         <div className="flex items-center gap-2">
-          <Link href="/trainer/programs" className="p-1 -ml-1 text-zinc-400 hover:text-black dark:hover:text-white">
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-          <TemplateNameInput planId={planId} initialName={initialName} />
+          {onExit ? (
+            <button onClick={() => (dirty.size > 0 ? confirmLeave(onExit) : onExit())} aria-label="テンプレートの一覧に戻る" className="p-1 -ml-1 text-zinc-400 hover:text-black dark:hover:text-white">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          ) : (
+            <Link href="/trainer/programs" className="p-1 -ml-1 text-zinc-400 hover:text-black dark:hover:text-white">
+              <ChevronLeft className="w-5 h-5" />
+            </Link>
+          )}
+          <TemplateNameInput planId={planId} initialName={initialName} onChange={setDraftName} />
           <div className="shrink-0 flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl">
             {([['day', 'Dayごと'], ['exercise', '種目ごと']] as const).map(([v, text]) => (
               <button
@@ -297,7 +354,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
                   onClick={() => selectDay(d.id)}
                   className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border ${d.id === dayId ? 'border-brand bg-brand-soft text-brand-text' : 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-black dark:hover:text-white'}`}
                 >
-                  Day {d.dayNumber}{dirty.has(d.id) ? ' ●' : ''}
+                  Day {d.dayNumber}{d.label ? `・${d.label}` : ''}{!isDraft && dirty.has(d.id) ? ' ●' : ''}
                 </button>
               ))}
             </div>
@@ -417,7 +474,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           {occurrences.map(({ day, ex }) => (
             <div key={`${day.id}-${ex.key}`} className="px-4 md:px-5 py-4 rounded-2xl trainer-card space-y-3">
               <p className="text-sm font-semibold text-black dark:text-white">
-                Week {day.weekNumber} / Day {day.dayNumber}{dirty.has(day.id) ? ' ●' : ''}
+                Week {day.weekNumber} / Day {day.dayNumber}{!isDraft && dirty.has(day.id) ? ' ●' : ''}
               </p>
               {/* メモは「回数：」「重量：」のように1項目1行で書くので、複数行で入力できるようにする（2026-10-25） */}
               <textarea
@@ -463,14 +520,22 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           ボタンの左に小さく出す。下の種目を触れるよう、ボタンとメッセージ以外はタップを通す。PC は今までどおり帯 */}
       <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 z-10 px-4 md:px-6 py-3 pointer-events-none md:pointer-events-auto md:bg-white md:dark:bg-black md:border-t border-zinc-100 dark:border-zinc-900 flex items-center justify-end gap-3">
         <p className={`pointer-events-auto md:flex-1 text-xs md:text-sm max-md:px-3 max-md:py-2 max-md:rounded-xl max-md:bg-white/95 max-md:shadow-md max-md:border max-md:border-zinc-100 ${message?.kind === 'error' ? 'text-red-500' : 'text-zinc-500 dark:text-zinc-400'} ${message?.text || dirty.size > 0 ? '' : 'max-md:hidden'}`}>
-          {message?.text ?? (dirty.size > 0 ? `未保存の変更が ${dirty.size} 日分あります` : '')}
+          {message?.text ?? (isDraft ? '取り込んだメニューは、保存するとテンプレートになります' : dirty.size > 0 ? `未保存の変更が ${dirty.size} 日分あります` : '')}
         </p>
-        <button onClick={() => saveDays([...dirty])} disabled={dirty.size === 0 || saving} className="pointer-events-auto shrink-0 px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-40 max-md:shadow-lg max-md:disabled:opacity-100 max-md:disabled:bg-zinc-200 max-md:disabled:text-zinc-500">
-          {saving ? '保存中…' : dirty.size > 0 ? `変更を保存（${dirty.size}日分）` : '保存済み'}
+        <button onClick={handleSaveClick} disabled={dirty.size === 0 || saving} className="pointer-events-auto shrink-0 px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-40 max-md:shadow-lg max-md:disabled:opacity-100 max-md:disabled:bg-zinc-200 max-md:disabled:text-zinc-500">
+          {saving ? '保存中…' : isDraft ? '保存してテンプレートを作成' : dirty.size > 0 ? `変更を保存（${dirty.size}日分）` : '保存済み'}
         </button>
       </div>
 
-      {pending && <UnsavedLeaveDialog pending={pending} saving={saving} label={label} onResolve={resolvePending} />}
+      {pending && (
+        <UnsavedLeaveDialog
+          pending={pending}
+          saving={saving}
+          label={label}
+          message={isDraft ? '取り込んだメニューはまだ保存されていません。保存しないと、取り込んだ内容は消えます。' : undefined}
+          onResolve={resolvePending}
+        />
+      )}
 
       {swap && swapSource && (
         <SwapPicker

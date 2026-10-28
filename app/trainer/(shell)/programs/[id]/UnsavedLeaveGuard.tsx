@@ -46,13 +46,18 @@ export function useUnsavedLeaveGuard(dirty: ReadonlySet<string>, saveDays: (ids:
     proceed()
   }
 
-  return { pending, resolvePending }
+  // リンク以外で離れる時（取り込んだメニューの下書きの「戻る」、2026-10-28）に、同じ確認を出す
+  const confirmLeave = (proceed: () => void) => setPending({ saveIds: [...dirty], proceed })
+
+  return { pending, resolvePending, confirmLeave }
 }
 
-export function UnsavedLeaveDialog({ pending, saving, label, onResolve }: {
+// message: 日数の代わりに出す説明（取り込んだメニューの下書き、2026-10-28）
+export function UnsavedLeaveDialog({ pending, saving, label, message, onResolve }: {
   pending: PendingLeave
   saving: boolean
   label: (dayId: string) => string
+  message?: string
   onResolve: (choice: 'save' | 'discard' | 'cancel') => void
 }) {
   return (
@@ -61,7 +66,7 @@ export function UnsavedLeaveDialog({ pending, saving, label, onResolve }: {
       <div className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
         <p className="text-base font-semibold text-black dark:text-white">変更を保存しますか？</p>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          {pending.saveIds.length === 1 ? `${label(pending.saveIds[0])} に未保存の変更があります。` : `${pending.saveIds.length}日分の未保存の変更があります。`}
+          {message ?? (pending.saveIds.length === 1 ? `${label(pending.saveIds[0])} に未保存の変更があります。` : `${pending.saveIds.length}日分の未保存の変更があります。`)}
         </p>
         <div className="flex flex-col gap-2">
           <button onClick={() => onResolve('save')} disabled={saving} className="w-full py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
