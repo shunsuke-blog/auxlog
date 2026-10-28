@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronRight, X } from 'lucide-react'
+import { toIntegerInput } from '@/lib/utils/number_input'
 
 // ビジネスプラン・トレーナー枠の追加のお問い合わせ（2026-10-26）。メールアプリは開かず、画面の中で送る。
 // 名前・メールアドレスはログイン中の情報を API 側で付けるので、入力は人数と任意のメッセージだけ。
@@ -66,7 +67,7 @@ export default function InquiryForm({ kind, sidePanelId }: { kind: 'business' | 
       <label className="block text-xs text-zinc-500 dark:text-zinc-400 space-y-1">
         <span>{kind === 'business' ? 'ご利用予定のトレーナーの人数（あなたを含む）' : '追加したいトレーナーの人数'}</span>
         <span className="flex items-center gap-2">
-          <input type="number" inputMode="numeric" min={1} max={999} required value={trainers} onChange={e => setTrainers(e.target.value)} className={`${inputClass} w-24 tabular-nums`} />
+          <input inputMode="numeric" maxLength={3} required value={trainers} onChange={e => setTrainers(toIntegerInput(e.target.value))} className={`${inputClass} w-24 tabular-nums`} />
           <span className="text-sm text-black dark:text-white">名</span>
         </span>
       </label>

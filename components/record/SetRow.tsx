@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import RirToggle from './RirToggle'
 import { Minus, Plus, Check } from 'lucide-react'
+import { toDecimalInput, toIntegerInput } from '@/lib/utils/number_input'
 
 export type SetData = {
   set_number: number
@@ -31,12 +32,12 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
   const [repsDisplay, setRepsDisplay] = useState<string | null>(null)
 
   const handleWeightChange = (val: string) => {
-    const clean = val.replace(/[^0-9.]/g, '')
+    const clean = toDecimalInput(val)
     setWeightDisplay(clean)
     onChange({ ...setData, weight_kg: clean || '0', done: clean !== '' ? true : setData.done })
   }
   const handleRepsChange = (val: string) => {
-    const clean = val.replace(/[^0-9]/g, '')
+    const clean = toIntegerInput(val)
     setRepsDisplay(clean)
     onChange({ ...setData, reps: clean, done: clean !== '' ? true : setData.done })
   }

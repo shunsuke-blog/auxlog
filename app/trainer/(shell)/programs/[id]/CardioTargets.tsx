@@ -1,5 +1,7 @@
 'use client'
 
+import { toDecimalInput, toIntegerInput } from '@/lib/utils/number_input'
+
 type Props = {
   minutes: string
   distanceKm: string
@@ -15,11 +17,11 @@ export default function CardioTargets({ minutes, distanceKm, onChange }: Props) 
     <div className="flex flex-wrap items-end gap-4">
       <label className="space-y-1">
         <span className="block text-xs text-zinc-400">目標の時間（分）</span>
-        <input type="number" inputMode="numeric" min={1} max={1440} value={minutes} onChange={e => onChange({ targetMinutes: e.target.value })} placeholder="30" className={inputClass} />
+        <input inputMode="numeric" maxLength={4} value={minutes} onChange={e => onChange({ targetMinutes: toIntegerInput(e.target.value) })} placeholder="30" className={inputClass} />
       </label>
       <label className="space-y-1">
         <span className="block text-xs text-zinc-400">目標の距離（km、任意）</span>
-        <input type="number" inputMode="decimal" min={0} step="0.1" value={distanceKm} onChange={e => onChange({ targetDistanceKm: e.target.value })} placeholder="5.0" className={inputClass} />
+        <input inputMode="decimal" maxLength={6} value={distanceKm} onChange={e => onChange({ targetDistanceKm: toDecimalInput(e.target.value) })} placeholder="5.0" className={inputClass} />
       </label>
     </div>
   )

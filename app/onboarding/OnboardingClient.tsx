@@ -16,6 +16,7 @@ import {
 } from '@/lib/suggest/generate_program_composition'
 import { PRIORITY_MUSCLE_OPTION_ORDER, PRIORITY_MUSCLE_OPTION_LABELS, MAX_PRIORITY_MUSCLES, type PriorityMuscleOption } from '@/types'
 import { estimateOneRm } from '@/lib/utils/epley'
+import { toDecimalInput, toIntegerInput } from '@/lib/utils/number_input'
 import {
   exerciseRequiresOneRm,
   buildSlotSelections as buildSlotSelectionsPure,
@@ -673,7 +674,6 @@ export default function OnboardingClient({ exercises }: Props) {
                   </label>
                   <div className="flex items-center gap-2">
                     <input
-                      type="number"
                       inputMode="decimal"
                       placeholder="例: 100"
                       value={entry.final_kg}
@@ -682,7 +682,7 @@ export default function OnboardingClient({ exercises }: Props) {
                           ...prev,
                           [currentSlot.id]: {
                             ...(prev[currentSlot.id] ?? defaultOneRmEntry()),
-                            final_kg: e.target.value,
+                            final_kg: toDecimalInput(e.target.value),
                             source: 'manual_input',
                           },
                         }))
@@ -718,7 +718,6 @@ export default function OnboardingClient({ exercises }: Props) {
                   </p>
                   <div className="flex items-center gap-2">
                     <input
-                      type="number"
                       inputMode="decimal"
                       placeholder="重量"
                       value={entry.epley_weight}
@@ -727,7 +726,7 @@ export default function OnboardingClient({ exercises }: Props) {
                           ...prev,
                           [currentSlot.id]: {
                             ...(prev[currentSlot.id] ?? defaultOneRmEntry()),
-                            epley_weight: e.target.value,
+                            epley_weight: toDecimalInput(e.target.value),
                           },
                         }))
                       }
@@ -735,7 +734,6 @@ export default function OnboardingClient({ exercises }: Props) {
                     />
                     <span className="text-sm text-zinc-400 shrink-0">kg ×</span>
                     <input
-                      type="number"
                       inputMode="numeric"
                       placeholder="回"
                       value={entry.epley_reps}
@@ -744,7 +742,7 @@ export default function OnboardingClient({ exercises }: Props) {
                           ...prev,
                           [currentSlot.id]: {
                             ...(prev[currentSlot.id] ?? defaultOneRmEntry()),
-                            epley_reps: e.target.value,
+                            epley_reps: toIntegerInput(e.target.value),
                           },
                         }))
                       }

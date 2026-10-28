@@ -1,6 +1,7 @@
 'use client'
 
 import { formatPace, parseCardioInput } from '@/lib/record/cardio'
+import { toDecimalInput, toIntegerInput } from '@/lib/utils/number_input'
 
 export type CardioInputValue = { minutes: string; distanceKm: string; calories: string }
 
@@ -26,24 +27,24 @@ type Props = {
 export default function CardioInputs({ value, onChange, tracksDistance }: Props) {
   const parsed = parseCardioInput({ ...value, distanceKm: tracksDistance ? value.distanceKm : '' })
   const pace = parsed?.distance_km ? formatPace(parsed.duration_seconds, parsed.distance_km) : null
-  const set = (key: keyof CardioInputValue) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [key]: e.target.value })
+  const set = (key: keyof CardioInputValue) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [key]: key === 'calories' ? toIntegerInput(e.target.value) : toDecimalInput(e.target.value) })
 
   return (
     <div className="space-y-4">
       <label className="block space-y-1.5">
         <span className="text-xs font-semibold text-zinc-400">時間（分）</span>
-        <input type="number" inputMode="decimal" min={1} max={1440} value={value.minutes} onChange={set('minutes')} placeholder="30" className={inputClass} />
+        <input inputMode="decimal" maxLength={6} value={value.minutes} onChange={set('minutes')} placeholder="30" className={inputClass} />
       </label>
       {tracksDistance && (
         <label className="block space-y-1.5">
           <span className="text-xs font-semibold text-zinc-400">距離（km、任意）</span>
-          <input type="number" inputMode="decimal" min={0} step="0.01" value={value.distanceKm} onChange={set('distanceKm')} placeholder="5.0" className={inputClass} />
+          <input inputMode="decimal" maxLength={6} value={value.distanceKm} onChange={set('distanceKm')} placeholder="5.0" className={inputClass} />
           {pace && <span className="block text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">ペース {pace}</span>}
         </label>
       )}
       <label className="block space-y-1.5">
         <span className="text-xs font-semibold text-zinc-400">消費カロリー（kcal、任意）</span>
-        <input type="number" inputMode="numeric" min={1} value={value.calories} onChange={set('calories')} placeholder="300" className={inputClass} />
+        <input inputMode="numeric" maxLength={5} value={value.calories} onChange={set('calories')} placeholder="300" className={inputClass} />
       </label>
     </div>
   )
