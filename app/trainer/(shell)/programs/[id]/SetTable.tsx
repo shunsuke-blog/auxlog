@@ -55,12 +55,12 @@ export default function SetTable({ sets, onChange, onRemove, onAdd }: {
                 </td>
                 <td className="py-1 pr-1.5 md:pr-2">
                   <div className="flex items-center gap-1">
-                    <select tabIndex={-1} aria-label={`${i + 1}セット目の重量の種類`} value={s.mode} onChange={e => onChange(i, { mode: e.target.value as WeightMode, value: '' })} className={`${inputClass} text-xs`}>
-                      {(Object.keys(MODE_LABELS) as WeightMode[]).map(m => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}
-                    </select>
                     {s.mode !== 'auto' && (
                       <input inputMode="decimal" aria-label={`${i + 1}セット目の重量`} value={s.value} onChange={e => onChange(i, { value: e.target.value })} placeholder={s.mode === 'pct' ? '75' : '60'} className={`${inputClass} w-14 md:w-16`} />
                     )}
+                    <select tabIndex={-1} aria-label={`${i + 1}セット目の重量の種類`} value={s.mode} onChange={e => onChange(i, { mode: e.target.value as WeightMode, value: '' })} className={`${inputClass} text-xs`}>
+                      {(Object.keys(MODE_LABELS) as WeightMode[]).map(m => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}
+                    </select>
                   </div>
                 </td>
                 <td className="py-1 pr-1.5 md:pr-2">
