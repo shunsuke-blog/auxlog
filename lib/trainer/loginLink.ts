@@ -15,8 +15,9 @@ export type LoginLinkPeek = {
   expires_at?: string
 }
 
-/** リンクの URL（origin は画面ならその場所、サーバーなら NEXT_PUBLIC_APP_URL） */
-export const loginLinkUrl = (origin: string, token: string) => `${origin}/join/${token}`
+/** リンクの URL（origin は画面ならその場所）。openExternalBrowser=1 で、LINE はアプリの中ではなくいつものブラウザ（Safari・Chrome）で開く。
+ *  LINE の中のブラウザだとログインがその中にしか残らず、ホーム画面にも追加できないため（2026-10-28） */
+export const loginLinkUrl = (origin: string, token: string) => `${origin}/join/${token}?openExternalBrowser=1`
 
 /** LINE で送る文（招待文は「リンクを押すだけ」、2026-10-28 オーナー決定） */
 export function loginLinkMessage(url: string, clientName: string, kind: 'invite' | 'relogin') {
