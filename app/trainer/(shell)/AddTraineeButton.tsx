@@ -127,7 +127,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
               </div>
             ) : issued ? (
               <div className="space-y-4">
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">{name} さんの招待リンクができました。LINE で送ってください。</p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">{name} さんの招待リンクができました。文章をコピーして、LINE などで送ってください。</p>
                 <LoginLinkShare token={issued.token} expiresAt={issued.expires_at} clientName={name} kind="invite" />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">クライアントの詳細から、いつでも見返す・作り直すことができます。</p>
                 <button onClick={close} className="w-full py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900">閉じる</button>

@@ -26,9 +26,6 @@ export function loginLinkMessage(url: string, clientName: string, kind: 'invite'
     : `${clientName}さん\nAuxlog にログインするためのリンクです。\n下のリンクを押すと、あなたのメニューが開きます。\n${url}\n※リンクは1回だけ使えます`
 }
 
-/** LINE の「送る」画面を開く URL（スマホは LINE アプリ、PC は LINE のサイト） */
-export const lineShareUrl = (text: string) => `https://line.me/R/share?text=${encodeURIComponent(text)}`
-
 /** 日本時間の今日（YYYY-MM-DD）。プランを始める日に使う */
 export function tokyoToday(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
