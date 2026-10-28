@@ -30,10 +30,21 @@ export default async function AccountPage() {
       </div>
 
       <div className="px-6 py-6 space-y-4">
-        <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-1">
-          <p className="text-xs text-zinc-400">メールアドレス</p>
-          <p className="text-sm text-black dark:text-white">{userData?.email ?? user.email}</p>
-        </div>
+        {/* トレーナーからのログイン用リンクで作ったアカウントは、メールアドレスが仮のもの（2026-10-28） */}
+        {(userData?.email ?? user.email ?? '').endsWith('@clients.auxlog.app') ? (
+          <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-1">
+            <p className="text-xs text-zinc-400">ログインの方法</p>
+            <p className="text-sm text-black dark:text-white">トレーナーからのリンク</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              メールアドレスやパスワードはありません。ログアウトした時や別のスマホで使う時は、トレーナーにログイン用のリンクを作ってもらってください。
+            </p>
+          </div>
+        ) : (
+          <div className="px-5 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900 space-y-1">
+            <p className="text-xs text-zinc-400">メールアドレス</p>
+            <p className="text-sm text-black dark:text-white">{userData?.email ?? user.email}</p>
+          </div>
+        )}
 
         <ProgramSection enrollmentId={enrollment?.id ?? null} />
 
