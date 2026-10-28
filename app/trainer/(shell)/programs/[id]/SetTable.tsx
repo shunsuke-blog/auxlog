@@ -1,6 +1,6 @@
 'use client'
 
-import { X } from 'lucide-react'
+import { CircleMinus } from 'lucide-react'
 import type { EditorSet, WeightMode } from '@/lib/trainer/templateEditor'
 import HelpTip from '@/components/ui/HelpTip'
 
@@ -73,8 +73,8 @@ export default function SetTable({ sets, onChange, onRemove, onAdd }: {
                   <input inputMode="numeric" aria-label={`${i + 1}セット目のRIR`} value={s.rir} onChange={e => onChange(i, { rir: e.target.value })} placeholder="-" className={`${inputClass} w-12`} />
                 </td>
                 <td className="py-1">
-                  <button tabIndex={-1} onClick={() => onRemove(i)} disabled={sets.length <= 1} title="セットを削除" className="p-1 text-zinc-300 hover:text-red-500 disabled:opacity-30">
-                    <X className="w-4 h-4" />
+                  <button tabIndex={-1} onClick={() => onRemove(i)} disabled={sets.length <= 1} title="セットを削除" className="p-1 text-red-500 enabled:hover:text-red-600 disabled:opacity-30">
+                    <CircleMinus className="w-4 h-4" />
                   </button>
                 </td>
               </tr>
