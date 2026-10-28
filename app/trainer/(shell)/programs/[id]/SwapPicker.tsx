@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ArrowLeftRight, Search, X } from 'lucide-react'
 import { exerciseIdOf, isCardioExercise, muscleGroupLabel, type CatalogExercise } from '@/lib/trainer/templateEditor'
+import { matchesSearch } from '@/lib/utils/search'
 
 export type SwapScope = 'this' | 'sameDayAllWeeks'
 
@@ -31,7 +32,7 @@ export default function SwapPicker({ current, oneRmSource, catalog, inDay, scope
   const q = query.trim()
   // 有酸素は有酸素同士でだけ入れ替える（目標の持ち方がセットと違うため、2026-10-26）
   const currentIsCardio = isCardioExercise(current)
-  const candidates = catalog.filter(e => keyOf(e) !== current.id && isCardioExercise(e) === currentIsCardio && (!q || e.name.includes(q)))
+  const candidates = catalog.filter(e => keyOf(e) !== current.id && isCardioExercise(e) === currentIsCardio && matchesSearch(e.name, q))
   const sameMovement = current.movementPattern ? candidates.filter(e => e.movementPattern === current.movementPattern) : []
   const sameMuscle = candidates.filter(e => !sameMovement.includes(e) && e.targetMuscle != null && e.targetMuscle === current.targetMuscle)
   const others = q ? candidates.filter(e => !sameMovement.includes(e) && !sameMuscle.includes(e)) : []

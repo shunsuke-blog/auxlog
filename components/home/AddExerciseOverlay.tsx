@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, Plus, Search, X } from 'lucide-react'
 import { MUSCLE_ORDER, TARGET_MUSCLE_LABELS, CARDIO_MUSCLE } from '@/types'
+import { matchesSearch } from '@/lib/utils/search'
 
 type MasterExercise = { id: string; name: string; target_muscle: string }
 type CardioExercise = { id: string; name: string }
@@ -90,8 +91,8 @@ export default function AddExerciseOverlay({ excludedNames, note, onPicked, onCl
   }
 
   const trimmedQuery = searchQuery.trim()
-  const filteredMaster = trimmedQuery ? masterExercises.filter(e => e.name.includes(trimmedQuery)) : masterExercises
-  const filteredCardio = (trimmedQuery ? cardioExercises.filter(e => e.name.includes(trimmedQuery)) : cardioExercises)
+  const filteredMaster = trimmedQuery ? masterExercises.filter(e => matchesSearch(e.name, trimmedQuery)) : masterExercises
+  const filteredCardio = (trimmedQuery ? cardioExercises.filter(e => matchesSearch(e.name, trimmedQuery)) : cardioExercises)
     .filter(e => !excludedNames.has(e.name))
 
   return (

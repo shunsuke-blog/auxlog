@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ChevronDown, GripVertical, Plus, Search } from 'lucide-react'
 import { MUSCLE_ORDER, TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
 import { exerciseIdOf, type CatalogExercise } from '@/lib/trainer/templateEditor'
+import { matchesSearch } from '@/lib/utils/search'
 
 /** ドラッグ中の種目を渡すときの dataTransfer の型名 */
 export const LIBRARY_DRAG_TYPE = 'application/x-auxlog-exercise'
@@ -26,7 +27,7 @@ export default function ExerciseLibrary({ catalog, onAdd, onCreate, disabled }: 
   const [closed, setClosed] = useState<Set<string>>(new Set())
 
   const q = query.trim()
-  const filtered = q ? catalog.filter(e => e.name.includes(q)) : catalog
+  const filtered = q ? catalog.filter(e => matchesSearch(e.name, q)) : catalog
   const groups: { key: string; label: string; items: CatalogExercise[] }[] = [
     { key: 'own', label: '独自の種目', items: filtered.filter(e => e.trainerExerciseId) },
     ...MUSCLE_ORDER.map(m => ({

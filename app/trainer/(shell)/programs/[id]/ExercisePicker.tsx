@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Plus, Search, X } from 'lucide-react'
 import { MUSCLE_ORDER, TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
 import { exerciseIdOf, muscleGroupLabel, type CatalogExercise } from '@/lib/trainer/templateEditor'
+import { matchesSearch } from '@/lib/utils/search'
 
 type Props = {
   catalog: CatalogExercise[]
@@ -26,7 +27,7 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
   const [error, setError] = useState<string | null>(null)
 
   const q = query.trim()
-  const filtered = q ? catalog.filter(e => e.name.includes(q)) : catalog
+  const filtered = q ? catalog.filter(e => matchesSearch(e.name, q)) : catalog
   const own = filtered.filter(e => e.trainerExerciseId)
   const master = filtered.filter(e => e.exerciseMasterId)
   const cardio = filtered.filter(e => e.cardioMasterId)
@@ -48,6 +49,9 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
       setBusy(false)
     }
   }
+
+  // 部位の見出しは帯にして、スクロール中も上に残す（どこから肩・腕かが分かるように、2026-10-28 オーナー指摘）
+  const sectionClass = 'sticky top-0 z-10 px-5 py-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 border-y border-zinc-200 dark:border-zinc-800'
 
   const row = (e: CatalogExercise) => (
     <button
@@ -82,7 +86,7 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
         <div className="flex-1 overflow-y-auto">
           {own.length > 0 && (
             <>
-              <p className="px-5 pt-3 pb-1 text-xs font-semibold text-zinc-400">独自の種目</p>
+              <p className={sectionClass}>独自の種目</p>
               {own.map(row)}
             </>
           )}
@@ -91,14 +95,14 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
             if (items.length === 0) return null
             return (
               <div key={m}>
-                <p className="px-5 pt-3 pb-1 text-xs font-semibold text-zinc-400">{TARGET_MUSCLE_LABELS[m]}</p>
+                <p className={sectionClass}>{TARGET_MUSCLE_LABELS[m]}</p>
                 {items.map(row)}
               </div>
             )
           })}
           {cardio.length > 0 && (
             <div>
-              <p className="px-5 pt-3 pb-1 text-xs font-semibold text-zinc-400">有酸素</p>
+              <p className={sectionClass}>有酸素</p>
               {cardio.map(row)}
             </div>
           )}

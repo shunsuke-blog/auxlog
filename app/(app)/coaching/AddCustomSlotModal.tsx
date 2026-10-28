@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronLeft, Plus, Search, X } from 'lucide-react'
 import { MUSCLE_ORDER, TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
+import { matchesSearch } from '@/lib/utils/search'
 
 type MasterExercise = { id: string; name: string; target_muscle: string }
 
@@ -50,7 +51,7 @@ export default function AddCustomSlotModal({ day, onAdded, onClose }: Props) {
 
   const trimmedQuery = query.trim()
   const filtered = muscle
-    ? (trimmedQuery ? master.filter(e => e.name.includes(trimmedQuery)) : master).filter(e => e.target_muscle === muscle)
+    ? (trimmedQuery ? master.filter(e => matchesSearch(e.name, trimmedQuery)) : master).filter(e => e.target_muscle === muscle)
     : []
 
   const createUserExercise = async (body: Record<string, unknown>): Promise<string> => {

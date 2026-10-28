@@ -7,6 +7,10 @@ import HelpTip from '@/components/ui/HelpTip'
 const MODE_LABELS: Record<WeightMode, string> = { pct: '%1RM', kg: 'kg', auto: '自動' }
 export const blankSet = (): EditorSet => ({ mode: 'auto', value: '', reps: '10', rir: '2', isWarmup: false })
 
+// 数字以外は受け付けない（2026-10-28 オーナー指摘: 「5回」と打つと 5 として保存されていた）。全角の数字は半角に直す
+const toInteger = (v: string) => v.normalize('NFKC').replace(/[^0-9]/g, '')
+const toDecimal = (v: string) => v.normalize('NFKC').replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
+
 const inputClass = 'px-2 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm tabular-nums text-black dark:text-white'
 
 // テンプレートの種目のセット（重量の種類・重量・回数・RIR・ウォームアップ）の表
@@ -57,7 +61,7 @@ export default function SetTable({ sets, onChange, onRemove, onAdd }: {
                   <div className="flex items-center gap-1">
                     {/* 数値を先、単位を後に並べる（2026-10-28 オーナー依頼）。「自動」の時は数値欄と同じ幅を空けて、単位の位置を動かさない */}
                     {s.mode !== 'auto' ? (
-                      <input inputMode="decimal" aria-label={`${i + 1}セット目の重量`} value={s.value} onChange={e => onChange(i, { value: e.target.value })} placeholder={s.mode === 'pct' ? '75' : '60'} className={`${inputClass} w-14 md:w-16`} />
+                      <input inputMode="decimal" aria-label={`${i + 1}セット目の重量`} value={s.value} onChange={e => onChange(i, { value: toDecimal(e.target.value) })} placeholder={s.mode === 'pct' ? '75' : '60'} className={`${inputClass} w-14 md:w-16`} />
                     ) : (
                       <span aria-hidden className="w-14 md:w-16 shrink-0 text-center text-sm text-zinc-300 dark:text-zinc-700">-</span>
                     )}
@@ -67,10 +71,10 @@ export default function SetTable({ sets, onChange, onRemove, onAdd }: {
                   </div>
                 </td>
                 <td className="py-1 pr-1.5 md:pr-2">
-                  <input inputMode="numeric" aria-label={`${i + 1}セット目の回数`} value={s.reps} onChange={e => onChange(i, { reps: e.target.value })} className={`${inputClass} w-12 md:w-16`} />
+                  <input inputMode="numeric" aria-label={`${i + 1}セット目の回数`} value={s.reps} maxLength={3} onChange={e => onChange(i, { reps: toInteger(e.target.value) })} className={`${inputClass} w-12 md:w-16`} />
                 </td>
                 <td className="py-1 pr-1.5 md:pr-2">
-                  <input inputMode="numeric" aria-label={`${i + 1}セット目のRIR`} value={s.rir} onChange={e => onChange(i, { rir: e.target.value })} placeholder="-" className={`${inputClass} w-12`} />
+                  <input inputMode="numeric" aria-label={`${i + 1}セット目のRIR`} value={s.rir} maxLength={2} onChange={e => onChange(i, { rir: toInteger(e.target.value) })} placeholder="-" className={`${inputClass} w-12`} />
                 </td>
                 <td className="py-1">
                   <button tabIndex={-1} onClick={() => onRemove(i)} disabled={sets.length <= 1} title="セットを削除" className="p-1 text-red-500 enabled:hover:text-red-600 disabled:opacity-30">
