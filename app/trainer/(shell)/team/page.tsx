@@ -81,77 +81,81 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
   return (
     <div>
       {header}
-      <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 max-w-2xl">
-        {team.role === 'none' && (
-          <>
-            {/* ビジネスでチームが無い人は (shell)/layout.tsx で /trainer/team-setup に移るので、ここは作成の案内だけ */}
-            <Card title="チームで使う">
-              <p className="text-sm text-zinc-500">ビジネスプランでは、複数のトレーナーでクライアントとプログラムをまとめて管理できます。</p>
-              <div className="px-4 py-3 rounded-xl border border-line space-y-0.5">
-                <p className="text-sm font-semibold text-black">¥19,800〜 / 月（税込）</p>
-                <p className="text-xs text-zinc-500">トレーナーの人数に応じてお見積もりします。</p>
-              </div>
-              <p className="text-sm text-zinc-500">お申し込みは、お問い合わせのうえで承ります。</p>
-              <InquiryForm kind="business" />
+      {/* PC ではお問い合わせを右側（team-side）に開く（設定の画面とそろえる。2026-10-28 オーナー指示） */}
+      <div className="px-4 md:px-6 py-4 md:py-6 xl:flex xl:items-start xl:gap-6">
+        <div className="space-y-4 max-w-2xl xl:w-2xl xl:shrink-0">
+          {team.role === 'none' && (
+            <>
+              {/* ビジネスでチームが無い人は (shell)/layout.tsx で /trainer/team-setup に移るので、ここは作成の案内だけ */}
+              <Card title="チームで使う">
+                <p className="text-sm text-zinc-500">ビジネスプランでは、複数のトレーナーでクライアントとプログラムをまとめて管理できます。</p>
+                <div className="px-4 py-3 rounded-xl border border-line space-y-0.5">
+                  <p className="text-sm font-semibold text-black">¥19,800〜 / 月（税込）</p>
+                  <p className="text-xs text-zinc-500">トレーナーの人数に応じてお見積もりします。</p>
+                </div>
+                <p className="text-sm text-zinc-500">お申し込みは、お問い合わせのうえで承ります。</p>
+                <InquiryForm kind="business" sidePanelId="team-side" />
+              </Card>
+              <Card title="チームに参加する">
+                <p className="text-sm text-zinc-500">管理者から受け取った招待コードを入力してください。管理者が承認すると参加できます。参加中はチームのビジネスプランで、クライアントを無制限に担当できます。</p>
+                {ownPlanRenews && (
+                  <p className="text-sm text-black">
+                    ご自身の{profile?.plan === 'basic' ? 'ベーシックプラン' : 'プロプラン'}は、参加が承認されると{sub?.current_period_end ? `今のお支払い期間の終わり（${new Date(sub.current_period_end).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' })}）で` : '今のお支払い期間の終わりで'}自動で解約されます。
+                    承認された時からチームのプランで使えます（お支払い済みの期間の返金はありません）。
+                  </p>
+                )}
+                <JoinTeamForm />
+              </Card>
+            </>
+          )}
+
+          {team.role === 'pending' && (
+            <Card title="参加の申請中">
+              <p className="text-sm text-black">{team.orgName ? `${team.orgName} への` : 'チームへの'}参加を申請しています。管理者の承認をお待ちください。</p>
+              <LeaveTeamButton pending />
             </Card>
-            <Card title="チームに参加する">
-              <p className="text-sm text-zinc-500">管理者から受け取った招待コードを入力してください。管理者が承認すると参加できます。参加中はチームのビジネスプランで、クライアントを無制限に担当できます。</p>
-              {ownPlanRenews && (
-                <p className="text-sm text-black">
-                  ご自身の{profile?.plan === 'basic' ? 'ベーシックプラン' : 'プロプラン'}は、参加が承認されると{sub?.current_period_end ? `今のお支払い期間の終わり（${new Date(sub.current_period_end).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' })}）で` : '今のお支払い期間の終わりで'}自動で解約されます。
-                  承認された時からチームのプランで使えます（お支払い済みの期間の返金はありません）。
+          )}
+
+          {team.role === 'member' && (
+            <Card title="参加中のチーム">
+              <p className="text-base font-semibold text-black">{team.orgName}</p>
+              <p className="text-sm text-zinc-500">管理者: {team.ownerName} さん</p>
+              {team.active ? (
+                <p className="text-sm text-zinc-500">チームのビジネスプランで、クライアントを無制限に担当できます。管理者が作ったプログラムは、クライアントの追加の時に選べます。</p>
+              ) : (
+                <p className="text-sm text-red-600">管理者のビジネスプランが終了しているため、チームの機能は止まっています（ご自身のプランで使えます）。</p>
+              )}
+              <LeaveTeamButton pending={false} />
+            </Card>
+          )}
+
+          {team.role === 'owner' && (
+            <>
+              {!team.active && (
+                <p className="px-4 py-3 rounded-2xl bg-red-50 border border-red-100 text-sm text-red-700">
+                  ビジネスプランが終了しているため、チームは止まっています。メンバーはそれぞれのプランで使っています。<Link href="/trainer/settings" className="ml-1 underline hover:text-red-900">プランを見る</Link>
                 </p>
               )}
-              <JoinTeamForm />
-            </Card>
-          </>
-        )}
+              <Card title="チーム">
+                <RenameTeam name={team.orgName} />
+                <p className="text-sm text-zinc-500 tabular-nums">トレーナー {teamTrainerCount(team)} / {team.seatLimit}名</p>
+                <div className="space-y-2">
+                  <p className="text-xs text-zinc-500">トレーナーを増やす場合はお問い合わせください。</p>
+                  <InquiryForm kind="seats" sidePanelId="team-side" />
+                </div>
+                <OwnerIsTrainerToggle value={team.ownerIsTrainer} />
+              </Card>
 
-        {team.role === 'pending' && (
-          <Card title="参加の申請中">
-            <p className="text-sm text-black">{team.orgName ? `${team.orgName} への` : 'チームへの'}参加を申請しています。管理者の承認をお待ちください。</p>
-            <LeaveTeamButton pending />
-          </Card>
-        )}
+              <Card title="招待コード">
+                <p className="text-sm text-zinc-500">参加してほしいトレーナーに伝えてください。トレーナー画面の「チーム」で入力すると、ここに参加の申請が届きます。</p>
+                <InviteCode code={team.inviteCode} />
+              </Card>
 
-        {team.role === 'member' && (
-          <Card title="参加中のチーム">
-            <p className="text-base font-semibold text-black">{team.orgName}</p>
-            <p className="text-sm text-zinc-500">管理者: {team.ownerName} さん</p>
-            {team.active ? (
-              <p className="text-sm text-zinc-500">チームのビジネスプランで、クライアントを無制限に担当できます。管理者が作ったプログラムは、クライアントの追加の時に選べます。</p>
-            ) : (
-              <p className="text-sm text-red-600">管理者のビジネスプランが終了しているため、チームの機能は止まっています（ご自身のプランで使えます）。</p>
-            )}
-            <LeaveTeamButton pending={false} />
-          </Card>
-        )}
-
-        {team.role === 'owner' && (
-          <>
-            {!team.active && (
-              <p className="px-4 py-3 rounded-2xl bg-red-50 border border-red-100 text-sm text-red-700">
-                ビジネスプランが終了しているため、チームは止まっています。メンバーはそれぞれのプランで使っています。<Link href="/trainer/settings" className="ml-1 underline hover:text-red-900">プランを見る</Link>
-              </p>
-            )}
-            <Card title="チーム">
-              <RenameTeam name={team.orgName} />
-              <p className="text-sm text-zinc-500 tabular-nums">トレーナー {teamTrainerCount(team)} / {team.seatLimit}名</p>
-              <div className="space-y-2">
-                <p className="text-xs text-zinc-500">トレーナーを増やす場合はお問い合わせください。</p>
-                <InquiryForm kind="seats" />
-              </div>
-              <OwnerIsTrainerToggle value={team.ownerIsTrainer} />
-            </Card>
-
-            <Card title="招待コード">
-              <p className="text-sm text-zinc-500">参加してほしいトレーナーに伝えてください。トレーナー画面の「チーム」で入力すると、ここに参加の申請が届きます。</p>
-              <InviteCode code={team.inviteCode} />
-            </Card>
-
-            <OwnerMembers team={team} />
-          </>
-        )}
+              <OwnerMembers team={team} />
+            </>
+          )}
+        </div>
+        <div id="team-side" className="hidden xl:block flex-1 min-w-0 max-w-md sticky top-[96px]" />
       </div>
     </div>
   )
