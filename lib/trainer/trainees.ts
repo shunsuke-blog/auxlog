@@ -97,7 +97,8 @@ export async function loadTraineeRows(supabase: SupabaseClient, trainerId: strin
 
   const rows: TraineeRow[] = linkRows.map(l => {
     const plan = planByLink.get(l.id) ?? null
-    const invite = l.status === 'invited' ? inviteByLink.get(l.id) ?? null : null
+    // 招待中は招待リンク、契約中・一時停止は機種変更などのログイン用リンク（2026-10-28。自分と契約終了には無い）
+    const invite = l.status !== 'ended' && l.trainee_id !== l.trainer_id ? inviteByLink.get(l.id) ?? null : null
     const lastTrainedOn = l.trainee_id ? lastByUser.get(l.trainee_id) ?? null : null
     return {
       linkId: l.id,
