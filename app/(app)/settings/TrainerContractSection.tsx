@@ -9,7 +9,7 @@ type Props = {
   link: { linkId: string; trainerName: string; status: 'active' | 'paused' } | null
 }
 
-// トレーニー側の契約。契約中なら担当トレーナーと「契約を終了」、契約していなければ招待コードの入力。
+// トレーニー側の契約。契約中なら担当トレーナーと「契約を終了」、契約していなければ招待の受け取り方の案内（/invite）。
 export default function TrainerContractSection({ link }: Props) {
   const router = useRouter()
   const [confirming, setConfirming] = useState(false)
@@ -24,7 +24,7 @@ export default function TrainerContractSection({ link }: Props) {
       >
         <div className="flex items-center gap-3">
           <UserRound className="w-4 h-4 text-zinc-400" />
-          <span className="text-sm text-black dark:text-white">トレーナーの招待コードを入力</span>
+          <span className="text-sm text-black dark:text-white">トレーナーからの招待を受け取る</span>
         </div>
         <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
       </Link>

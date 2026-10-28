@@ -45,7 +45,7 @@ export default async function TraineeDetailPanel({ row, templates, selfName, rea
           <span className="text-xs font-semibold px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">{STATUS_LABELS[row.status]}</span>
         </div>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          {row.startedAt ? `契約期間 ${fmtDate(row.startedAt)} 〜 ${row.endedAt ? fmtDate(row.endedAt) : ''}` : 'まだ招待コードが入力されていません'}
+          {row.startedAt ? `契約期間 ${fmtDate(row.startedAt)} 〜 ${row.endedAt ? fmtDate(row.endedAt) : ''}` : 'まだ招待リンクが開かれていません'}
         </p>
       </div>
       )}
@@ -90,7 +90,7 @@ export default async function TraineeDetailPanel({ row, templates, selfName, rea
 
       {row.isSelf
         ? <SelfPlanActions templates={templates} hasPlan={!!row.plan && row.plan.status !== 'ended'} />
-        : !readOnly && <DetailActions linkId={row.linkId} status={row.status} invite={row.invite} />}
+        : !readOnly && <DetailActions linkId={row.linkId} name={row.name} status={row.status} invite={row.invite} />}
 
       {reassign && !row.isSelf && row.status !== 'ended' && reassign.trainers.length > 1 && (
         <ReassignSelect linkId={row.linkId} currentTrainerId={reassign.currentTrainerId} trainers={reassign.trainers} />

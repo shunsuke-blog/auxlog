@@ -39,7 +39,7 @@ export default async function TrainerDashboardPage() {
     ...todos.filter(t => t.kind === 'waiting_plan').map(t => ({ ...t, text: '次のプランを共有する' })),
     ...data.finalWeek.map(p => ({ ...p, text: 'プランが最終週です。次のプランを準備する' })),
     ...data.repeatedSkips,
-    ...todos.filter(t => t.kind === 'invite_expired').map(t => ({ ...t, text: '招待コードを再発行する（期限切れ）' })),
+    ...todos.filter(t => t.kind === 'invite_expired').map(t => ({ ...t, text: '招待リンクを作り直す（期限切れ）' })),
     ...data.pendingInvites,
   ]
   const alertItems: Item[] = [

@@ -88,7 +88,7 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
   // ── 最近のアクティビティ: 契約の開始・プランの開始・記録・契約の終了 ──
   const events: ActivityEvent[] = []
   for (const r of trainees) {
-    if (r.startedAt) events.push({ at: r.startedAt, linkId: r.linkId, name: r.name, kind: 'contract_started', text: 'が招待コードを入力して契約を始めました' })
+    if (r.startedAt) events.push({ at: r.startedAt, linkId: r.linkId, name: r.name, kind: 'contract_started', text: 'が招待を受け取って契約を始めました' })
     if (r.endedAt) events.push({ at: r.endedAt, linkId: r.linkId, name: r.name, kind: 'contract_ended', text: 'との契約が終了しました' })
   }
   for (const p of plans ?? []) {

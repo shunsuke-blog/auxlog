@@ -1,5 +1,5 @@
 // トレーナーのダッシュボードの集計（DBに依存しない純粋関数）。決定事項（2026-10-25）:
-//   - 要対応: アラート（7日以上記録なし・3週間停滞）、期限切れの招待コード、プランが終わって次のプラン待ちの人
+//   - 要対応: アラート（7日以上記録なし・3週間停滞）、期限切れの招待リンク、プランが終わって次のプラン待ちの人
 //   - 今週の実施状況: 契約中の全員の今週の達成率（記録した種目 ÷ 予定。スキップは分母から除く）と人ごとの進み具合
 //   - 成果のハイライト: 直近4週間で、それ以前（〜120日前）の推定1RMを更新した種目（1RM管理種目のみ）
 
@@ -21,13 +21,13 @@ export function dashboardTodos(rows: TraineeRow[]): TodoItem[] {
     if (r.isSelf) continue
     for (const a of r.alerts) items.push({ linkId: r.linkId, name: r.name, kind: a.kind, message: a.message })
     if (r.status === 'invited' && r.invite?.expired) {
-      items.push({ linkId: r.linkId, name: r.name, kind: 'invite_expired', message: '招待コードの期限が切れています（再発行してください）' })
+      items.push({ linkId: r.linkId, name: r.name, kind: 'invite_expired', message: '招待リンクの期限が切れています（作り直してください）' })
     }
     if (r.status === 'active' && (!r.plan || !isLive(r.plan.status))) {
       items.push({ linkId: r.linkId, name: r.name, kind: 'waiting_plan', message: r.plan ? 'プランが終わりました。次のプランを共有してください' : 'プランがありません。プランを共有してください' })
     }
   }
-  // 記録なし → 停滞 → 次のプラン待ち → 招待コード の順（トレーニーに連絡が要るものから）
+  // 記録なし → 停滞 → 次のプラン待ち → 招待リンク の順（トレーニーに連絡が要るものから）
   const order: Record<TodoItem['kind'], number> = { no_record: 0, stalled: 1, waiting_plan: 2, invite_expired: 3 }
   return items.sort((a, b) => order[a.kind] - order[b.kind] || a.name.localeCompare(b.name, 'ja'))
 }
@@ -204,9 +204,9 @@ export function repeatedSkips(skips: SkippedExercise[]): DashboardItem[] {
     .map(e => ({ linkId: e.item.linkId, name: e.item.name, text: `${e.item.exercise}を直近${SKIP_WINDOW_WEEKS}週で${e.weeks.size}回スキップ。種目の入れ替えを検討する` }))
 }
 
-/** 招待コードを発行したが、まだ入力されていない人（期限切れは別の ToDo「再発行する」） */
+/** 招待リンクを作ったが、まだ開かれていない人（期限切れは別の ToDo「作り直す」） */
 export function pendingInvites(rows: TraineeRow[]): DashboardItem[] {
   return rows
     .filter(r => !r.isSelf && r.status === 'invited' && r.invite && !r.invite.expired)
-    .map(r => ({ linkId: r.linkId, name: r.name, text: `招待コード ${r.invite!.code} がまだ入力されていません（${r.invite!.expiresAt.slice(5, 10).replace('-', '/').replace(/^0/, '')}まで）。本人に連絡する` }))
+    .map(r => ({ linkId: r.linkId, name: r.name, text: `招待リンクがまだ開かれていません（${r.invite!.expiresAt.slice(5, 10).replace('-', '/').replace(/^0/, '')}まで）。本人に連絡する` }))
 }

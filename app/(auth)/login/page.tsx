@@ -13,8 +13,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     redirect(`/trainer/login?${qs}`)
   }
 
-  // Web でクライアントが来るのは、ほとんどがトレーナーからの招待（/invite）から
-  const subtitle = next.startsWith('/invite')
+  // Web でクライアントが来るのは、ほとんどがトレーナーからの招待（/invite・招待リンクの /join）から
+  const subtitle = next.startsWith('/invite') || next.startsWith('/join')
     ? 'トレーナーからの招待を受け取るには、ログインしてください。'
     : '「なんとなく」のトレーニングから卒業しよう。'
 

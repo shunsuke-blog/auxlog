@@ -338,18 +338,18 @@ export default function OnboardingClient({ exercises }: Props) {
     )
   }
 
-  // ── start: 招待コードの有無 ─────────────────────────────────
-  // トレーナーの指導を受ける人は自分でプログラムを作らず、招待コードからトレーナーのプランで始める
+  // ── start: トレーナーからの招待の有無 ─────────────────────────────────
+  // トレーナーの指導を受ける人は自分でプログラムを作らず、招待リンクからトレーナーのプランで始める（2026-10-28 招待コードから変更）
   if (step === 'start') {
     const choices = [
-      { key: 'invite', title: '招待コードを持っている', sub: 'トレーナーが作ったプランで記録します', onClick: () => router.push('/invite') },
+      { key: 'invite', title: 'トレーナーから招待リンクが届いている', sub: 'トレーナーが作ったプランで記録します', onClick: () => router.push('/invite') },
       { key: 'self', title: '自分でプログラムを作る', sub: 'いくつかの質問に答えると、9週間のプログラムを作ります', onClick: () => setStep('frequency') },
     ]
     return (
       <div className="min-h-screen bg-white dark:bg-black">
         <div className="sticky top-0 bg-white dark:bg-black border-b border-zinc-100 dark:border-zinc-900 px-6 py-5 z-10">
           <h1 className="text-xl font-semibold text-black dark:text-white">はじめに</h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">トレーナーから招待コードを受け取っていますか？</p>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">トレーナーから招待リンクが届いていますか？</p>
         </div>
         <div className="px-6 py-8 space-y-3">
           {choices.map(c => (

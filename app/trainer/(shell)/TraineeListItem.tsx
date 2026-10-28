@@ -44,8 +44,8 @@ export default function TraineeListItem({ row, selected, href }: { row: TraineeR
           <p className="text-xs text-zinc-400 dark:text-zinc-500 truncate">
             {row.status === 'invited'
               ? row.invite
-                ? row.invite.expired ? '招待コードの期限切れ（再発行してください）' : `招待コード ${row.invite.code}（${fmtDay(row.invite.expiresAt)}まで）`
-                : '招待コードなし'
+                ? row.invite.expired ? '招待リンクの期限切れ（作り直してください）' : `招待リンク送付済み（${fmtDay(row.invite.expiresAt)}まで）`
+                : '招待リンクなし（作ってください）'
               : <><span>{row.plan?.name ?? 'プランなし'}</span><span className="ml-3">最終記録 {row.lastTrainedOn ? fmtDay(row.lastTrainedOn) : 'なし'}</span></>}
           </p>
           {row.progress && row.status !== 'ended' && (

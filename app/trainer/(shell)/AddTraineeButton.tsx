@@ -4,14 +4,15 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, Copy, Plus, UserPlus } from 'lucide-react'
+import { Plus, UserPlus } from 'lucide-react'
 import { TemplateOneRmFields, useTemplateOneRms, type TemplateOption } from './TemplateOneRmFields'
+import LoginLinkShare from './LoginLinkShare'
 
 export type { TemplateOption }
 
-type Issued = { code: string; expires_at: string; link_id: string }
+type Issued = { token: string; expires_at: string; link_id: string }
 
-// トレーニーの追加（2026-10-19 決定）: 共有するテンプレートを選ぶ → 招待コードを発行する。
+// トレーニーの追加（2026-10-19 決定）: 共有するテンプレートを選ぶ → 招待リンクを出す（2026-10-28 招待コードから変更）。
 // テンプレートの %1RM の種目は、ここで入力した1RMから kg を計算する（未入力なら重量は自動提案）。
 // iconOnlyOnMobile: スマホでは人のマーク（＋）だけにする（ダッシュボードの見出しでボタンが大きくならないように、2026-10-25）
 // limitReached: 無料枠の上限（クライアント3名）に達している。追加を押した時点で上限の案内を出し、名前や1RMを
@@ -33,7 +34,6 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [issued, setIssued] = useState<Issued | null>(null)
-  const [copied, setCopied] = useState(false)
 
   const template = templates.find(t => t.id === picker.templateId)
 
@@ -78,12 +78,6 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
     }
   }
 
-  const copy = async (code: string) => {
-    await navigator.clipboard.writeText(code).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
-  }
-
   return (
     <>
       <button
@@ -110,7 +104,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
         // ボタンは一覧の見出し（backdrop-blur 付きの sticky）の中にあり、その中の fixed は見出しの範囲に
         // 閉じ込められてしまうため、画面全体に出すよう body 直下に描画する（2026-10-25 不具合修正）。
         // トレーナー画面の配色（light-only）は body 直下には効かないので、ここでも付ける。
-        // 上揃え: 入力 → 招待コードの表示で高さが変わっても上端（見出し）の位置を動かさない
+        // 上揃え: 入力 → 招待リンクの表示で高さが変わっても上端（見出し）の位置を動かさない
         <div className="light-only fixed inset-0 z-50 flex items-start justify-center px-6 pt-[10vh] pb-6 overflow-y-auto">
           <div className="fixed inset-0 bg-black/60" onClick={close} />
           <div className="relative w-full max-w-sm bg-white dark:bg-zinc-950 rounded-2xl p-6 space-y-4">
@@ -133,17 +127,9 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
               </div>
             ) : issued ? (
               <div className="space-y-4">
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">{name} さんの招待コードを発行しました。</p>
-                <div className="flex items-center gap-3">
-                  <p className="text-3xl font-bold tracking-[0.2em] tabular-nums text-black dark:text-white">{issued.code}</p>
-                  <button onClick={() => copy(issued.code)} className="p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-black dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900">
-                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  </button>
-                </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  {new Date(issued.expires_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} まで（7日間）有効です。
-                  クライアントに伝えて、Auxlog で入力してもらってください。一覧からいつでも確認・再発行できます。
-                </p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">{name} さんの招待リンクができました。LINE で送ってください。</p>
+                <LoginLinkShare token={issued.token} expiresAt={issued.expires_at} clientName={name} kind="invite" />
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">クライアントの詳細から、いつでも見返す・作り直すことができます。</p>
                 <button onClick={close} className="w-full py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900">閉じる</button>
               </div>
             ) : templates.length === 0 ? (
@@ -166,7 +152,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
                 <div className="flex gap-3">
                   <button type="button" onClick={close} disabled={busy} className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900">キャンセル</button>
                   <button type="submit" disabled={busy || picker.loading || !name.trim() || !template} className="flex-1 py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
-                    {busy ? '発行中…' : '招待コードを発行'}
+                    {busy ? '作成中…' : '招待リンクを作る'}
                   </button>
                 </div>
               </form>

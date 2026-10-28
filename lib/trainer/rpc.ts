@@ -7,7 +7,7 @@ export const RULE_MESSAGES: Record<string, string> = {
   trainee_limit: '今のプランで招待できるクライアントの上限に達しています',
   invalid_code: '招待コードが正しくないか、有効期限が切れています',
   too_many_attempts: '招待コードの入力が続けて間違っています。15分ほど待ってから、もう一度入力してください',
-  own_invite: '自分が発行した招待コードは入力できません',
+  own_invite: '自分が作った招待は受け取れません',
   already_linked: 'すでに担当のトレーナーがいます。今の契約を終了してから入力してください',
   already_recorded: '記録済みの種目はスキップできません',
   final_week: 'プランは最終週です',
@@ -23,6 +23,7 @@ export const RULE_MESSAGES: Record<string, string> = {
   business_invite_email: 'このページは別のメールアドレス宛てです。運営からご案内したメールアドレスでログインし直してください',
   over_limit: '今のプランの上限を超えているため、この操作はできません。契約を終了して上限内に戻すか、プロプランにしてください',
   import_limit: '表の読み取りは1日20回までです。明日もう一度お試しください',
+  login_link_invalid: 'このリンクは使えません（期限切れ・使用済みなど）。トレーナーに新しいリンクをお願いしてください',
 }
 
 // トレーナー用RPCのエラーをHTTPレスポンスに変換する。RPC側は権限エラーを 42501、

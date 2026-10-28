@@ -23,7 +23,8 @@ export type TraineeRow = {
   progress: WeekProgress | null
   lastTrainedOn: string | null
   alerts: TraineeAlert[]
-  invite: { code: string; expiresAt: string; expired: boolean } | null
+  /** 使っていない一番新しいログイン用リンク（招待中は招待、契約中は機種変更などの再ログイン用、2026-10-28） */
+  invite: { token: string; expiresAt: string; expired: boolean } | null
 }
 
 const STATUS_ORDER: Record<LinkStatus, number> = { active: 0, paused: 1, invited: 2, ended: 3 }
@@ -49,7 +50,7 @@ export async function loadTraineeRows(supabase: SupabaseClient, trainerId: strin
 
   const [{ data: plans }, { data: invites }, { data: fetchedActivity }] = await Promise.all([
     supabase.from('coaching_plans').select('id, link_id, name, status, current_week, total_weeks, created_at, start_date').in('link_id', linkIds).order('created_at', { ascending: false }),
-    supabase.from('trainer_invites').select('link_id, code, expires_at, created_at').in('link_id', linkIds).is('used_at', null).is('revoked_at', null).order('created_at', { ascending: false }),
+    supabase.from('trainee_login_links').select('link_id, token, expires_at, created_at').in('link_id', linkIds).is('used_at', null).is('revoked_at', null).order('created_at', { ascending: false }),
     // 最後の記録日と停滞アラート用のセットは DB で集計して1つの値で受け取る（行のまま読むと
     // 1000行の上限で黙って切れるため）。契約期間外の記録は RLS で除かれる
     activity !== undefined || traineeIds.length === 0 ? Promise.resolve({ data: activity ?? null }) : supabase.rpc('trainer_trainee_activity', { p_since: since, p_trainer: trainerId }),
@@ -63,7 +64,7 @@ export async function loadTraineeRows(supabase: SupabaseClient, trainerId: strin
     if (!current || (!live(current.status) && live(p.status))) planByLink.set(p.link_id, p)
   }
 
-  const inviteByLink = new Map<string, { code: string; expires_at: string }>()
+  const inviteByLink = new Map<string, { token: string; expires_at: string }>()
   for (const i of invites ?? []) if (!inviteByLink.has(i.link_id)) inviteByLink.set(i.link_id, i)
 
   const { lastByUser, oneRmByUser } = parseTraineeActivity(fetchedActivity)
@@ -112,7 +113,7 @@ export async function loadTraineeRows(supabase: SupabaseClient, trainerId: strin
       alerts: l.trainee_id === l.trainer_id
         ? []
         : traineeAlerts({ status: l.status, startedAt: l.started_at, planStartDate: plan?.start_date ?? null, lastTrainedOn, oneRmSets: l.trainee_id ? oneRmByUser.get(l.trainee_id) ?? [] : [], today: now }),
-      invite: invite ? { code: invite.code, expiresAt: invite.expires_at, expired: new Date(invite.expires_at) <= now } : null,
+      invite: invite ? { token: invite.token, expiresAt: invite.expires_at, expired: new Date(invite.expires_at) <= now } : null,
     }
   })
 

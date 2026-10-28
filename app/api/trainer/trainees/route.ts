@@ -16,7 +16,7 @@ const AddTraineeSchema = z.object({
   one_rms: z.array(OneRmSchema).max(30),
 })
 
-// トレーニーの追加: テンプレートを選んで複製し（1RMから kg を計算）、招待コードを発行する。
+// トレーニーの追加: テンプレートを選んで複製し（1RMから kg を計算）、招待リンクを作る（2026-10-28 招待コードから変更）。
 export async function POST(request: Request) {
   const supabase = await createClient(request)
   const { data: { user } } = await supabase.auth.getUser()

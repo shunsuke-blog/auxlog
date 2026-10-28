@@ -11,7 +11,7 @@ const row = (p: Partial<TraineeRow>): TraineeRow => ({
 
 test('dashboardTodos: アラート・期限切れの招待・次のプラン待ちを、連絡が要る順に並べる（自分は除く）', () => {
   const items = dashboardTodos([
-    row({ linkId: '1', name: '招待', status: 'invited', plan: null, progress: null, invite: { code: 'X', expiresAt: '2026-10-01', expired: true } }),
+    row({ linkId: '1', name: '招待', status: 'invited', plan: null, progress: null, invite: { token: 'X', expiresAt: '2026-10-01', expired: true } }),
     row({ linkId: '2', name: '待ち', plan: { id: 'p2', name: 'P', currentWeek: 9, totalWeeks: 9, status: 'ended', startDate: null } }),
     row({ linkId: '3', name: '停滞', alerts: [{ kind: 'stalled', message: 's' }] }),
     row({ linkId: '4', name: '記録なし', alerts: [{ kind: 'no_record', message: 'n' }] }),
@@ -106,8 +106,8 @@ test('repeatedSkips: 直近3週のうち2週以上でスキップした種目だ
 
 test('pendingInvites: 期限内で未入力の招待だけ', () => {
   const items = pendingInvites([
-    row({ name: 'B', status: 'invited', invite: { code: 'ABCD2345', expiresAt: '2026-10-30T00:00:00Z', expired: false } }),
-    row({ name: 'C', status: 'invited', invite: { code: 'X', expiresAt: '2026-10-01T00:00:00Z', expired: true } }),
+    row({ name: 'B', status: 'invited', invite: { token: 'ABCD2345', expiresAt: '2026-10-30T00:00:00Z', expired: false } }),
+    row({ name: 'C', status: 'invited', invite: { token: 'X', expiresAt: '2026-10-01T00:00:00Z', expired: true } }),
   ])
-  assert.deepEqual(items.map(i => i.text), ['招待コード ABCD2345 がまだ入力されていません（10/30まで）。本人に連絡する'])
+  assert.deepEqual(items.map(i => i.text), ['招待リンクがまだ開かれていません（10/30まで）。本人に連絡する'])
 })
