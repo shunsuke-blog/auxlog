@@ -5,48 +5,13 @@ import { ChevronLeft, Undo2 } from 'lucide-react'
 import TemplateEditor from './[id]/TemplateEditor'
 import ExercisePicker from './[id]/ExercisePicker'
 import type { MenuImportResponse } from './ImportInput'
-import { PLAN_MUSCLE_GROUPS, exerciseIdOf, muscleGroupLabel, type CatalogExercise } from '@/lib/trainer/templateEditor'
+import { PLAN_MUSCLE_GROUPS, exerciseIdOf, type CatalogExercise } from '@/lib/trainer/templateEditor'
 import {
   MAX_IMPORT_DAYS, MAX_IMPORT_WEEKS, buildDraft, fitsTemplate, sourceExercises,
-  type ImportDraft, type ImportedExercise, type ImportedSet, type Resolutions,
+  type ImportDraft, type Resolutions,
 } from '@/lib/trainer/menuImport'
 
 type Step = 'confirm' | 'draft'
-
-const fmt = (n: number) => String(Math.round(n * 100) / 100)
-
-/** セットの表示（例: 62.5kg×8 ×3、15回 ×3、W-up 40kg×10） */
-function SetText({ s }: { s: ImportedSet }) {
-  const weight = s.pct != null ? `${fmt(s.pct)}%` : s.kg != null ? `${fmt(s.kg)}kg` : null
-  const reps = s.reps != null ? (weight ? `×${s.reps}` : `${s.reps}回`) : null
-  return (
-    <span className="whitespace-nowrap">
-      {s.warmup && <span className="text-zinc-400">W-up </span>}
-      {weight}
-      {reps ?? <span className="text-red-500 font-medium">{weight ? '×' : ''}回数？</span>}
-      {s.rir != null && ` RIR${fmt(s.rir)}`}
-      {s.count > 1 && <span className="text-zinc-400"> ×{s.count}</span>}
-    </span>
-  )
-}
-
-function ExerciseTargets({ e }: { e: ImportedExercise }) {
-  if (e.cardio || (e.sets.length === 0 && (e.minutes != null || e.km != null))) {
-    // 有酸素は時間が必須（距離だけの表は、下書きで時間を入れてもらう）
-    return (
-      <span>
-        {e.minutes != null ? `${fmt(e.minutes)}分` : <span className="text-red-500 font-medium">時間？</span>}
-        {e.km != null && ` / ${fmt(e.km)}km`}
-      </span>
-    )
-  }
-  if (e.sets.length === 0) return <span className="text-red-500 font-medium">セット？</span>
-  return (
-    <span className="flex flex-wrap gap-x-3 gap-y-0.5">
-      {e.sets.map((s, i) => <SetText key={i} s={s} />)}
-    </span>
-  )
-}
 
 // メニューの表の取り込みの続き（2026-10-28）。「表から取り込む」タブで読み取った結果を確かめて（種目の対応）、
 // 下書きを編集して保存する。表が大きいので、テンプレートの一覧の代わりに画面いっぱいに出す
@@ -60,7 +25,6 @@ export default function ImportFlow({ result, fileName, onClose }: { result: Menu
   })
   const [resolutions, setResolutions] = useState<Resolutions>(initialRes)
   const [picking, setPicking] = useState<{ sourceName: string; create: boolean } | null>(null)
-  const [previewWeek, setPreviewWeek] = useState(() => result.days.find(fitsTemplate)?.week ?? 1)
   const [draft, setDraft] = useState<ImportDraft | null>(null)
 
   // 確認中に閉じると、読み取った内容が消える（1日の回数も使っている）
@@ -134,7 +98,6 @@ export default function ImportFlow({ result, fileName, onClose }: { result: Menu
           ) : to ? (
             <span className="min-w-0 text-sm text-black dark:text-white truncate">
               {to.name}
-              <span className="ml-1.5 text-[11px] text-zinc-400">{muscleGroupLabel(to.targetMuscle)}</span>
               {guessed && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-[11px] text-amber-700 dark:text-amber-400">推測</span>}
             </span>
           ) : (
@@ -166,7 +129,6 @@ export default function ImportFlow({ result, fileName, onClose }: { result: Menu
     )
   }
 
-  const weeks = [...new Set(fitDays.map(d => d.week))]
   return (
     <div>
       {header}
@@ -196,52 +158,11 @@ export default function ImportFlow({ result, fileName, onClose }: { result: Menu
           ))}
         </section>
 
-        <section className="space-y-2">
-          <div>
-            <h2 className="text-sm font-semibold text-black dark:text-white">読み取った内容</h2>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              <span className="text-red-500">赤字</span>は読み取れなかった所です。次の下書きで直せます（読めなかった文字はコメントに残します）。
-            </p>
-          </div>
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
-            {weeks.map(w => (
-              <button
-                key={w}
-                onClick={() => setPreviewWeek(w)}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold ${w === previewWeek ? 'bg-brand-soft text-brand-text' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-black dark:hover:text-white'}`}
-              >
-                Week {w}
-              </button>
-            ))}
-          </div>
-          {fitDays.filter(d => d.week === previewWeek).map(d => (
-            <div key={`${d.week}-${d.day}`} className="px-4 md:px-5 py-4 rounded-2xl trainer-card space-y-2">
-              <p className="text-sm font-semibold text-black dark:text-white">Day {d.day}{d.label ? `・${d.label}` : ''}</p>
-              <div className="divide-y divide-zinc-100 dark:divide-zinc-900">
-                {d.exercises.map((e, i) => {
-                  const to = byName(e.sourceName)
-                  if (to === 'skip') return null
-                  return (
-                    <div key={i} className="py-2 grid md:grid-cols-[13rem_1fr] gap-x-4 gap-y-1 text-sm">
-                      <p className={`min-w-0 truncate ${to ? 'text-black dark:text-white' : 'text-red-500'}`}>{to ? to.name : e.sourceName}</p>
-                      <div className="min-w-0 space-y-0.5 text-black dark:text-white tabular-nums">
-                        <ExerciseTargets e={e} />
-                        {e.note && <p className="text-xs text-zinc-500 dark:text-zinc-400">{e.note}</p>}
-                        {e.guessed.length > 0 && <p className="text-xs text-amber-700 dark:text-amber-400">推測で埋めた所: {e.guessed.join('、')}</p>}
-                        {e.unreadable.length > 0 && <p className="text-xs text-red-500">読めなかった: {e.unreadable.join('、')}</p>}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </section>
       </div>
 
       <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 z-10 px-4 md:px-6 py-3 bg-white/95 dark:bg-black/95 border-t border-zinc-100 dark:border-zinc-900 flex items-center justify-end gap-3">
         <p className={`flex-1 text-xs md:text-sm ${unresolved > 0 ? 'text-red-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
-          {unresolved > 0 ? `一覧に無い種目が ${unresolved} つあります。選ぶか、独自の種目を作るか、外してください` : '次の画面で、重量・回数などを直してから保存できます'}
+          {unresolved > 0 ? `一覧に無い種目が ${unresolved} つあります。選ぶか、独自の種目を作るか、外してください` : '次の画面で、読み取った重量・回数などを確かめて直してから保存できます'}
         </p>
         <button onClick={startDraft} disabled={unresolved > 0} className="shrink-0 px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-40">
           下書きを作る
