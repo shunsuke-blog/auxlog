@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { TARGET_MUSCLE_LABELS, type TargetMuscle } from '@/types'
 import type { OneRmExercise } from '@/lib/trainer/templateOneRm'
+import { toDecimalInput } from '@/lib/utils/number_input'
 
 export type TemplateOption = { id: string; name: string }
 
@@ -90,7 +91,7 @@ export function TemplateOneRmFields({ templates, state, label, who }: { template
               <input
                 inputMode="decimal"
                 value={oneRms[keyOf(ex)] ?? ''}
-                onChange={e => setOneRms(prev => ({ ...prev, [keyOf(ex)]: e.target.value }))}
+                onChange={e => setOneRms(prev => ({ ...prev, [keyOf(ex)]: toDecimalInput(e.target.value) }))}
                 placeholder="100"
                 className="w-20 px-2 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm tabular-nums"
               />

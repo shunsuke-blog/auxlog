@@ -3,13 +3,10 @@
 import { CircleMinus } from 'lucide-react'
 import type { EditorSet, WeightMode } from '@/lib/trainer/templateEditor'
 import HelpTip from '@/components/ui/HelpTip'
+import { toDecimalInput as toDecimal, toIntegerInput as toInteger } from '@/lib/utils/number_input'
 
 const MODE_LABELS: Record<WeightMode, string> = { pct: '%1RM', kg: 'kg', auto: '自動' }
 export const blankSet = (): EditorSet => ({ mode: 'auto', value: '', reps: '10', rir: '2', isWarmup: false })
-
-// 数字以外は受け付けない（2026-10-28 オーナー指摘: 「5回」と打つと 5 として保存されていた）。全角の数字は半角に直す
-const toInteger = (v: string) => v.normalize('NFKC').replace(/[^0-9]/g, '')
-const toDecimal = (v: string) => v.normalize('NFKC').replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
 
 const inputClass = 'px-2 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm tabular-nums text-black dark:text-white'
 
