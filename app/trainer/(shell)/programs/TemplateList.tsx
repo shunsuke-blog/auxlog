@@ -334,6 +334,12 @@ export default function TemplateList({ templates, initialCreating = false, teamT
                 <p>作成後に自由に編集できます。</p>
               </div>
             )}
+            {mode === 'blank' && (
+              <div className="space-y-1 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                <p>週数・日数の型だけを作ります（種目は入っていません）。</p>
+                <p>作成後に種目・重量・回数を自由に組めます。</p>
+              </div>
+            )}
 
             <input
               type="text"
