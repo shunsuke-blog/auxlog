@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 const STORAGE_KEY = "pwa_install_dismissed";
 const EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7日
@@ -57,6 +58,7 @@ type DeferredPrompt = {
 };
 
 export default function PwaInstallBanner() {
+  const pathname = usePathname();
   const [show, setShow] = useState(false);
   const [platform, setPlatform] = useState<"ios" | "android" | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<DeferredPrompt | null>(null);
@@ -99,7 +101,9 @@ export default function PwaInstallBanner() {
     if (outcome === "accepted") setShow(false);
   };
 
-  if (!show) return null;
+  // 招待リンクの画面（/join）では出さない。「はじめる」の前に追加すると、アイコンはログインしていない状態で
+  // トップを開き、ログイン画面に飛んでしまうため（2026-10-28 オーナー指摘）
+  if (!show || pathname.startsWith("/join")) return null;
 
   if (platform === "ios") {
     return (
