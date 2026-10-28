@@ -73,7 +73,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
       <section className={`flex-1 md:overflow-y-auto ${selected ? '' : 'hidden md:block'}`}>
         {selected ? (
           <>
-            <Link href="/trainer" className="md:hidden flex items-center gap-1 px-4 pt-4 text-sm text-zinc-500">
+            <Link href="/trainer" className="md:hidden flex items-center gap-1 px-4 pt-4 text-sm text-zinc-500 hover:text-black dark:hover:text-white">
               <ChevronLeft className="w-4 h-4" />
               一覧
             </Link>

@@ -56,7 +56,7 @@ export default function DetailActions({ linkId, status, invite }: Props) {
             <>
               <div className="flex items-center gap-3">
                 <p className="text-2xl font-bold tracking-[0.2em] tabular-nums text-black dark:text-white">{invite.code}</p>
-                <button onClick={() => copy(invite.code)} className="p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500">
+                <button onClick={() => copy(invite.code)} className="p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-black dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900">
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </button>
               </div>
@@ -65,7 +65,7 @@ export default function DetailActions({ linkId, status, invite }: Props) {
           ) : (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">招待コードの有効期限が切れています。</p>
           )}
-          <button onClick={() => post(`/api/trainer/trainees/${linkId}/reissue`)} disabled={busy} className="text-sm text-black dark:text-white underline disabled:opacity-50">
+          <button onClick={() => post(`/api/trainer/trainees/${linkId}/reissue`)} disabled={busy} className="text-sm text-black dark:text-white underline enabled:hover:text-zinc-500 disabled:opacity-50">
             招待コードを再発行する
           </button>
         </div>

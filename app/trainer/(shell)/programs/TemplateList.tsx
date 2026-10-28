@@ -221,7 +221,7 @@ export default function TemplateList({ templates, initialCreating = false, teamT
               <div className="flex-1 min-w-0 space-y-2">
                 <TemplateName id={t.id} name={t.name} />
                 {/* 条件は1行に1つずつ縦に並べる（2026-10-25 オーナー依頼）。スマホは2列にして縦に伸びすぎないようにする */}
-                <Link href={`/trainer/programs/${t.id}`} className="grid grid-cols-2 md:grid-cols-1 gap-x-3 gap-y-1 md:gap-y-0.5">
+                <Link href={`/trainer/programs/${t.id}`} className="grid grid-cols-2 md:grid-cols-1 gap-x-3 gap-y-1 md:gap-y-0.5 rounded-lg hover:opacity-70">
                   {templateDetails(t).map(([label, value]) => (
                     <p key={label} className="flex min-w-0 text-xs text-zinc-500 dark:text-zinc-400">
                       <span className="shrink-0 w-14 md:w-16 text-zinc-400 dark:text-zinc-500">{label}</span>
@@ -249,7 +249,7 @@ export default function TemplateList({ templates, initialCreating = false, teamT
                 <button onClick={() => handleDelete(t)} disabled={busy} title="削除" aria-label="削除" className="p-2.5 md:p-2 text-zinc-400 hover:text-red-500 disabled:opacity-50">
                   <Trash2 className="w-4 h-4" />
                 </button>
-                <Link href={`/trainer/programs/${t.id}`} aria-label="編集" className="p-2.5 md:p-1 text-zinc-300 dark:text-zinc-700">
+                <Link href={`/trainer/programs/${t.id}`} aria-label="編集" className="p-2.5 md:p-1 text-zinc-300 dark:text-zinc-700 hover:text-black dark:hover:text-white">
                   <ChevronRight className="w-4 h-4" />
                 </Link>
               </div>
@@ -282,7 +282,7 @@ export default function TemplateList({ templates, initialCreating = false, teamT
                 <p className="text-base font-semibold text-black dark:text-white">使用中のクライアント</p>
                 <p className="text-xs text-zinc-500 truncate">{usersOf.name}</p>
               </div>
-              <button onClick={() => setUsersOf(null)} aria-label="閉じる" className="text-zinc-400"><X className="w-5 h-5" /></button>
+              <button onClick={() => setUsersOf(null)} aria-label="閉じる" className="text-zinc-400 hover:text-black dark:hover:text-white"><X className="w-5 h-5" /></button>
             </div>
             <div className="divide-y divide-zinc-100 dark:divide-zinc-900">
               {usersOf.trainees.map(tr => (
@@ -358,7 +358,7 @@ export default function TemplateList({ templates, initialCreating = false, teamT
                           key={o.value}
                           type="button"
                           onClick={() => onPick(o.value)}
-                          className={`flex-1 py-2 rounded-lg border text-xs ${value === o.value ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
+                          className={`flex-1 py-2 rounded-lg border text-xs ${value === o.value ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
                         >
                           {o.label}
                         </button>
@@ -399,7 +399,7 @@ export default function TemplateList({ templates, initialCreating = false, teamT
                         key={o.value}
                         type="button"
                         onClick={() => setSessionMinutes(o.value)}
-                        className={`flex-1 py-2 rounded-lg border text-sm ${sessionMinutes === o.value ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
+                        className={`flex-1 py-2 rounded-lg border text-sm ${sessionMinutes === o.value ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
                       >
                         {o.label}
                       </button>
@@ -418,7 +418,7 @@ export default function TemplateList({ templates, initialCreating = false, teamT
                           type="button"
                           disabled={disabled}
                           onClick={() => setPriorities(prev => (selected ? prev.filter(p => p !== m) : [...prev, m]))}
-                          className={`px-3 py-1.5 rounded-full border text-sm disabled:opacity-40 ${selected ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
+                          className={`px-3 py-1.5 rounded-full border text-sm disabled:opacity-40 ${selected ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white enabled:hover:bg-zinc-50 dark:enabled:hover:bg-zinc-900'}`}
                         >
                           {PRIORITY_MUSCLE_OPTION_LABELS[m]}
                         </button>
@@ -430,7 +430,7 @@ export default function TemplateList({ templates, initialCreating = false, teamT
             )}
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex gap-3 pt-1">
-              <button type="button" onClick={() => setCreating(false)} disabled={busy} className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white">
+              <button type="button" onClick={() => setCreating(false)} disabled={busy} className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900">
                 キャンセル
               </button>
               <button type="submit" disabled={busy || !name.trim()} className="flex-1 py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">

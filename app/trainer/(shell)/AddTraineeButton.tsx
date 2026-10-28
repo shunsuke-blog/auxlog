@@ -126,7 +126,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
                 </p>
                 {upgrade && (
                   <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    もっと招待するには、<Link href="/trainer/settings" className="text-black dark:text-white underline">設定の「プラン」</Link>から{upgrade}にできます。
+                    もっと招待するには、<Link href="/trainer/settings" className="text-black dark:text-white underline hover:text-zinc-500">設定の「プラン」</Link>から{upgrade}にできます。
                   </p>
                 )}
                 <button onClick={close} className="w-full py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white cursor-pointer hover:bg-zinc-50">閉じる</button>
@@ -136,7 +136,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">{name} さんの招待コードを発行しました。</p>
                 <div className="flex items-center gap-3">
                   <p className="text-3xl font-bold tracking-[0.2em] tabular-nums text-black dark:text-white">{issued.code}</p>
-                  <button onClick={() => copy(issued.code)} className="p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500">
+                  <button onClick={() => copy(issued.code)} className="p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-black dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900">
                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   </button>
                 </div>
@@ -144,7 +144,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
                   {new Date(issued.expires_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} まで（7日間）有効です。
                   クライアントに伝えて、Auxlog で入力してもらってください。一覧からいつでも確認・再発行できます。
                 </p>
-                <button onClick={close} className="w-full py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white">閉じる</button>
+                <button onClick={close} className="w-full py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900">閉じる</button>
               </div>
             ) : templates.length === 0 ? (
               <div className="space-y-4">
@@ -164,7 +164,7 @@ export default function AddTraineeButton({ templates, label = '追加', iconOnly
                 <TemplateOneRmFields templates={templates} state={picker} label="共有するプログラム" who="クライアント" />
                 {(error ?? picker.loadError) && <p className="text-sm text-red-500">{error ?? picker.loadError}</p>}
                 <div className="flex gap-3">
-                  <button type="button" onClick={close} disabled={busy} className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white">キャンセル</button>
+                  <button type="button" onClick={close} disabled={busy} className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900">キャンセル</button>
                   <button type="submit" disabled={busy || picker.loading || !name.trim() || !template} className="flex-1 py-3 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-50">
                     {busy ? '発行中…' : '招待コードを発行'}
                   </button>

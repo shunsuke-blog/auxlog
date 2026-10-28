@@ -62,7 +62,7 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
             <section className={`flex-1 md:overflow-y-auto ${selected ? '' : 'hidden md:block'}`}>
               {selected ? (
                 <>
-                  <Link href={`/trainer/team?member=${member.trainerId}`} className="md:hidden flex items-center gap-1 px-4 pt-4 text-sm text-zinc-500">
+                  <Link href={`/trainer/team?member=${member.trainerId}`} className="md:hidden flex items-center gap-1 px-4 pt-4 text-sm text-zinc-500 hover:text-black dark:hover:text-white">
                     <ChevronLeft className="w-4 h-4" />
                     一覧
                   </Link>
@@ -131,7 +131,7 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
           <>
             {!team.active && (
               <p className="px-4 py-3 rounded-2xl bg-red-50 border border-red-100 text-sm text-red-700">
-                ビジネスプランが終了しているため、チームは止まっています。メンバーはそれぞれのプランで使っています。<Link href="/trainer/settings" className="ml-1 underline">プランを見る</Link>
+                ビジネスプランが終了しているため、チームは止まっています。メンバーはそれぞれのプランで使っています。<Link href="/trainer/settings" className="ml-1 underline hover:text-red-900">プランを見る</Link>
               </p>
             )}
             <Card title="チーム">

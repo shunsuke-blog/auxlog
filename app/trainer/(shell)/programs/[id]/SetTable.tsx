@@ -2,6 +2,7 @@
 
 import { X } from 'lucide-react'
 import type { EditorSet, WeightMode } from '@/lib/trainer/templateEditor'
+import HelpTip from '@/components/ui/HelpTip'
 
 const MODE_LABELS: Record<WeightMode, string> = { pct: '%1RM', kg: 'kg', auto: '自動' }
 export const blankSet = (): EditorSet => ({ mode: 'auto', value: '', reps: '10', rir: '2', isWarmup: false })
@@ -25,10 +26,23 @@ export default function SetTable({ sets, onChange, onRemove, onAdd }: {
           <thead>
             <tr className="text-[11px] text-zinc-400 text-left whitespace-nowrap">
               <th className="font-medium py-1 pr-1.5 md:pr-2 w-8 md:w-10">セット</th>
-              <th className="font-medium py-1 pr-1.5 md:pr-2">W-UP</th>
-              <th className="font-medium py-1 pr-1.5 md:pr-2">重量</th>
+              <th className="font-medium py-1 pr-1.5 md:pr-2">
+                W-UP
+                <HelpTip label="W-UP（ウォームアップ）">本番のセットの前に行う、軽い重量のウォームアップのセットにチェックを付けます。</HelpTip>
+              </th>
+              <th className="font-medium py-1 pr-1.5 md:pr-2">
+                重量
+                <HelpTip label="重量">
+                  <span className="block">%1RM：クライアントの1RM（1回だけ挙げられる最大重量）に対する割合で指定します。</span>
+                  <span className="block">kg：重量をそのまま指定します。</span>
+                  <span className="block">自動：重量は指定せず、クライアントの前回の記録の重量が入ります。</span>
+                </HelpTip>
+              </th>
               <th className="font-medium py-1 pr-1.5 md:pr-2 w-14 md:w-20">回数</th>
-              <th className="font-medium py-1 pr-1.5 md:pr-2 w-12 md:w-16">RIR</th>
+              <th className="font-medium py-1 pr-1.5 md:pr-2 w-12 md:w-16">
+                RIR
+                <HelpTip label="RIR（余力）">セットを終えた時点で「あと何回できるか」の目安です。0 は限界まで、2 なら余力2回を残して終えます。</HelpTip>
+              </th>
               <th className="w-8" />
             </tr>
           </thead>

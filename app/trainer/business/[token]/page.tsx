@@ -42,7 +42,7 @@ export default async function BusinessInvitePage({ params }: { params: Promise<{
       <Frame title="ビジネスプランのご案内">
         <p className="text-sm text-red-600 leading-relaxed">{message}</p>
         <p className="text-xs text-zinc-500">ログイン中: {user.email}</p>
-        <Link href="/trainer/dashboard" className="block text-center text-sm text-zinc-500 underline">トレーナー画面へ</Link>
+        <Link href="/trainer/dashboard" className="block text-center text-sm text-zinc-500 underline hover:text-black dark:hover:text-white">トレーナー画面へ</Link>
       </Frame>
     )
   }
@@ -64,7 +64,7 @@ export default async function BusinessInvitePage({ params }: { params: Promise<{
       ) : (
         <BillingButton kind="checkout" plan="business" label="お支払いへ進む" primary />
       )}
-      <Link href={profile.plan === 'basic' || profile.plan === 'pro' ? '/trainer/settings' : '/trainer/dashboard'} className="block text-center text-sm text-zinc-500 underline">
+      <Link href={profile.plan === 'basic' || profile.plan === 'pro' ? '/trainer/settings' : '/trainer/dashboard'} className="block text-center text-sm text-zinc-500 underline hover:text-black dark:hover:text-white">
         {profile.plan === 'basic' || profile.plan === 'pro' ? '設定を開く' : 'あとで申し込む（設定の「プラン」からも申し込めます）'}
       </Link>
     </Frame>

@@ -55,7 +55,7 @@ export default function SwapPicker({ current, oneRmSource, catalog, inDay, scope
               <p className="text-base font-semibold text-black dark:text-white">種目を入れ替え</p>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">{current.name} → 選んだ種目（セット・回数・コメントはそのまま{oneRmSource ? '。「1RM管理外」の種目に替えると、%1RM のセットは重量「自動」になります' : ''}）</p>
             </div>
-            <button onClick={onClose} aria-label="閉じる" className="text-zinc-400"><X className="w-5 h-5" /></button>
+            <button onClick={onClose} aria-label="閉じる" className="text-zinc-400 hover:text-black dark:hover:text-white"><X className="w-5 h-5" /></button>
           </div>
 
           {scope && (
@@ -68,7 +68,7 @@ export default function SwapPicker({ current, oneRmSource, catalog, inDay, scope
                   key={v}
                   type="button"
                   onClick={() => setRange(v)}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded-lg ${range === v ? 'bg-white dark:bg-zinc-800 text-brand-text font-semibold shadow-sm' : 'text-zinc-500 dark:text-zinc-400'}`}
+                  className={`flex-1 py-1.5 text-xs font-medium rounded-lg ${range === v ? 'bg-white dark:bg-zinc-800 text-brand-text font-semibold shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white'}`}
                 >
                   {label}
                 </button>

@@ -76,7 +76,7 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
               className="flex-1 text-sm bg-transparent text-black dark:text-white placeholder:text-zinc-400 focus:outline-none"
             />
           </div>
-          <button onClick={onClose} disabled={busy} className="text-zinc-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} disabled={busy} className="text-zinc-400 hover:text-black dark:hover:text-white"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -112,14 +112,14 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
                     <button
                       key={m}
                       onClick={() => setMuscle(m)}
-                      className={`py-2 rounded-lg border text-sm ${muscle === m ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
+                      className={`py-2 rounded-lg border text-sm ${muscle === m ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
                     >
                       {TARGET_MUSCLE_LABELS[m]}
                     </button>
                   ))}
                   <button
                     onClick={() => setMuscle('cardio')}
-                    className={`py-2 rounded-lg border text-sm ${muscle === 'cardio' ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white'}`}
+                    className={`py-2 rounded-lg border text-sm ${muscle === 'cardio' ? 'border-zinc-800 dark:border-zinc-200 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white font-semibold' : 'border-zinc-200 dark:border-zinc-800 text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
                   >
                     有酸素
                   </button>
@@ -142,7 +142,7 @@ export default function ExercisePicker({ catalog, onPick, onCreated, onClose, in
                 </button>
               </div>
             ) : (
-              <button onClick={() => setCreating(true)} className="w-full flex items-center gap-3 px-5 py-4 text-left border-t border-zinc-100 dark:border-zinc-900">
+              <button onClick={() => setCreating(true)} className="w-full flex items-center gap-3 px-5 py-4 text-left border-t border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-900">
                 <Plus className="w-4 h-4 text-zinc-400" />
                 <span className="text-sm text-zinc-500 dark:text-zinc-400">「{q}」を独自の種目として作成する</span>
               </button>

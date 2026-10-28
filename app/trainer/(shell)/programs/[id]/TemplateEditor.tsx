@@ -295,7 +295,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
                 <button
                   key={d.id}
                   onClick={() => selectDay(d.id)}
-                  className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border ${d.id === dayId ? 'border-brand bg-brand-soft text-brand-text' : 'border-zinc-200 dark:border-zinc-800 text-zinc-500'}`}
+                  className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border ${d.id === dayId ? 'border-brand bg-brand-soft text-brand-text' : 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-black dark:hover:text-white'}`}
                 >
                   Day {d.dayNumber}{dirty.has(d.id) ? ' ●' : ''}
                 </button>
@@ -347,8 +347,8 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
                   <ArrowLeftRight className="w-4 h-4" />
                   <span className="hidden sm:inline">入れ替え</span>
                 </button>
-                <button onClick={() => move(ex.key, -1)} disabled={exIdx === 0} title="上へ" className="p-1.5 text-zinc-400 disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
-                <button onClick={() => move(ex.key, 1)} disabled={exIdx === exercises.length - 1} title="下へ" className="p-1.5 text-zinc-400 disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
+                <button onClick={() => move(ex.key, -1)} disabled={exIdx === 0} title="上へ" className="p-1.5 text-zinc-400 enabled:hover:text-black dark:enabled:hover:text-white disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
+                <button onClick={() => move(ex.key, 1)} disabled={exIdx === exercises.length - 1} title="下へ" className="p-1.5 text-zinc-400 enabled:hover:text-black dark:enabled:hover:text-white disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
                 <button onClick={() => updateDay(dayId, list => list.filter(e => e.key !== ex.key))} title="種目を外す" className="p-1.5 text-zinc-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
               </div>
               {/* メモは「回数：」「重量：」のように1項目1行で書くので、複数行で入力できるようにする（2026-10-25） */}

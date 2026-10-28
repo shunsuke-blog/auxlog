@@ -227,6 +227,9 @@ input[type='date']::-webkit-date-and-time-value {
   outline-offset: 2px;
   transition: none;
 }
+:where(button, [role='button'], summary):not(:disabled) {
+  cursor: pointer;
+}
 :where(button, [role='button'], summary):not(:disabled):active {
   transform: translateY(1px);
 }

@@ -24,7 +24,7 @@ export default async function TeamSetupPage({ searchParams }: { searchParams: Pr
       <Frame title="お申し込みありがとうございます">
         <p className="text-sm text-zinc-500 leading-relaxed">プランの反映まで数秒かかることがあります。少し待ってから、もう一度開いてください。</p>
         <a href="/trainer/team-setup?welcome=1" className="block w-full py-3 rounded-xl bg-brand hover:bg-brand-hover text-center text-sm font-medium text-on-brand">もう一度開く</a>
-        <Link href="/trainer/settings" className="block text-center text-sm text-zinc-500 underline">設定の「プラン」を見る</Link>
+        <Link href="/trainer/settings" className="block text-center text-sm text-zinc-500 underline hover:text-black dark:hover:text-white">設定の「プラン」を見る</Link>
       </Frame>
     )
   }
