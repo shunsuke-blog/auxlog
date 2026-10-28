@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import AddToHomeScreenSection from '@/components/ui/AddToHomeScreenSection'
 import type { LoginLinkState } from '@/lib/trainer/loginLink'
 
 type Props = {
@@ -35,6 +36,13 @@ export default function JoinClient({ token, state, kind, clientName, trainerName
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // はじめた後、スマホのブラウザならホーム画面への追加を案内してからメニューへ（タブを閉じても戻れるように、2026-10-28）
+  const [done, setDone] = useState(false)
+
+  const openMenu = () => {
+    router.replace('/')
+    router.refresh()
+  }
 
   const join = async (mode: 'start' | 'accept') => {
     setBusy(true)
@@ -47,8 +55,13 @@ export default function JoinClient({ token, state, kind, clientName, trainerName
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error((data as { error?: string }).error ?? 'うまくいきませんでした。もう一度お試しください')
-      router.replace('/')
-      router.refresh()
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) && !standalone) {
+        setDone(true)
+        setBusy(false)
+      } else {
+        openMenu()
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'うまくいきませんでした。もう一度お試しください')
       setBusy(false)
@@ -74,7 +87,18 @@ export default function JoinClient({ token, state, kind, clientName, trainerName
 
   let title: string
   let body: React.ReactNode
-  if (state !== 'valid') {
+  if (done) {
+    title = '準備ができました'
+    body = (
+      <div className="space-y-4">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed text-center">
+          ホーム画面に追加しておくと、次からはアイコンを押すだけでメニューが開きます。
+        </p>
+        <AddToHomeScreenSection />
+        <button onClick={openMenu} className={primary}>メニューを開く</button>
+      </div>
+    )
+  } else if (state !== 'valid') {
     title = 'このリンクは使えません'
     body = (
       <div className="space-y-4">
