@@ -9,13 +9,15 @@ import SelfPlanActions from './SelfPlanActions'
 import type { TemplateOption } from './TemplateOneRmFields'
 import { ReassignSelect } from './team/TeamActions'
 import { formatMonthDay, todayInJapan, weekDateRange } from '@/lib/coaching/week_dates'
+import { loadCoachingWeek } from '@/lib/coaching/trainee'
+import ClientRecords from './ClientRecords'
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' })
 
 // トレーニーの詳細: 契約の状態とプラン、契約期間内の記録、（契約中のみ）自己ベストと1RM。
 // 自分の行（isSelf）は契約の表示・名前の変更・契約の終了の代わりに、自分のトレーニー画面を開くボタンと
 // 自分に割り当てるプログラムの変更を出す（2026-10-26）。
-// readOnly: チームの管理者がメンバーのクライアントを見る時（名前の変更・招待・契約の終了は出さない）。
+// readOnly: チームの管理者がメンバーのクライアントを見る時（名前の変更・招待・契約の終了は出さない。記録は直せる）。
 // reassign: チームの管理者には担当替えを出す（2026-10-26）
 export default async function TraineeDetailPanel({ row, templates, selfName, readOnly = false, reassign }: {
   row: TraineeRow
@@ -26,6 +28,10 @@ export default async function TraineeDetailPanel({ row, templates, selfName, rea
 }) {
   const supabase = await createClient()
   const detail = row.traineeId && row.status !== 'invited' ? await loadTraineeDetail(supabase, row.traineeId) : null
+  // 記録を直す・代わりに入力するのは契約中のクライアントだけ（自分の記録は自分のトレーニー画面から。2026-10-29）
+  const editable = !row.isSelf && row.status === 'active'
+  const livePlan = editable && row.plan && (row.plan.status === 'shared' || row.plan.status === 'active') ? row.plan : null
+  const week = livePlan ? { weekNumber: livePlan.currentWeek, days: await loadCoachingWeek(supabase, livePlan.id, livePlan.currentWeek) } : null
 
   return (
     <div className="px-4 md:px-6 py-4 md:py-6 space-y-5">
@@ -125,31 +131,16 @@ export default async function TraineeDetailPanel({ row, templates, selfName, rea
         </div>
       )}
 
-      {detail && (
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-zinc-400 ">{row.isSelf ? '記録（直近20回）' : '記録（契約期間内・直近20回）'}</p>
-          {detail.sessions.length === 0 ? (
-            <p className="text-sm text-zinc-400 dark:text-zinc-500 py-4">まだ記録がありません。</p>
-          ) : (
-            detail.sessions.map(s => (
-              <div key={s.id} className="px-5 py-4 rounded-2xl trainer-card space-y-2">
-                <p className="text-sm font-semibold text-black dark:text-white">{fmtDate(s.trainedOn)}</p>
-                {s.exercises.map((e, i) => (
-                  <div key={i} className="text-sm">
-                    <p className="text-black dark:text-white">
-                      {e.name}
-                      {/* トレーニーがホームの「種目を追加」から記録した、プランに無い種目 */}
-                      {e.offPlan && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">プラン外</span>}
-                    </p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-                      {e.cardio ?? e.sets.map(st => `${st.isWarmup ? 'W ' : ''}${st.weightKg}kg×${st.reps}`).join(' / ')}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ))
-          )}
-        </div>
+      {detail && row.traineeId && (
+        <ClientRecords
+          // 別のクライアントに移ったら、入力の状態と元に戻すの履歴を持ち越さない
+          key={row.traineeId}
+          traineeId={row.traineeId}
+          sessions={detail.sessions}
+          week={week}
+          editable={editable}
+          title={row.isSelf ? '記録（直近20回）' : '記録（契約期間内・直近20回）'}
+        />
       )}
     </div>
   )

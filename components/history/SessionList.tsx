@@ -61,7 +61,13 @@ export default function SessionList({ sessions, exercises }: Props) {
             <div className="flex items-center justify-between px-5 pt-4 pb-3">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-black dark:text-white">{date}</span>
-                <span className="text-xs text-zinc-400">疲労度 {session.fatigue_level}</span>
+                {/* トレーナーが入力した記録は体調を聞いていないので出さない（2026-10-29） */}
+                {!session.trainer_only && <span className="text-xs text-zinc-400">疲労度 {session.fatigue_level}</span>}
+                {session.recorded_by && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-brand-soft text-brand-text">
+                    {session.recorded_by === 'trainer' ? 'トレーナーが記録' : 'トレーナーが修正'}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {/* 総ボリューム（重量×回数） */}

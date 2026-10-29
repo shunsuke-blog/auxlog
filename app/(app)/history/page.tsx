@@ -74,8 +74,14 @@ export default async function HistoryPage() {
     sessionsByDate.get(date)!.push(session)
   }
 
+  // トレーナーが入力・修正した記録（2026-10-29）。入力した記録があれば「トレーナーが記録」、直しただけなら「トレーナーが修正」
+  const byTrainer = (group: typeof rawSessions) => ({
+    recorded_by: group.some(s => s.recorded_by_trainer_id) ? 'trainer' as const : group.some(s => s.edited_by_trainer_id) ? 'trainer_edited' as const : null,
+    trainer_only: group.every(s => s.recorded_by_trainer_id),
+  })
+
   const sessions = Array.from(sessionsByDate.entries()).map(([date, group]) => {
-    if (group.length === 1) return { ...group[0], allIds: [group[0].id] }
+    if (group.length === 1) return { ...group[0], allIds: [group[0].id], ...byTrainer(group) }
     // 複数セッションをマージ: 疲労度は最大値、メモは結合、セットは全て含む
     return {
       id: group[0].id,
@@ -87,6 +93,7 @@ export default async function HistoryPage() {
       created_at: group[0].created_at,
       sets: group.flatMap(s => s.sets),
       total_volume: group.reduce((sum, s) => sum + s.total_volume, 0),
+      ...byTrainer(group),
     }
   })
 

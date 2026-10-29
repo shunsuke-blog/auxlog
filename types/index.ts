@@ -150,6 +150,9 @@ export type HistorySession = TrainingSession & {
   allIds: string[];
   sets: TrainingSet[];
   total_volume: number;
+  /** トレーナーが入力した（trainer）・直した（trainer_edited）記録を含む（2026-10-29）。trainerOnly はすべてトレーナーの入力（体調は聞いていない） */
+  recorded_by?: 'trainer' | 'trainer_edited' | null;
+  trainer_only?: boolean;
 };
 
 export type SetTarget = {
