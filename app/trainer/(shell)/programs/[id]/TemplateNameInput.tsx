@@ -29,7 +29,9 @@ export default function TemplateNameInput({ planId, initialName, onChange }: { p
           size（文字数）だと全角文字の幅が足りず、名前が途中で切れていた（2026-10-25 修正） */}
       <span className="inline-grid min-w-0 max-w-full text-lg font-semibold">
         <span aria-hidden className="invisible whitespace-pre px-1 [grid-area:1/1] truncate">{name || 'テンプレート名'} </span>
+        {/* data-native-undo: ⌘Z はテンプレートの中身の「元に戻す」ではなく、この欄の文字の取り消しにする */}
         <input
+          data-native-undo
           ref={nameRef}
           value={name}
           onChange={e => setName(e.target.value)}

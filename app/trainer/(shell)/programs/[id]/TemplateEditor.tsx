@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowDown, ArrowLeftRight, ArrowUp, ChevronLeft, Copy, GripVertical, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowLeftRight, ArrowUp, ChevronLeft, Copy, GripVertical, Plus, Redo2, Trash2, Undo2 } from 'lucide-react'
 import ExercisePicker from './ExercisePicker'
 import SwapPicker, { type SwapScope } from './SwapPicker'
 import ExerciseLibrary, { LIBRARY_DRAG_TYPE, catalogKey } from './ExerciseLibrary'
@@ -35,6 +35,10 @@ const muscleLabel = muscleGroupLabel
 // 保存は自動（2026-10-29。資料の「保存ボタンの排除」）: 入力が止まって AUTOSAVE_MS たったら、その Day を保存する。
 // 入力の途中（回数が空など）は保存せず、下の帯に理由を出す。取り込みの下書きだけは「保存」でテンプレートを作る
 const AUTOSAVE_MS = 800
+// 元に戻す・やり直す（2026-10-29 オーナー依頼「エクセルのように」）: 覚えておく回数と、続けて打った変更を1回分にまとめる間隔
+const HISTORY_LIMIT = 100
+const HISTORY_MERGE_MS = 1000
+type Snapshot = Record<string, EditorExercise[]>
 
 export default function TemplateEditor({ planId, initialName, totalWeeks, days, catalog: initialCatalog, onExit }: Props) {
   const router = useRouter()
@@ -92,7 +96,67 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   }
   const activeExercise = exerciseOptions.find(o => o.id === selectedExercise) ?? exerciseOptions[0] ?? null
 
+  // 元に戻す・やり直すの履歴（変更する前の全 Day の内容）。1回の操作（同じ処理の中の変更）と、
+  // 同じ Day で HISTORY_MERGE_MS 以内に続いた変更（数字を続けて打つなど）は1回分にまとめる
+  const [undoStack, setUndoStack] = useState<Snapshot[]>([])
+  const [redoStack, setRedoStack] = useState<Snapshot[]>([])
+  const lastEdit = useRef<{ dayId: string; at: number } | null>(null)
+  const recordedThisTurn = useRef(false)
+  const recordHistory = (id: string) => {
+    if (recordedThisTurn.current) return
+    recordedThisTurn.current = true
+    queueMicrotask(() => { recordedThisTurn.current = false })
+    const now = Date.now()
+    const merge = lastEdit.current?.dayId === id && now - lastEdit.current.at < HISTORY_MERGE_MS
+    lastEdit.current = { dayId: id, at: now }
+    if (merge) return
+    const before = byDayRef.current
+    setUndoStack(prev => [...prev.slice(-(HISTORY_LIMIT - 1)), before])
+    setRedoStack([])
+  }
+
+  // 履歴の内容に戻す。変わった Day は保存し直す
+  const restore = (target: Snapshot) => {
+    const current = byDayRef.current
+    const changed = Object.keys({ ...current, ...target }).filter(id => current[id] !== target[id])
+    setByDay(target)
+    setDirty(prev => { const n = new Set(prev); changed.forEach(id => n.add(id)); return n })
+    setMessage(null)
+    lastEdit.current = null
+    if (!isDraft) changed.forEach(id => scheduleSave(id))
+  }
+  const undo = () => {
+    const target = undoStack[undoStack.length - 1]
+    if (!target) return
+    setUndoStack(prev => prev.slice(0, -1))
+    setRedoStack(prev => [...prev, byDayRef.current])
+    restore(target)
+  }
+  const redo = () => {
+    const target = redoStack[redoStack.length - 1]
+    if (!target) return
+    setRedoStack(prev => prev.slice(0, -1))
+    setUndoStack(prev => [...prev, byDayRef.current])
+    restore(target)
+  }
+
+  // ⌘Z / Ctrl+Z で元に戻す、⇧⌘Z / Ctrl+Shift+Z / Ctrl+Y でやり直す。テンプレート名の欄（data-native-undo）は文字の取り消しのまま
+  const undoRef = useRef({ undo, redo })
+  useEffect(() => { undoRef.current = { undo, redo } })
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.isComposing) return
+      if ((e.target as HTMLElement | null)?.closest('[data-native-undo]')) return
+      const key = e.key.toLowerCase()
+      if (key === 'z' && !e.shiftKey) { e.preventDefault(); undoRef.current.undo() }
+      else if ((key === 'z' && e.shiftKey) || (key === 'y' && !e.shiftKey)) { e.preventDefault(); undoRef.current.redo() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
   const updateDay = (id: string, fn: (list: EditorExercise[]) => EditorExercise[]) => {
+    recordHistory(id)
     setByDay(prev => ({ ...prev, [id]: fn(prev[id] ?? []) }))
     setDirty(prev => new Set(prev).add(id))
     setMessage(null)
@@ -363,6 +427,14 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
             </Link>
           )}
           <TemplateNameInput planId={planId} initialName={initialName} onChange={setDraftName} />
+          <div className="shrink-0 flex">
+            <button onClick={undo} disabled={undoStack.length === 0} title="元に戻す（⌘Z / Ctrl+Z）" aria-label="元に戻す" className="p-2 rounded-lg text-zinc-500 enabled:hover:text-black enabled:hover:bg-zinc-100 dark:enabled:hover:text-white dark:enabled:hover:bg-zinc-900 disabled:opacity-30">
+              <Undo2 className="w-4 h-4" />
+            </button>
+            <button onClick={redo} disabled={redoStack.length === 0} title="やり直す（⇧⌘Z / Ctrl+Y）" aria-label="やり直す" className="p-2 rounded-lg text-zinc-500 enabled:hover:text-black enabled:hover:bg-zinc-100 dark:enabled:hover:text-white dark:enabled:hover:bg-zinc-900 disabled:opacity-30">
+              <Redo2 className="w-4 h-4" />
+            </button>
+          </div>
           <div className="shrink-0 flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl">
             {([['day', 'Dayごと'], ['exercise', '種目ごと']] as const).map(([v, text]) => (
               <button
