@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowDown, ArrowLeftRight, ArrowUp, ChevronLeft, Copy, GripVertical, Plus, Trash2 } from 'lucide-react'
@@ -32,6 +32,10 @@ const muscleLabel = muscleGroupLabel
 // テンプレートの編集。表示は「Day ごと」（週 → Day を選んでその日の種目を編集）と「種目ごと」
 // （種目を選んで、その種目が出てくる全週・全Dayのセットを並べて編集）を切り替えられる（2026-10-19 オーナー依頼）。
 // 重量は %1RM（トレーニー追加時に1RMから kg を計算）・kg（固定）・自動（前回記録から提案）のどれか。
+// 保存は自動（2026-10-29。資料の「保存ボタンの排除」）: 入力が止まって AUTOSAVE_MS たったら、その Day を保存する。
+// 入力の途中（回数が空など）は保存せず、下の帯に理由を出す。取り込みの下書きだけは「保存」でテンプレートを作る
+const AUTOSAVE_MS = 800
+
 export default function TemplateEditor({ planId, initialName, totalWeeks, days, catalog: initialCatalog, onExit }: Props) {
   const router = useRouter()
   const isDraft = planId == null
@@ -57,6 +61,15 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   const [dropIndex, setDropIndex] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  // 自動保存: 保存中の Day と、保存できなかった Day の理由（入力の途中・通信の失敗）
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
+  const [dayErrors, setDayErrors] = useState<Record<string, string>>({})
+  // 保存の時に最新の内容を読むための写し（タイマーや保存の完了は、描いた時より後に動くため）
+  const byDayRef = useRef(byDay)
+  useEffect(() => { byDayRef.current = byDay }, [byDay])
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  // Day ごとの保存を1つずつ順番にする（前の保存が終わってから、その時の最新の内容で保存する）
+  const queue = useRef(new Map<string, Promise<boolean>>())
 
   const sortedDays = [...days].sort((a, b) => a.weekNumber - b.weekNumber || a.dayNumber - b.dayNumber)
   const daysOfWeek = sortedDays.filter(d => d.weekNumber === week)
@@ -83,6 +96,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     setByDay(prev => ({ ...prev, [id]: fn(prev[id] ?? []) }))
     setDirty(prev => new Set(prev).add(id))
     setMessage(null)
+    if (!isDraft) scheduleSave(id)
   }
   const patchExercise = (id: string, key: string, fn: (ex: EditorExercise) => EditorExercise) =>
     updateDay(id, list => list.map(e => (e.key === key ? fn(e) : e)))
@@ -125,42 +139,64 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     }
   }
 
-  // 指定した Day を保存する。1件でも入力エラー・保存失敗があれば false
-  const saveDays = async (ids: string[]): Promise<boolean> => {
-    if (isDraft) return createFromDraft()
-    for (const id of ids) {
-      const payload = toSavePayload(byDay[id] ?? [])
-      if (!payload.ok) {
-        setMessage({ kind: 'error', text: `${label(id)}: ${payload.error}` })
-        return false
-      }
+  // 1日分をその時の最新の内容で保存する。入力の途中・保存の失敗は理由を残して false
+  const saveDayNow = async (id: string): Promise<boolean> => {
+    const list = byDayRef.current[id] ?? []
+    const payload = toSavePayload(list)
+    if (!payload.ok) {
+      setDayErrors(prev => ({ ...prev, [id]: `${payload.error}（入力するまで保存されません）` }))
+      return false
     }
-    setSaving(true)
-    setMessage(null)
+    setSavingIds(prev => new Set(prev).add(id))
     try {
-      for (const id of ids) {
-        const payload = toSavePayload(byDay[id] ?? [])
-        if (!payload.ok) continue
-        const res = await fetch(`/api/trainer/template-days/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ exercises: payload.exercises }),
-        })
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}))
-          throw new Error(`${label(id)}: ${(data as { error?: string }).error ?? '保存に失敗しました'}`)
-        }
-        setSavedByDay(prev => ({ ...prev, [id]: byDay[id] ?? [] }))
-        setDirty(prev => { const n = new Set(prev); n.delete(id); return n })
+      const res = await fetch(`/api/trainer/template-days/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exercises: payload.exercises }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error((data as { error?: string }).error ?? '保存に失敗しました')
       }
-      setMessage({ kind: 'ok', text: '保存しました' })
+      setSavedByDay(prev => ({ ...prev, [id]: list }))
+      // 保存している間に次の変更が無ければ、未保存から外す（あれば、その変更の保存が続く）
+      if (byDayRef.current[id] === list) setDirty(prev => { const n = new Set(prev); n.delete(id); return n })
+      setDayErrors(prev => { const next = { ...prev }; delete next[id]; return next })
       return true
     } catch (e) {
-      setMessage({ kind: 'error', text: e instanceof Error ? e.message : '保存に失敗しました' })
+      setDayErrors(prev => ({ ...prev, [id]: e instanceof Error && e.message !== 'Failed to fetch' ? e.message : '保存できませんでした。通信を確かめてください' }))
       return false
     } finally {
-      setSaving(false)
+      setSavingIds(prev => { const n = new Set(prev); n.delete(id); return n })
     }
+  }
+
+  const flushDay = (id: string): Promise<boolean> => {
+    const timer = timers.current.get(id)
+    if (timer) { clearTimeout(timer); timers.current.delete(id) }
+    const run = (queue.current.get(id) ?? Promise.resolve(true)).then(() => saveDayNow(id))
+    queue.current.set(id, run)
+    run.finally(() => { if (queue.current.get(id) === run) queue.current.delete(id) })
+    return run
+  }
+
+  // 入力が止まったら保存する（打っている間は待つ）
+  function scheduleSave(id: string) {
+    const timer = timers.current.get(id)
+    if (timer) clearTimeout(timer)
+    timers.current.set(id, setTimeout(() => { timers.current.delete(id); flushDay(id) }, AUTOSAVE_MS))
+  }
+
+  // 画面を離れる時（ブラウザの「戻る」など）は、待っている保存を取り消さずにすぐ送る（入力から AUTOSAVE_MS 以内の変更も残す）
+  const flushRef = useRef(flushDay)
+  useEffect(() => { flushRef.current = flushDay })
+  useEffect(() => () => { for (const id of [...timers.current.keys()]) flushRef.current(id) }, [])
+
+  // 指定した Day を今すぐ保存する（画面を離れる時・「もう一度保存」）。1件でも保存できなければ false
+  const saveDays = async (ids: string[]): Promise<boolean> => {
+    if (isDraft) return createFromDraft()
+    const results = await Promise.all(ids.map(flushDay))
+    return results.every(Boolean)
   }
 
   const discardDays = (ids: string[]) => {
@@ -168,8 +204,8 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     setDirty(prev => { const n = new Set(prev); ids.forEach(id => n.delete(id)); return n })
   }
 
-  // Day・週を移っても未保存の変更はそのまま残す（Day に ● が付く）。「保存しますか？」は編集画面を
-  // 離れる時（戻る・サイドバーのタブ）にまとめて聞く（2026-10-22 オーナー依頼）。
+  // Day・週を移っても保存は続く。保存できていない Day には ● が付く。編集画面を離れる時（戻る・サイドバーのタブ）は
+  // 残りをその場で保存してから移り、保存できない所がある時だけ確かめる（2026-10-29 自動保存）
   const selectDay = (id: string) => {
     if (id !== dayId) { setMessage(null); setDayId(id) }
   }
@@ -180,7 +216,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     if (target && target.id !== dayId) { setMessage(null); setWeek(w); setDayId(target.id) }
   }
 
-  const { pending, resolvePending, confirmLeave } = useUnsavedLeaveGuard(dirty, saveDays, discardDays)
+  const { pending, resolvePending, confirmLeave } = useUnsavedLeaveGuard(dirty, saveDays, discardDays, !isDraft)
 
   const handleSaveClick = async () => {
     const ok = await saveDays([...dirty])
@@ -354,7 +390,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
                   onClick={() => selectDay(d.id)}
                   className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border ${d.id === dayId ? 'border-brand bg-brand-soft text-brand-text' : 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-black dark:hover:text-white'}`}
                 >
-                  Day {d.dayNumber}{d.label ? `・${d.label}` : ''}{!isDraft && dirty.has(d.id) ? ' ●' : ''}
+                  Day {d.dayNumber}{d.label ? `・${d.label}` : ''}{dayErrors[d.id] ? ' ●' : ''}
                 </button>
               ))}
             </div>
@@ -474,7 +510,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           {occurrences.map(({ day, ex }) => (
             <div key={`${day.id}-${ex.key}`} className="px-4 md:px-5 py-4 rounded-2xl trainer-card space-y-3">
               <p className="text-sm font-semibold text-black dark:text-white">
-                Week {day.weekNumber} / Day {day.dayNumber}{!isDraft && dirty.has(day.id) ? ' ●' : ''}
+                Week {day.weekNumber} / Day {day.dayNumber}{dayErrors[day.id] ? ' ●' : ''}
               </p>
               {/* メモは「回数：」「重量：」のように1項目1行で書くので、複数行で入力できるようにする（2026-10-25） */}
               <textarea
@@ -516,23 +552,49 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       )}
       </div>
 
-      {/* スマホは帯を出さず、保存ボタンだけを右下に浮かせる（2026-10-25 オーナー依頼）。メッセージがある時だけ
-          ボタンの左に小さく出す。下の種目を触れるよう、ボタンとメッセージ以外はタップを通す。PC は今までどおり帯 */}
-      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 z-10 px-4 md:px-6 py-3 pointer-events-none md:pointer-events-auto md:bg-white md:dark:bg-black md:border-t border-zinc-100 dark:border-zinc-900 flex items-center justify-end gap-3">
-        <p className={`pointer-events-auto md:flex-1 text-xs md:text-sm max-md:px-3 max-md:py-2 max-md:rounded-xl max-md:bg-white/95 max-md:shadow-md max-md:border max-md:border-zinc-100 ${message?.kind === 'error' ? 'text-red-500' : 'text-zinc-500 dark:text-zinc-400'} ${message?.text || dirty.size > 0 ? '' : 'max-md:hidden'}`}>
-          {message?.text ?? (isDraft ? '取り込んだメニューは、保存するとテンプレートになります' : dirty.size > 0 ? `未保存の変更が ${dirty.size} 日分あります` : '')}
-        </p>
-        <button onClick={handleSaveClick} disabled={dirty.size === 0 || saving} className="pointer-events-auto shrink-0 px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-40 max-md:shadow-lg max-md:disabled:opacity-100 max-md:disabled:bg-zinc-200 max-md:disabled:text-zinc-500">
-          {saving ? '保存中…' : isDraft ? '保存してテンプレートを作成' : dirty.size > 0 ? `変更を保存（${dirty.size}日分）` : '保存済み'}
-        </button>
-      </div>
+      {isDraft ? (
+        // 取り込みの下書き: 「保存」で初めてテンプレートを作る。スマホは保存ボタンだけを右下に浮かせる（2026-10-25 オーナー依頼）
+        <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 z-10 px-4 md:px-6 py-3 pointer-events-none md:pointer-events-auto md:bg-white md:dark:bg-black md:border-t border-zinc-100 dark:border-zinc-900 flex items-center justify-end gap-3">
+          <p className={`pointer-events-auto md:flex-1 text-xs md:text-sm max-md:px-3 max-md:py-2 max-md:rounded-xl max-md:bg-white/95 max-md:shadow-md max-md:border max-md:border-zinc-100 ${message?.kind === 'error' ? 'text-red-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
+            {message?.text ?? '取り込んだメニューは、保存するとテンプレートになります'}
+          </p>
+          <button onClick={handleSaveClick} disabled={saving} className="pointer-events-auto shrink-0 px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-40 max-md:shadow-lg">
+            {saving ? '保存中…' : '保存してテンプレートを作成'}
+          </button>
+        </div>
+      ) : (
+        // 自動保存の状態。保存できない時は理由（最初の1件）と「もう一度保存」。スマホは何かある時だけ小さく出す
+        (() => {
+          const errorId = sortedDays.find(d => dayErrors[d.id])?.id
+          const status = message?.kind === 'error' ? { error: true, text: message.text }
+            : errorId ? { error: true, text: `${label(errorId)}: ${dayErrors[errorId]}` }
+            : savingIds.size > 0 || dirty.size > 0 ? { error: false, text: '保存中…' }
+            : { error: false, text: '変更は自動で保存されます' }
+          const quiet = !status.error && savingIds.size === 0 && dirty.size === 0
+          return (
+            <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 z-10 px-4 md:px-6 py-3 pointer-events-none md:pointer-events-auto md:bg-white md:dark:bg-black md:border-t border-zinc-100 dark:border-zinc-900 flex items-center justify-end gap-3">
+              <p className={`pointer-events-auto md:flex-1 text-xs md:text-sm max-md:px-3 max-md:py-2 max-md:rounded-xl max-md:bg-white/95 max-md:shadow-md max-md:border max-md:border-zinc-100 ${status.error ? 'text-red-500' : 'text-zinc-500 dark:text-zinc-400'} ${quiet ? 'max-md:hidden' : ''}`}>
+                {status.text}
+              </p>
+              {errorId && (
+                <button onClick={() => saveDays([...dirty])} disabled={savingIds.size > 0} className="pointer-events-auto shrink-0 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black text-sm font-medium text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-40 max-md:shadow-lg">
+                  もう一度保存
+                </button>
+              )}
+            </div>
+          )
+        })()
+      )}
 
       {pending && (
         <UnsavedLeaveDialog
           pending={pending}
           saving={saving}
           label={label}
-          message={isDraft ? '取り込んだメニューはまだ保存されていません。保存しないと、取り込んだ内容は消えます。' : undefined}
+          message={isDraft
+            ? '取り込んだメニューはまだ保存されていません。保存しないと、取り込んだ内容は消えます。'
+            : `保存できていない変更があります（${Object.entries(dayErrors).map(([id, text]) => `${label(id)}: ${text}`)[0] ?? '保存に失敗しました'}）。このまま離れると、その変更は失われます。`}
+          autoSave={!isDraft}
           onResolve={resolvePending}
         />
       )}
