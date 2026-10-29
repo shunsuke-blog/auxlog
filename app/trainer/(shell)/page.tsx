@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getTrainerProfile } from '@/lib/trainer/session'
 import { loadTraineeRows } from '@/lib/trainer/trainees'
-import TraineeListItem from './TraineeListItem'
+import TraineeSearchList from './TraineeSearchList'
 import TraineeDetailPanel from './TraineeDetailPanel'
 import AddTraineeButton from './AddTraineeButton'
 import { loadPlanUsage } from '@/lib/trainer/plan_usage'
@@ -60,13 +60,7 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
               <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
             </Link>
           ))}
-          {rows.filter(r => !r.isSelf).length === 0 ? (
-            <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-10">
-              「追加」からクライアントを招待できます。
-            </p>
-          ) : (
-            rows.filter(r => !r.isSelf).map(r => <TraineeListItem key={r.linkId} row={r} selected={r.linkId === selected?.linkId} />)
-          )}
+          <TraineeSearchList rows={rows.filter(r => !r.isSelf)} selectedLinkId={selected?.linkId ?? null} empty="「追加」からクライアントを招待できます。" />
         </div>
       </section>
 

@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getTrainerProfile } from '@/lib/trainer/session'
 import { getTeamContext, teamTrainerCount } from '@/lib/trainer/team'
 import { loadTraineeRows } from '@/lib/trainer/trainees'
-import TraineeListItem from '../TraineeListItem'
+import TraineeSearchList from '../TraineeSearchList'
 import TraineeDetailPanel from '../TraineeDetailPanel'
 import InquiryForm from '@/components/trainer/InquiryForm'
 import {
@@ -54,9 +54,7 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
           <div className="md:flex md:flex-1 md:min-h-0">
             <section className={`md:w-[420px] md:shrink-0 md:border-r border-zinc-100 md:overflow-y-auto ${selected ? 'hidden md:block' : ''}`}>
               <div className="px-4 py-4 space-y-2">
-                {rows.length === 0
-                  ? <p className="text-sm text-zinc-400 text-center py-10">担当しているクライアントはいません。</p>
-                  : rows.map(r => <TraineeListItem key={r.linkId} row={r} selected={r.linkId === selected?.linkId} href={`/trainer/team?member=${member.trainerId}&id=${r.linkId}`} />)}
+                <TraineeSearchList rows={rows} selectedLinkId={selected?.linkId ?? null} hrefBase={`/trainer/team?member=${member.trainerId}&id=`} empty="担当しているクライアントはいません。" />
               </div>
             </section>
             <section className={`flex-1 md:overflow-y-auto ${selected ? '' : 'hidden md:block'}`}>

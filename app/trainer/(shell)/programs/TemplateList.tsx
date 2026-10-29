@@ -8,6 +8,8 @@ import { MAX_PRIORITY_MUSCLES, PRIORITY_MUSCLE_OPTION_LABELS, PRIORITY_MUSCLE_OP
 import { availableDays, resolveProgramType, type ProgramGender, type ProgramLevel } from '@/lib/coaching/base_templates'
 import ImportInput, { type MenuImportResponse } from './ImportInput'
 import ImportFlow from './ImportFlow'
+import SearchBox from '@/components/ui/SearchBox'
+import { matchesSearch } from '@/lib/utils/search'
 
 // セッション時間はオンボーディングと同じ帯の選択肢（60/75/90 は帯の内部代表値）
 const SESSION_OPTIONS = [
@@ -136,6 +138,10 @@ export default function TemplateList({ templates, initialCreating = false, teamT
   const router = useRouter()
   // ダッシュボードの「プログラムを作成」から来た時（?create=1）は作成ダイアログを開いた状態にする
   const [creating, setCreating] = useState(initialCreating)
+  // テンプレート名での検索（2026-10-29 オーナー依頼）
+  const [query, setQuery] = useState('')
+  const shown = templates.filter(t => matchesSearch(t.name, query))
+  const shownTeam = teamTemplates.filter(t => matchesSearch(t.name, query))
   // import は表から取り込む（2026-10-28）。タブの中で表を読み取り、読み取れたら一覧の代わりに確認の画面（ImportFlow）を出す
   const [mode, setMode] = useState<'auxlog' | 'blank' | 'import'>('auxlog')
   const [importing, setImporting] = useState<{ result: MenuImportResponse; fileName: string | null } | null>(null)
@@ -228,12 +234,15 @@ export default function TemplateList({ templates, initialCreating = false, teamT
           <p className="text-xs text-zinc-500 dark:text-zinc-400">ここで作ったプログラムは、{sharedTeamName}のトレーナーにも共有されます（トレーナーは選んで使うだけで、編集はできません）。</p>
         )}
         {error && <p className="text-sm text-red-500">{error}</p>}
+        {templates.length + teamTemplates.length > 0 && <SearchBox value={query} onChange={setQuery} placeholder="プログラムの名前で検索" />}
         {templates.length === 0 ? (
           <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-16">
             テンプレートはまだありません。「新しく作る」から作成してください。
           </p>
         ) : (
-          templates.map(t => (
+          <>
+          {shown.length === 0 && shownTeam.length === 0 && <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-10">「{query.trim()}」に当てはまるプログラムはありません。</p>}
+          {shown.map(t => (
             // スマホは縦に積む（名前 → 条件を2列 → 使用中の人数と操作）。PC（md以上）は1行に横並び（2026-10-25）
             <div key={t.id} className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 px-4 md:px-5 py-4 rounded-2xl trainer-card">
               <div className="flex-1 min-w-0 space-y-2">
@@ -272,16 +281,17 @@ export default function TemplateList({ templates, initialCreating = false, teamT
                 </Link>
               </div>
             </div>
-          ))
+          ))}
+          </>
         )}
 
-        {teamTemplates.length > 0 && (
+        {shownTeam.length > 0 && (
           <div className="pt-4 space-y-3">
             <div>
               <h2 className="text-sm font-semibold text-black dark:text-white">{teamName}のプログラム</h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">管理者が作成したプログラムです。クライアントの追加の時に選べます（編集は管理者だけ）。</p>
             </div>
-            {teamTemplates.map(t => (
+            {shownTeam.map(t => (
               <div key={t.id} className="px-4 md:px-5 py-4 rounded-2xl trainer-card space-y-1">
                 <p className="text-sm font-semibold text-black dark:text-white">{t.name}</p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">{t.totalWeeks}週間・週{t.daysPerWeek}日</p>
