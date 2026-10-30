@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getTrainerProfile } from '@/lib/trainer/session'
 import { getTeamContext, teamTrainerCount } from '@/lib/trainer/team'
 import { loadTraineeRows } from '@/lib/trainer/trainees'
-import TraineeSearchList from '../TraineeSearchList'
+import TraineeSearchList, { TraineeSearchBox, TraineeSearchProvider } from '../TraineeSearchList'
 import TraineeDetailPanel from '../TraineeDetailPanel'
 import InquiryForm from '@/components/trainer/InquiryForm'
 import {
@@ -46,10 +46,15 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
         ...team.members.filter(m => m.status === 'approved').map(m => ({ id: m.trainerId, name: m.name })),
       ]
       return (
+        <TraineeSearchProvider>
         <div className="md:h-screen md:flex md:flex-col">
-          <div className={`sticky top-0 z-10 shrink-0 trainer-header h-14 md:h-[72px] px-4 md:px-6 items-center gap-2 ${selected ? 'hidden md:flex' : 'flex'}`}>
-            <Link href="/trainer/team" className="p-1 -ml-1 text-zinc-400 hover:text-black" aria-label="チームに戻る"><ChevronLeft className="w-5 h-5" /></Link>
-            <h1 className="text-xl font-semibold text-black truncate">{member.name} さんのクライアント</h1>
+          <div className={`sticky top-0 z-10 shrink-0 trainer-header px-4 md:px-6 ${selected ? 'hidden md:block' : ''}`}>
+            <div className="h-14 md:h-[72px] flex items-center gap-2">
+              <Link href="/trainer/team" className="p-1 -ml-1 text-zinc-400 hover:text-black" aria-label="チームに戻る"><ChevronLeft className="w-5 h-5" /></Link>
+              <h1 className="min-w-0 text-xl font-semibold text-black truncate">{member.name} さんのクライアント</h1>
+              {rows.length > 0 && <div className="hidden md:block shrink-0 ml-auto w-72"><TraineeSearchBox /></div>}
+            </div>
+            {rows.length > 0 && <div className="md:hidden pb-3"><TraineeSearchBox /></div>}
           </div>
           <div className="md:flex md:flex-1 md:min-h-0">
             <section className={`md:w-[420px] md:shrink-0 md:border-r border-zinc-100 md:overflow-y-auto ${selected ? 'hidden md:block' : ''}`}>
@@ -72,6 +77,7 @@ export default async function TrainerTeamPage({ searchParams }: { searchParams: 
             </section>
           </div>
         </div>
+        </TraineeSearchProvider>
       )
     }
   }

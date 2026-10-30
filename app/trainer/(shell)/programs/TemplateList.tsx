@@ -142,6 +142,7 @@ export default function TemplateList({ templates, initialCreating = false, teamT
   const [query, setQuery] = useState('')
   const shown = templates.filter(t => matchesSearch(t.name, query))
   const shownTeam = teamTemplates.filter(t => matchesSearch(t.name, query))
+  const hasAny = templates.length + teamTemplates.length > 0
   // import は表から取り込む（2026-10-28）。タブの中で表を読み取り、読み取れたら一覧の代わりに確認の画面（ImportFlow）を出す
   const [mode, setMode] = useState<'auxlog' | 'blank' | 'import'>('auxlog')
   const [importing, setImporting] = useState<{ result: MenuImportResponse; fileName: string | null } | null>(null)
@@ -218,15 +219,20 @@ export default function TemplateList({ templates, initialCreating = false, teamT
 
   return (
     <div>
-      <div className="sticky top-0 z-10 trainer-header h-14 md:h-[72px] px-4 md:px-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-black dark:text-white">プログラム</h1>
-        <button
-          onClick={() => setCreating(true)}
-          className="h-10 flex items-center gap-1.5 px-4 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium"
-        >
-          <Plus className="w-4 h-4" />
-          新しく作る
-        </button>
+      {/* 名前の検索欄も帯の中に置く（PC は帯の1行に、スマホは帯の2行目。2026-10-30 オーナー指示） */}
+      <div className="sticky top-0 z-10 trainer-header px-4 md:px-6">
+        <div className="h-14 md:h-[72px] flex items-center justify-between gap-3">
+          <h1 className="shrink-0 text-xl font-semibold text-black dark:text-white">プログラム</h1>
+          {hasAny && <div className="hidden md:block ml-auto w-72"><SearchBox value={query} onChange={setQuery} placeholder="プログラムの名前で検索" /></div>}
+          <button
+            onClick={() => setCreating(true)}
+            className="shrink-0 h-10 flex items-center gap-1.5 px-4 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            新しく作る
+          </button>
+        </div>
+        {hasAny && <div className="md:hidden pb-3"><SearchBox value={query} onChange={setQuery} placeholder="プログラムの名前で検索" /></div>}
       </div>
 
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-3">
@@ -234,7 +240,6 @@ export default function TemplateList({ templates, initialCreating = false, teamT
           <p className="text-xs text-zinc-500 dark:text-zinc-400">ここで作ったプログラムは、{sharedTeamName}のトレーナーにも共有されます（トレーナーは選んで使うだけで、編集はできません）。</p>
         )}
         {error && <p className="text-sm text-red-500">{error}</p>}
-        {templates.length + teamTemplates.length > 0 && <SearchBox value={query} onChange={setQuery} placeholder="プログラムの名前で検索" />}
         {templates.length === 0 ? (
           <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-16">
             テンプレートはまだありません。「新しく作る」から作成してください。

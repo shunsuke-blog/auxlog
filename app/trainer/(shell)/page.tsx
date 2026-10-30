@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getTrainerProfile } from '@/lib/trainer/session'
 import { loadTraineeRows } from '@/lib/trainer/trainees'
-import TraineeSearchList from './TraineeSearchList'
+import TraineeSearchList, { TraineeSearchBox, TraineeSearchProvider } from './TraineeSearchList'
 import TraineeDetailPanel from './TraineeDetailPanel'
 import AddTraineeButton from './AddTraineeButton'
 import { loadPlanUsage } from '@/lib/trainer/plan_usage'
@@ -32,14 +32,21 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
   ])
 
   const selected = rows.find(r => r.linkId === selectedId) ?? null
+  const hasClients = rows.some(r => !r.isSelf)
 
   return (
     // 見出しの帯は一覧と詳細の両方の上に、右端まで伸ばす（2026-10-25 オーナー指摘）。PC は帯の下を一覧と詳細の2列にし、
     // それぞれをスクロールさせる。スマホで詳細を開いている時は帯を出さない（詳細に「一覧」へ戻るリンクがある）
+    // 名前の検索欄も帯の中に置く（PC は帯の1行に、スマホは帯の2行目。2026-10-30 オーナー指示）
+    <TraineeSearchProvider>
     <div className="md:h-screen md:flex md:flex-col">
-      <div className={`sticky top-0 z-10 shrink-0 trainer-header h-14 md:h-[72px] px-4 md:px-6 items-center justify-between ${selected ? 'hidden md:flex' : 'flex'}`}>
-        <h1 className="text-xl font-semibold text-black dark:text-white">クライアント一覧</h1>
-        <AddTraineeButton templates={templateOptions} limitReached={plan.limit != null && plan.used >= plan.limit} limit={plan.limit ?? 0} planLabel={plan.label} upgrade={upgradeHint(plan.plan)} />
+      <div className={`sticky top-0 z-10 shrink-0 trainer-header px-4 md:px-6 ${selected ? 'hidden md:block' : ''}`}>
+        <div className="h-14 md:h-[72px] flex items-center justify-between gap-3">
+          <h1 className="shrink-0 text-xl font-semibold text-black dark:text-white">クライアント一覧</h1>
+          {hasClients && <div className="hidden md:block ml-auto w-72"><TraineeSearchBox /></div>}
+          <AddTraineeButton templates={templateOptions} limitReached={plan.limit != null && plan.used >= plan.limit} limit={plan.limit ?? 0} planLabel={plan.label} upgrade={upgradeHint(plan.plan)} />
+        </div>
+        {hasClients && <div className="md:hidden pb-3"><TraineeSearchBox /></div>}
       </div>
       <div className="md:flex md:flex-1 md:min-h-0">
       <section className={`md:w-[420px] md:shrink-0 md:border-r border-zinc-100 dark:border-zinc-900 md:overflow-y-auto ${selected ? 'hidden md:block' : ''}`}>
@@ -93,5 +100,6 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
       </section>
       </div>
     </div>
+    </TraineeSearchProvider>
   )
 }
