@@ -272,13 +272,15 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
                               />
                             ))}
                             {error && <p className="text-xs text-red-500">{error}</p>}
-                            <button
-                              onClick={() => recordDraft(ex.planExerciseId)}
-                              disabled={busyId != null}
-                              className={primaryButton}
-                            >
-                              {draft && busyId === draft.id ? '記録中…' : '記録する'}
-                            </button>
+                            <div className="flex justify-end">
+                              <button
+                                onClick={() => recordDraft(ex.planExerciseId)}
+                                disabled={busyId != null}
+                                className={primaryButton}
+                              >
+                                {draft && busyId === draft.id ? '記録中…' : '記録する'}
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           error && <p className="text-xs text-red-500">{error}</p>
