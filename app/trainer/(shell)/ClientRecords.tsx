@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Pencil, Redo2, Trash2, Undo2 } from 'lucide-react'
+import { Check, ChevronDown, Pencil, Redo2, Trash2, Undo2 } from 'lucide-react'
 import type { TraineeDetail } from '@/lib/trainer/trainees'
 import { condenseTargetSets, type CoachingDay } from '@/lib/coaching/trainee'
 import type { CoachingRecordData } from '@/lib/coaching/record'
@@ -15,8 +15,9 @@ import {
 } from '@/lib/trainer/clientRecordEditor'
 
 // クライアントの記録をトレーナーがその場で直す・代わりに入力する（2026-10-29 オーナー決定: 代理入力も含める・
-// 契約中のクライアントだけ・入力者を残して出す）。✓ を付けたセットが記録になり、入力が止まると記録ごとに自動で保存する
-// （保存ボタンは無い）。⌘Z / Ctrl+Z で元に戻す。消した記録も元に戻すで同じ記録として作り直す。
+// 契約中のクライアントだけ・入力者を残して出す）。✓ を付けたセットが記録になる。
+// 代理入力は今週のメニュー（アコーディオン）から「記録する」ボタンで保存する（2026-10-30 オーナー指示で自動保存にしない）。
+// 今までの記録の「直す」は入力が止まると記録ごとに自動で保存し、⌘Z / Ctrl+Z で元に戻す。消した記録も元に戻すで同じ記録として作り直す。
 // editable が false（契約中でない・自分）の時は今までどおり読むだけ。
 
 const AUTOSAVE_MS = 800
@@ -218,30 +219,78 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
     scheduleSave(id)
   }
 
-  // 代理入力: プランの種目の記録を始める。すでに画面にある（記録中・記録済み）なら、その記録を開く
-  const startRecording = async (planExerciseId: string) => {
-    const found = sessionsRef.current.find(s => s.exercises.some(e => e.planExerciseId === planExerciseId))
-    if (found) {
-      setOpen(prev => new Set(prev).add(found.id))
-      document.getElementById(`record-${found.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      return
-    }
+  // ── 代理入力（2026-10-30 オーナー指示: 自動保存にせず「記録する」で保存。メニューはアコーディオン） ──
+  // 種目を押すと下に計画（目標のセット）と入力欄を開く（一度に1つ）。✓ を付けたセットだけを「記録する」で保存する
+  const [openPe, setOpenPe] = useState<string | null>(null)
+  const [drafts, setDrafts] = useState<Record<string, EditSession>>({})
+  const [draftErrors, setDraftErrors] = useState<Record<string, string>>({})
+  const [recordingPe, setRecordingPe] = useState<string | null>(null)
+
+  const togglePlanExercise = async (planExerciseId: string, recorded: boolean) => {
+    if (openPe === planExerciseId) { setOpenPe(null); return }
+    setOpenPe(planExerciseId)
+    if (recorded || drafts[planExerciseId]) return
     setLoadingPe(planExerciseId)
-    setNotice(null)
     try {
       const res = await fetch(`/api/trainer/client-sessions/prefill?trainee=${traineeId}&planExercise=${planExerciseId}`)
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error((data as { error?: string }).error ?? '種目を読み込めませんでした')
-      const draft = draftFromPrefill(crypto.randomUUID(), todayInJapan(), data as CoachingRecordData)
-      const next = [draft, ...sessionsRef.current]
-      setSessions(next)
-      sessionsRef.current = next
-      setOpen(prev => new Set(prev).add(draft.id))
+      setDrafts(prev => ({ ...prev, [planExerciseId]: draftFromPrefill(crypto.randomUUID(), todayInJapan(), data as CoachingRecordData) }))
+      setDraftErrors(prev => { const next = { ...prev }; delete next[planExerciseId]; return next })
     } catch (e) {
-      setNotice(e instanceof Error ? e.message : '種目を読み込めませんでした')
+      setDraftErrors(prev => ({ ...prev, [planExerciseId]: e instanceof Error ? e.message : '種目を読み込めませんでした' }))
     } finally {
       setLoadingPe(null)
     }
+  }
+
+  const patchDraft = (planExerciseId: string, fn: (e: EditExercise) => EditExercise) => {
+    setDrafts(prev => {
+      const d = prev[planExerciseId]
+      return d ? { ...prev, [planExerciseId]: { ...d, exercises: d.exercises.map(fn) } } : prev
+    })
+    setDraftErrors(prev => { const next = { ...prev }; delete next[planExerciseId]; return next })
+  }
+
+  const recordDraft = async (planExerciseId: string) => {
+    const draft = drafts[planExerciseId]
+    if (!draft) return
+    const payload = toSavePayload(draft)
+    const fail = (text: string) => setDraftErrors(prev => ({ ...prev, [planExerciseId]: text }))
+    if (!payload.ok) return fail(payload.error)
+    if (payload.sets.length === 0) return fail('実施したセットに ✓ を付けてください')
+    setRecordingPe(planExerciseId)
+    try {
+      const res = await fetch(`/api/trainer/client-sessions/${draft.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainee_id: traineeId, trained_at: draft.trainedOn, sets: payload.sets }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error((data as { error?: string }).error ?? '記録できませんでした')
+      }
+      // 記録した内容（✓ のセットだけ）を下の記録の一番上に足す。ここからは他の記録と同じく「直す」で直す
+      exists.current.add(draft.id)
+      const saved: EditSession = { ...draft, exercises: draft.exercises.map(e => ({ ...e, sets: e.sets.filter(st => st.done) })) }
+      const next = [saved, ...sessionsRef.current]
+      setSessions(next)
+      sessionsRef.current = next
+      setDrafts(prev => { const n = { ...prev }; delete n[planExerciseId]; return n })
+      router.refresh()
+    } catch (e) {
+      fail(e instanceof Error && e.message !== 'Failed to fetch' ? e.message : '記録できませんでした。通信を確かめてください')
+    } finally {
+      setRecordingPe(null)
+    }
+  }
+
+  // 記録済みの種目の「記録を直す」: 下の記録を開いてそこへ移る
+  const openRecordOf = (planExerciseId: string) => {
+    const found = sessionsRef.current.find(s => s.exercises.some(e => e.planExerciseId === planExerciseId))
+    if (!found) return
+    setOpen(prev => new Set(prev).add(found.id))
+    document.getElementById(`record-${found.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   const day = week?.days[Math.min(dayIdx, (week?.days.length ?? 1) - 1)]
@@ -272,28 +321,70 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
             <div className="divide-y divide-zinc-100 dark:divide-zinc-900">
               {day.exercises.map(ex => {
                 const recorded = recordedNow.has(ex.planExerciseId) || (ex.recorded && !initiallyRecorded.has(ex.planExerciseId))
-                const inProgress = !recorded && sessions.some(s => s.exercises.some(e => e.planExerciseId === ex.planExerciseId))
+                const isOpen = openPe === ex.planExerciseId
+                const draft = drafts[ex.planExerciseId]
+                const recordedExercises = sessions.flatMap(se => se.exercises.filter(e => e.planExerciseId === ex.planExerciseId))
+                const error = draftErrors[ex.planExerciseId]
                 return (
-                  <div key={ex.planExerciseId} className="flex items-center gap-3 py-2.5">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-black dark:text-white truncate">{ex.name}</p>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums truncate">
-                        {condenseTargetSets(ex).map(r => `${r.label} ${r.text}`).join(' · ')}
-                      </p>
-                    </div>
-                    {recorded ? (
-                      // 下の記録を開く（直近20回より前の記録なら、開く記録が無いので押せない）
-                      <button onClick={() => startRecording(ex.planExerciseId)} disabled={!recordedNow.has(ex.planExerciseId)} className="shrink-0 flex items-center gap-1 text-xs font-semibold text-brand-text">
-                        <Check className="w-3.5 h-3.5" />記録済み
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => startRecording(ex.planExerciseId)}
-                        disabled={loadingPe != null}
-                        className="shrink-0 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-40"
-                      >
-                        {loadingPe === ex.planExerciseId ? '読み込み中…' : inProgress ? '記録中' : ex.skipped ? 'スキップ済み・記録する' : '記録する'}
-                      </button>
+                  <div key={ex.planExerciseId}>
+                    <button onClick={() => togglePlanExercise(ex.planExerciseId, recorded)} aria-expanded={isOpen} className="w-full flex items-center gap-3 py-3 text-left">
+                      <span className="flex-1 min-w-0 text-sm text-black dark:text-white truncate">{ex.name}</span>
+                      {recorded
+                        ? <span className="shrink-0 flex items-center gap-1 text-xs font-semibold text-brand-text"><Check className="w-3.5 h-3.5" />記録済み</span>
+                        : ex.skipped
+                        ? <span className="shrink-0 text-xs text-zinc-400">スキップ</span>
+                        : draft?.exercises.some(e => e.cardio ? e.cardio.done : e.sets.some(st => st.done))
+                        ? <span className="shrink-0 text-xs text-zinc-500">記録中</span>
+                        : null}
+                      <ChevronDown className={`w-4 h-4 shrink-0 text-zinc-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isOpen && (
+                      <div className="pb-4 space-y-3">
+                        {/* 計画（トレーナーが決めた目標のセットとメモ） */}
+                        <div className="space-y-0.5">
+                          {condenseTargetSets(ex).map((r, i) => (
+                            <p key={i} className="text-xs tabular-nums">
+                              <span className="inline-block w-16 text-zinc-400">{r.label}</span>
+                              <span className="text-zinc-600 dark:text-zinc-300">{r.text}</span>
+                            </p>
+                          ))}
+                          {ex.note && <p className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-pre-wrap pt-1">{ex.note}</p>}
+                        </div>
+                        {recorded ? (
+                          <div className="space-y-1.5">
+                            {recordedExercises.map(e => <p key={e.key} className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">記録 {summary(e)}</p>)}
+                            {recordedExercises.length > 0 && (
+                              <button onClick={() => openRecordOf(ex.planExerciseId)} className="flex items-center gap-1 text-xs text-zinc-500 hover:text-black dark:hover:text-white">
+                                <Pencil className="w-3.5 h-3.5" />記録を直す
+                              </button>
+                            )}
+                          </div>
+                        ) : loadingPe === ex.planExerciseId ? (
+                          <p className="text-xs text-zinc-400">読み込み中…</p>
+                        ) : draft ? (
+                          <div className="space-y-2">
+                            {draft.exercises.map(e => (
+                              <ExerciseInputs
+                                key={e.key}
+                                exercise={e}
+                                onSet={(k, p) => patchDraft(ex.planExerciseId, x => ({ ...x, sets: x.sets.map(st => (st.key === k ? { ...st, ...p } : st)) }))}
+                                onCardio={p => patchDraft(ex.planExerciseId, x => (x.cardio ? { ...x, cardio: { ...x.cardio, ...p } } : x))}
+                                onAddSet={() => patchDraft(ex.planExerciseId, x => ({ ...x, sets: [...x.sets, nextSet(x.sets)] }))}
+                              />
+                            ))}
+                            {error && <p className="text-xs text-red-500">{error}</p>}
+                            <button
+                              onClick={() => recordDraft(ex.planExerciseId)}
+                              disabled={recordingPe != null}
+                              className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-semibold disabled:opacity-40"
+                            >
+                              {recordingPe === ex.planExerciseId ? '記録中…' : '記録する'}
+                            </button>
+                          </div>
+                        ) : (
+                          error && <p className="text-xs text-red-500">{error}</p>
+                        )}
+                      </div>
                     )}
                   </div>
                 )
@@ -318,7 +409,7 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
             </div>
           )}
         </div>
-        {editable && <p className="text-xs text-zinc-400 dark:text-zinc-500">✓ を付けたセットが記録になります。入力が止まると自動で保存し、クライアントの画面にも「トレーナーが記録」と出ます。</p>}
+        {editable && <p className="text-xs text-zinc-400 dark:text-zinc-500">「直す」で直した記録は、入力が止まると自動で保存します（✓ を外したセットは記録から外れます）。クライアントの画面には「トレーナーが修正」と出ます。</p>}
         {sessions.length === 0 ? (
           <p className="text-sm text-zinc-400 dark:text-zinc-500 py-4">まだ記録がありません。</p>
         ) : (
