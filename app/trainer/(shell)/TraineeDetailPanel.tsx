@@ -3,7 +3,7 @@ import { TARGET_MUSCLE_LABELS } from '@/types'
 import { createClient } from '@/lib/supabase/server'
 import { loadTraineeDetail, type TraineeRow } from '@/lib/trainer/trainees'
 import { ProgressBar, STATUS_LABELS } from './TraineeListItem'
-import DetailActions from './DetailActions'
+import DetailActions, { EndContractButton } from './DetailActions'
 import TraineeNameEditor from './TraineeNameEditor'
 import SelfPlanActions from './SelfPlanActions'
 import type { TemplateOption } from './TemplateOneRmFields'
@@ -34,7 +34,8 @@ export default async function TraineeDetailPanel({ row, templates, selfName, rea
   const week = livePlan ? { weekNumber: livePlan.currentWeek, days: await loadCoachingWeek(supabase, livePlan.id, livePlan.currentWeek) } : null
 
   return (
-    <div className="px-4 md:px-6 py-4 md:py-6 space-y-5">
+    // PC の広い画面でカードが横に伸びすぎないよう、幅に上限を付ける（2026-10-30）
+    <div className="max-w-4xl px-4 md:px-6 py-4 md:py-6 space-y-5">
       {row.isSelf ? (
         <div className="space-y-1">
           <h2 className="text-xl font-semibold text-black dark:text-white">{selfName}（自分）</h2>
@@ -142,6 +143,8 @@ export default async function TraineeDetailPanel({ row, templates, selfName, rea
           title={row.isSelf ? '記録（直近20回）' : '記録（契約期間内・直近20回）'}
         />
       )}
+
+      {!row.isSelf && !readOnly && <EndContractButton linkId={row.linkId} status={row.status} />}
     </div>
   )
 }

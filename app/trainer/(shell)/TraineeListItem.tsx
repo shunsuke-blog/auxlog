@@ -15,7 +15,7 @@ const fmtDay = (iso: string) => iso.slice(5, 10).replace('-', '/')
 export function ProgressBar({ done, total }: { done: number; total: number }) {
   const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0
   return (
-    <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+    <div className="h-1.5 w-full rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
       {/* 進んでいる分はアクセントカラー（「追加」ボタンと同じ #0B7A75、2026-10-25 オーナー指定） */}
       <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
     </div>

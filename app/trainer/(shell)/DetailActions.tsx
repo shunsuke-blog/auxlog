@@ -7,7 +7,7 @@ import LoginLinkShare from './LoginLinkShare'
 
 type Props = { linkId: string; name: string; status: TraineeRow['status']; invite: TraineeRow['invite'] }
 
-export default function DetailActions({ linkId, name, status, invite }: Props) {
+function usePost() {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -30,13 +30,11 @@ export default function DetailActions({ linkId, name, status, invite }: Props) {
       setBusy(false)
     }
   }
+  return { router, busy, error, post }
+}
 
-  const endContract = () => {
-    const message = status === 'invited'
-      ? 'この招待を取り消しますか？送った招待リンクは使えなくなります。'
-      : '契約を終了しますか？\nクライアントはこのプランを続けられなくなります。契約期間内の記録はこれまでどおり閲覧できます。'
-    if (window.confirm(message)) post(`/api/contracts/${linkId}/end`).then(ok => { if (ok && status === 'invited') router.push('/trainer') })
-  }
+export default function DetailActions({ linkId, name, status, invite }: Props) {
+  const { busy, error, post } = usePost()
 
   // ログイン用のリンク（2026-10-28。招待コードの代わり）。作り直すと前のリンクは使えなくなる
   const live = invite && !invite.expired ? invite : null
@@ -77,11 +75,27 @@ export default function DetailActions({ linkId, name, status, invite }: Props) {
         </div>
       )}
 
-      {status !== 'ended' && (
-        <button onClick={endContract} disabled={busy} className="w-full py-3 rounded-xl border border-red-200 bg-white text-sm font-medium text-red-500 cursor-pointer transition-colors hover:bg-red-50 hover:border-red-400 hover:text-red-600 active:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed">
-          {status === 'invited' ? '招待を取り消す' : '契約を終了する'}
-        </button>
-      )}
+      {error && <p className="text-sm text-red-500">{error}</p>}
+    </div>
+  )
+}
+
+// 契約の終了・招待の取り消し。取り消せない操作なので、詳細の一番下に控えめに置く（2026-10-30 オーナーとの一覧の整理。
+// それまではログイン用のリンクと今週のメニューの間に、横幅いっぱいで置いていた）
+export function EndContractButton({ linkId, status }: { linkId: string; status: TraineeRow['status'] }) {
+  const { router, busy, error, post } = usePost()
+  const endContract = () => {
+    const message = status === 'invited'
+      ? 'この招待を取り消しますか？送った招待リンクは使えなくなります。'
+      : '契約を終了しますか？\nクライアントはこのプランを続けられなくなります。契約期間内の記録はこれまでどおり閲覧できます。'
+    if (window.confirm(message)) post(`/api/contracts/${linkId}/end`).then(ok => { if (ok && status === 'invited') router.push('/trainer') })
+  }
+  if (status === 'ended') return null
+  return (
+    <div className="pt-4 border-t border-zinc-100 dark:border-zinc-900 space-y-2">
+      <button onClick={endContract} disabled={busy} className="px-4 py-2 rounded-lg border border-red-200 bg-white text-sm font-medium text-red-500 cursor-pointer transition-colors hover:bg-red-50 hover:border-red-400 hover:text-red-600 active:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed">
+        {status === 'invited' ? '招待を取り消す' : '契約を終了する'}
+      </button>
       {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
   )
