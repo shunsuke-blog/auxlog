@@ -1,7 +1,7 @@
-/* Hallmark · checked: 2026-10-26 · genre: modern-minimal (trainer screens) / editorial (trainee screens), inferred · shape: app screen
+/* Hallmark · checked: 2026-10-26 · genre: modern-minimal (trainer screens) / editorial (trainee screens), inferred · shape: app screen · surface: absolute
  * floor: fixed 1, 2, 9, 10, 11, 26a, 27, 33, 48 · structural: 1 printed (the dashboard opens on four stat cards)
  * built: the project · redesign: polish · v2.0.0 */
-/* Hallmark · waive 7b · the owner specified white cards (#FFFFFF) on a grey base for the trainer screens */
+/* Hallmark · waive 7b · trainer-card on --background over the grey trainer base · the owner specified white cards (#FFFFFF) on a grey base for the trainer screens */
 /* Hallmark · dismissed 74 · the zinc utilities resolve to project tokens: --color-zinc-* is redefined per scope below */
 @import "tailwindcss";
 

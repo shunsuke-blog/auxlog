@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getTrainerProfile } from '@/lib/trainer/session'
 import { loadTraineeRows } from '@/lib/trainer/trainees'
@@ -56,15 +56,14 @@ export default async function TrainerTraineesPage({ searchParams }: { searchPara
             <Link
               key={r.linkId}
               href={`/trainer?id=${r.linkId}`}
-              className={`flex items-center justify-between px-4 py-3.5 rounded-2xl ${r.linkId === selected?.linkId ? 'border border-brand bg-brand-soft' : 'trainer-card hover:bg-zinc-50 dark:hover:bg-zinc-950'}`}
+              className={`block px-4 py-3.5 rounded-2xl transition-colors ${r.linkId === selected?.linkId ? 'border border-brand bg-brand-soft' : 'trainer-card hover:bg-zinc-50 dark:hover:bg-zinc-950'}`}
             >
-              <div>
+              <div className="space-y-1.5">
                 <p className="text-sm font-semibold text-black dark:text-white">{profile?.display_name ?? r.name}（自分）</p>
-                <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {r.plan && r.plan.status !== 'ended' ? r.plan.name : 'セルフモード'}{r.lastTrainedOn && <span className="ml-3">最終記録 {r.lastTrainedOn.slice(5).replace('-', '/')}</span>}
                 </p>
               </div>
-              <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700" />
             </Link>
           ))}
           <TraineeSearchList rows={rows.filter(r => !r.isSelf)} selectedLinkId={selected?.linkId ?? null} empty="「追加」からクライアントを招待できます。" />
