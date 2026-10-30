@@ -198,10 +198,11 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
     <div className="space-y-5">
       {editable && week && day && (
         <div className="px-5 py-4 rounded-2xl trainer-card space-y-3">
-          <div className="flex items-center justify-between gap-2">
+          {/* Day のボタンは見出しの下の段に置く（同じ段だと Day 4 以上でスマホの見出しが折り返す、2026-10-30 オーナー指摘） */}
+          <div className="space-y-2">
             <p className="text-xs font-semibold text-zinc-400">今週のメニュー（Week {week.weekNumber}）</p>
             {week.days.length > 1 && (
-              <div className="flex gap-1 overflow-x-auto scrollbar-none">
+              <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
                 {week.days.map((d, i) => (
                   <button
                     key={d.planDayId}
