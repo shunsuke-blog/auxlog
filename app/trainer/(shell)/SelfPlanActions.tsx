@@ -90,9 +90,11 @@ export default function SelfPlanActions({ templates, hasPlan }: { templates: Tem
         </button>
       </div>
       {hasPlan && (
-        <button onClick={endPlan} disabled={busy} className="text-sm text-zinc-500 underline hover:text-black disabled:opacity-50">
-          プログラムを外してセルフモードに戻る
-        </button>
+        <div className="flex justify-end">
+          <button onClick={endPlan} disabled={busy} className="text-sm text-zinc-500 underline hover:text-black disabled:opacity-50">
+            プログラムを外してセルフモードに戻る
+          </button>
+        </div>
       )}
       {error && !open && <p className="text-sm text-red-500">{error}</p>}
 

@@ -254,9 +254,11 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
                           <div className="space-y-1.5">
                             {recordedExercises.map(e => <p key={e.key} className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">記録 {summary(e)}</p>)}
                             {recordedExercises.length > 0 && (
-                              <button onClick={() => editRecordOf(ex.planExerciseId)} className="flex items-center gap-1 text-xs text-zinc-500 hover:text-black dark:hover:text-white">
-                                <Pencil className="w-3.5 h-3.5" />記録を直す
-                              </button>
+                              <div className="flex justify-end">
+                                <button onClick={() => editRecordOf(ex.planExerciseId)} className="flex items-center gap-1 text-xs text-zinc-500 hover:text-black dark:hover:text-white">
+                                  <Pencil className="w-3.5 h-3.5" />記録を直す
+                                </button>
+                              </div>
                             )}
                           </div>
                         ) : loadingPe === ex.planExerciseId ? (

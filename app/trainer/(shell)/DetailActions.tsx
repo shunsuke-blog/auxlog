@@ -53,9 +53,11 @@ export default function DetailActions({ linkId, name, status, invite }: Props) {
           ) : (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">{invite ? '招待リンクの有効期限が切れています。' : '招待リンクがまだありません。'}</p>
           )}
-          <button onClick={issue} disabled={busy} className="text-sm text-black dark:text-white underline enabled:hover:text-zinc-500 disabled:opacity-50">
-            {live ? 'リンクを作り直す' : '招待リンクを作る'}
-          </button>
+          <div className="flex justify-end">
+            <button onClick={issue} disabled={busy} className="text-sm text-black dark:text-white underline enabled:hover:text-zinc-500 disabled:opacity-50">
+              {live ? 'リンクを作り直す' : '招待リンクを作る'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -69,9 +71,11 @@ export default function DetailActions({ linkId, name, status, invite }: Props) {
               機種変更などで、クライアントがもう一度ログインする時に使います。リンクを押すと、登録なしで自分のメニューが開きます。
             </p>
           )}
-          <button onClick={issue} disabled={busy} className="text-sm text-black dark:text-white underline enabled:hover:text-zinc-500 disabled:opacity-50">
-            {live ? 'リンクを作り直す' : 'ログイン用のリンクを作る'}
-          </button>
+          <div className="flex justify-end">
+            <button onClick={issue} disabled={busy} className="text-sm text-black dark:text-white underline enabled:hover:text-zinc-500 disabled:opacity-50">
+              {live ? 'リンクを作り直す' : 'ログイン用のリンクを作る'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -81,7 +85,8 @@ export default function DetailActions({ linkId, name, status, invite }: Props) {
 }
 
 // 契約の終了・招待の取り消し。取り消せない操作なので、詳細の一番下に控えめに置く（2026-10-30 オーナーとの一覧の整理。
-// それまではログイン用のリンクと今週のメニューの間に、横幅いっぱいで置いていた）
+// それまではログイン用のリンクと今週のメニューの間に、横幅いっぱいで置いていた）。
+// 詳細の操作のボタンは右寄せにそろえる（記録する・保存する・直すが右のため。2026-10-30 オーナー指摘）
 export function EndContractButton({ linkId, status }: { linkId: string; status: TraineeRow['status'] }) {
   const { router, busy, error, post } = usePost()
   const endContract = () => {
@@ -92,7 +97,7 @@ export function EndContractButton({ linkId, status }: { linkId: string; status: 
   }
   if (status === 'ended') return null
   return (
-    <div className="pt-4 border-t border-zinc-100 dark:border-zinc-900 space-y-2">
+    <div className="pt-4 border-t border-zinc-100 dark:border-zinc-900 flex flex-col items-end gap-2">
       <button onClick={endContract} disabled={busy} className="px-4 py-2 rounded-lg border border-red-200 bg-white text-sm font-medium text-red-500 cursor-pointer transition-colors hover:bg-red-50 hover:border-red-400 hover:text-red-600 active:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed">
         {status === 'invited' ? '招待を取り消す' : '契約を終了する'}
       </button>
