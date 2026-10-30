@@ -253,7 +253,7 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold text-zinc-400">今週のメニュー（Week {week.weekNumber}）</p>
             {week.days.length > 1 && (
-              <div className="flex gap-1 overflow-x-auto">
+              <div className="flex gap-1 overflow-x-auto scrollbar-none">
                 {week.days.map((d, i) => (
                   <button
                     key={d.planDayId}
