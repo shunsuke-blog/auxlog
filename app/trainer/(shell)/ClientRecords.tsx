@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronDown, Pencil, Redo2, Trash2, Undo2 } from 'lucide-react'
+import { Check, ChevronDown, Pencil, Trash2 } from 'lucide-react'
 import type { TraineeDetail } from '@/lib/trainer/trainees'
 import { condenseTargetSets, type CoachingDay } from '@/lib/coaching/trainee'
 import type { CoachingRecordData } from '@/lib/coaching/record'
@@ -16,13 +16,9 @@ import {
 
 // クライアントの記録をトレーナーがその場で直す・代わりに入力する（2026-10-29 オーナー決定: 代理入力も含める・
 // 契約中のクライアントだけ・入力者を残して出す）。✓ を付けたセットが記録になる。
-// 代理入力は今週のメニュー（アコーディオン）から「記録する」ボタンで保存する（2026-10-30 オーナー指示で自動保存にしない）。
-// 今までの記録の「直す」は入力が止まると記録ごとに自動で保存し、⌘Z / Ctrl+Z で元に戻す。消した記録も元に戻すで同じ記録として作り直す。
+// クライアントの記録は自動では保存しない（2026-10-30 オーナー指示）: 代理入力は今週のメニュー（アコーディオン）の
+// 「記録する」、今までの記録は「直す」→「保存する」で保存し、消す時は確かめる。
 // editable が false（契約中でない・自分）の時は今までどおり読むだけ。
-
-const AUTOSAVE_MS = 800
-const HISTORY_MERGE_MS = 1000
-const HISTORY_LIMIT = 100
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' })
 const inputClass = 'px-2 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm tabular-nums text-black dark:text-white'
@@ -39,264 +35,167 @@ type Props = {
 
 export default function ClientRecords({ traineeId, sessions: initialSessions, week, editable, title }: Props) {
   const router = useRouter()
-  const rootRef = useRef<HTMLDivElement>(null)
+  // 保存済みの記録（画面の表示）。直している記録は editing に写しを持ち、「保存する」で初めてここと DB に反映する
   const [sessions, setSessions] = useState<EditSession[]>(() => toEditSessions(initialSessions))
-  const sessionsRef = useRef(sessions)
-  useEffect(() => { sessionsRef.current = sessions }, [sessions])
-  // 「直す」で開いている記録（代理入力の新しい記録は最初から開く）
-  const [open, setOpen] = useState<Set<string>>(new Set())
-  const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
+  const [editing, setEditing] = useState<Record<string, EditSession>>({})
+  const [busyId, setBusyId] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [loadingPe, setLoadingPe] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
   const [dayIdx, setDayIdx] = useState(0)
 
-  // DB にある記録（保存した・読み込んだ記録）。✓ をすべて外した記録・消した記録は、これにある時だけ消しに行く
-  const exists = useRef(new Set(initialSessions.map(s => s.id)))
-  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
-  // 記録ごとの保存を1つずつ順番にする（前の保存が終わってから、その時の最新の内容で保存する）
-  const queue = useRef(new Map<string, Promise<boolean>>())
+  // 代理入力（今週のメニューのアコーディオン）: 種目を押すと下に計画と入力欄を開く（一度に1つ）
+  const [openPe, setOpenPe] = useState<string | null>(null)
+  const [drafts, setDrafts] = useState<Record<string, EditSession>>({})
+  const [loadingPe, setLoadingPe] = useState<string | null>(null)
 
-  // 読み込んだ時に記録済みだったプランの種目（今週のメニューの「記録済み」を、画面で外した時に戻すため）
+  // 読み込んだ時に記録済みだったプランの種目（今週のメニューの「記録済み」を、画面で消した時に戻すため）
   const initiallyRecorded = useMemo(() => recordedPlanExerciseIds(toEditSessions(initialSessions)), [initialSessions])
   const recordedNow = recordedPlanExerciseIds(sessions)
 
-  // ── 元に戻す・やり直す（テンプレート編集と同じ: 同じ記録で1秒以内に続いた変更は1回分） ──
-  const [undoStack, setUndoStack] = useState<EditSession[][]>([])
-  const [redoStack, setRedoStack] = useState<EditSession[][]>([])
-  const lastEdit = useRef<{ id: string; at: number } | null>(null)
-  const recordedThisTurn = useRef(false)
-  const recordHistory = (id: string) => {
-    if (recordedThisTurn.current) return
-    recordedThisTurn.current = true
-    queueMicrotask(() => { recordedThisTurn.current = false })
-    const now = Date.now()
-    const merge = lastEdit.current?.id === id && now - lastEdit.current.at < HISTORY_MERGE_MS
-    lastEdit.current = { id, at: now }
-    if (merge) return
-    const before = sessionsRef.current
-    setUndoStack(prev => [...prev.slice(-(HISTORY_LIMIT - 1)), before])
-    setRedoStack([])
-  }
-  const restore = (target: EditSession[]) => {
-    const current = sessionsRef.current
-    const byId = (list: EditSession[]) => new Map(list.map(s => [s.id, s]))
-    const a = byId(current)
-    const b = byId(target)
-    const changed = [...new Set([...a.keys(), ...b.keys()])].filter(id => a.get(id) !== b.get(id))
-    setSessions(target)
-    sessionsRef.current = target
-    lastEdit.current = null
-    setNotice(null)
-    changed.forEach(scheduleSave)
-  }
-  const undo = () => {
-    const target = undoStack[undoStack.length - 1]
-    if (!target) return
-    setUndoStack(prev => prev.slice(0, -1))
-    setRedoStack(prev => [...prev, sessionsRef.current])
-    restore(target)
-  }
-  const redo = () => {
-    const target = redoStack[redoStack.length - 1]
-    if (!target) return
-    setRedoStack(prev => prev.slice(0, -1))
-    setUndoStack(prev => [...prev, sessionsRef.current])
-    restore(target)
-  }
-  const undoRef = useRef({ undo, redo })
-  useEffect(() => { undoRef.current = { undo, redo } })
-  useEffect(() => {
-    if (!editable) return
-    // この欄の中（か、どこにも入力していない時）だけ。名前の欄などの ⌘Z は文字の取り消しのまま
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.isComposing) return
-      const target = e.target as HTMLElement | null
-      if (target && target !== document.body && !rootRef.current?.contains(target)) return
-      const key = e.key.toLowerCase()
-      if (key === 'z' && !e.shiftKey) { e.preventDefault(); undoRef.current.undo() }
-      else if ((key === 'z' && e.shiftKey) || (key === 'y' && !e.shiftKey)) { e.preventDefault(); undoRef.current.redo() }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [editable])
+  const setError = (id: string, text: string | null) =>
+    setErrors(prev => { const next = { ...prev }; if (text) next[id] = text; else delete next[id]; return next })
 
-  // ── 保存 ──
-  const saveNow = async (id: string): Promise<boolean> => {
-    const session = sessionsRef.current.find(s => s.id === id)
-    const payload = session ? toSavePayload(session) : { ok: true as const, sets: [] }
-    if (!payload.ok) {
-      setErrors(prev => ({ ...prev, [id]: `${payload.error}（入力するまで保存されません）` }))
-      return false
+  // 保存していない入力（✓ を付けた代理入力・直している記録）がある間は、画面を離れる前に確かめる
+  const unsaved = Object.keys(editing).length > 0 || Object.values(drafts).some(hasDone)
+  useEffect(() => {
+    if (!unsaved) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    // 一覧の別のクライアント・サイドバーなど、画面の中のリンクで移る時
+    const onClick = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement | null)?.closest('a[href]')
+      if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey) return
+      if (!window.confirm('保存していない記録があります。保存せずに移動しますか？')) { e.preventDefault(); e.stopPropagation() }
     }
-    // ✓ が無い記録: DB にあれば消す、無ければ（✓ を付ける前の代理入力）何もしない
-    if (payload.sets.length === 0 && !exists.current.has(id)) {
-      setErrors(prev => { const next = { ...prev }; delete next[id]; return next })
-      return true
+    window.addEventListener('beforeunload', onBeforeUnload)
+    document.addEventListener('click', onClick, true)
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      document.removeEventListener('click', onClick, true)
     }
-    setSavingIds(prev => new Set(prev).add(id))
+  }, [unsaved])
+
+  // 記録を保存する（無ければ作る、あればセットを置き換える）。成功したら true
+  const put = async (session: EditSession): Promise<boolean> => {
+    const payload = toSavePayload(session)
+    if (!payload.ok) { setError(session.id, payload.error); return false }
+    if (payload.sets.length === 0) { setError(session.id, '実施したセットに ✓ を付けてください'); return false }
+    setBusyId(session.id)
+    setError(session.id, null)
     try {
-      const res = payload.sets.length === 0
-        ? await fetch(`/api/trainer/client-sessions/${id}`, { method: 'DELETE' })
-        : await fetch(`/api/trainer/client-sessions/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ trainee_id: traineeId, trained_at: session!.trainedOn, sets: payload.sets }),
-          })
+      const res = await fetch(`/api/trainer/client-sessions/${session.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainee_id: traineeId, trained_at: session.trainedOn, sets: payload.sets }),
+      })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error((data as { error?: string }).error ?? '保存に失敗しました')
       }
-      if (payload.sets.length === 0) exists.current.delete(id)
-      else {
-        const created = !exists.current.has(id)
-        exists.current.add(id)
-        // クライアントの記録を直したら「トレーナーが修正」を付ける（DB と同じ）
-        if (!created) setSessions(prev => prev.map(s => (s.id === id && s.recordedBy == null ? { ...s, recordedBy: 'trainer_edited' } : s)))
-      }
-      setErrors(prev => { const next = { ...prev }; delete next[id]; return next })
       return true
     } catch (e) {
-      setErrors(prev => ({ ...prev, [id]: e instanceof Error && e.message !== 'Failed to fetch' ? e.message : '保存できませんでした。通信を確かめてください' }))
+      setError(session.id, e instanceof Error && e.message !== 'Failed to fetch' ? e.message : '保存できませんでした。通信を確かめてください')
       return false
     } finally {
-      setSavingIds(prev => { const n = new Set(prev); n.delete(id); return n })
+      setBusyId(null)
     }
   }
 
-  const flush = (id: string): Promise<boolean> => {
-    const timer = timers.current.get(id)
-    if (timer) { clearTimeout(timer); timers.current.delete(id) }
-    const run = (queue.current.get(id) ?? Promise.resolve(true)).then(() => saveNow(id))
-    queue.current.set(id, run)
-    run.finally(() => {
-      if (queue.current.get(id) === run) queue.current.delete(id)
-      // すべて保存し終えたら、上のプランの進み具合・アラートを読み直す（この欄の入力はそのまま）
-      if (queue.current.size === 0 && timers.current.size === 0) router.refresh()
-    })
-    return run
-  }
-  function scheduleSave(id: string) {
-    const timer = timers.current.get(id)
-    if (timer) clearTimeout(timer)
-    timers.current.set(id, setTimeout(() => { timers.current.delete(id); flush(id) }, AUTOSAVE_MS))
-  }
-  // 別のクライアント・画面に移る時は、待っている保存をすぐ送る
-  const flushRef = useRef(flush)
-  useEffect(() => { flushRef.current = flush })
-  useEffect(() => () => { for (const id of [...timers.current.keys()]) flushRef.current(id) }, [])
-  // 保存が残っている間にタブを閉じようとしたら確かめる
-  const pending = savingIds.size > 0 || Object.keys(errors).length > 0
-  useEffect(() => {
-    if (!pending) return
-    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault() }
-    window.addEventListener('beforeunload', onBeforeUnload)
-    return () => window.removeEventListener('beforeunload', onBeforeUnload)
-  }, [pending])
+  // 保存した内容（✓ のセットだけ）
+  const doneOnly = (s: EditSession): EditSession => ({ ...s, exercises: s.exercises.map(e => ({ ...e, sets: e.sets.filter(st => st.done) })) })
 
-  // ── 編集 ──
-  const updateSession = (id: string, fn: (s: EditSession) => EditSession) => {
-    recordHistory(id)
-    const next = sessionsRef.current.map(s => (s.id === id ? fn(s) : s))
-    setSessions(next)
-    sessionsRef.current = next
-    setNotice(null)
-    scheduleSave(id)
-  }
-  const patchExercise = (id: string, key: string, fn: (e: EditExercise) => EditExercise) =>
-    updateSession(id, s => ({ ...s, exercises: s.exercises.map(e => (e.key === key ? fn(e) : e)) }))
-  const patchSet = (id: string, exKey: string, setKey: string, patch: Partial<EditSet>) =>
-    patchExercise(id, exKey, e => ({ ...e, sets: e.sets.map(st => (st.key === setKey ? { ...st, ...patch } : st)) }))
-  const patchCardio = (id: string, exKey: string, patch: Partial<EditCardio>) =>
-    patchExercise(id, exKey, e => (e.cardio ? { ...e, cardio: { ...e.cardio, ...patch } } : e))
-
-  const removeSession = (id: string) => {
-    recordHistory(id)
-    const next = sessionsRef.current.filter(s => s.id !== id)
-    setSessions(next)
-    sessionsRef.current = next
-    setNotice('記録を消しました')
-    scheduleSave(id)
-  }
-
-  // ── 代理入力（2026-10-30 オーナー指示: 自動保存にせず「記録する」で保存。メニューはアコーディオン） ──
-  // 種目を押すと下に計画（目標のセット）と入力欄を開く（一度に1つ）。✓ を付けたセットだけを「記録する」で保存する
-  const [openPe, setOpenPe] = useState<string | null>(null)
-  const [drafts, setDrafts] = useState<Record<string, EditSession>>({})
-  const [draftErrors, setDraftErrors] = useState<Record<string, string>>({})
-  const [recordingPe, setRecordingPe] = useState<string | null>(null)
-
+  // ── 代理入力（2026-10-30 オーナー指示: 自動保存にせず「記録する」で保存） ──
   const togglePlanExercise = async (planExerciseId: string, recorded: boolean) => {
     if (openPe === planExerciseId) { setOpenPe(null); return }
     setOpenPe(planExerciseId)
     if (recorded || drafts[planExerciseId]) return
     setLoadingPe(planExerciseId)
+    setError(planExerciseId, null)
     try {
       const res = await fetch(`/api/trainer/client-sessions/prefill?trainee=${traineeId}&planExercise=${planExerciseId}`)
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error((data as { error?: string }).error ?? '種目を読み込めませんでした')
       setDrafts(prev => ({ ...prev, [planExerciseId]: draftFromPrefill(crypto.randomUUID(), todayInJapan(), data as CoachingRecordData) }))
-      setDraftErrors(prev => { const next = { ...prev }; delete next[planExerciseId]; return next })
     } catch (e) {
-      setDraftErrors(prev => ({ ...prev, [planExerciseId]: e instanceof Error ? e.message : '種目を読み込めませんでした' }))
+      setError(planExerciseId, e instanceof Error ? e.message : '種目を読み込めませんでした')
     } finally {
       setLoadingPe(null)
     }
   }
 
-  const patchDraft = (planExerciseId: string, fn: (e: EditExercise) => EditExercise) => {
+  const patchDraft = (planExerciseId: string, fn: (e: EditExercise) => EditExercise) =>
     setDrafts(prev => {
       const d = prev[planExerciseId]
       return d ? { ...prev, [planExerciseId]: { ...d, exercises: d.exercises.map(fn) } } : prev
     })
-    setDraftErrors(prev => { const next = { ...prev }; delete next[planExerciseId]; return next })
-  }
 
   const recordDraft = async (planExerciseId: string) => {
     const draft = drafts[planExerciseId]
     if (!draft) return
-    const payload = toSavePayload(draft)
-    const fail = (text: string) => setDraftErrors(prev => ({ ...prev, [planExerciseId]: text }))
-    if (!payload.ok) return fail(payload.error)
-    if (payload.sets.length === 0) return fail('実施したセットに ✓ を付けてください')
-    setRecordingPe(planExerciseId)
+    if (!(await put(draft))) {
+      // 代理入力のエラーは種目の下に出す
+      setErrors(prev => { const next = { ...prev }; if (next[draft.id]) { next[planExerciseId] = next[draft.id]; delete next[draft.id] } return next })
+      return
+    }
+    setError(planExerciseId, null)
+    // 下の記録の一番上に足す。ここからは他の記録と同じく「直す」で直す
+    setSessions(prev => [doneOnly(draft), ...prev])
+    setDrafts(prev => { const n = { ...prev }; delete n[planExerciseId]; return n })
+    router.refresh()
+  }
+
+  // 記録済みの種目の「記録を直す」: 下の記録を直す状態にして、そこへ移る
+  const editRecordOf = (planExerciseId: string) => {
+    const found = sessions.find(s => s.exercises.some(e => e.planExerciseId === planExerciseId))
+    if (!found) return
+    startEdit(found)
+    requestAnimationFrame(() => document.getElementById(`record-${found.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+  }
+
+  // ── 今までの記録を直す（「保存する」で保存、「やめる」で元のまま） ──
+  const startEdit = (s: EditSession) => setEditing(prev => (prev[s.id] ? prev : { ...prev, [s.id]: s }))
+  const cancelEdit = (id: string) => {
+    setEditing(prev => { const n = { ...prev }; delete n[id]; return n })
+    setError(id, null)
+  }
+  const patchEditing = (id: string, exKey: string, fn: (e: EditExercise) => EditExercise) =>
+    setEditing(prev => {
+      const s = prev[id]
+      return s ? { ...prev, [id]: { ...s, exercises: s.exercises.map(e => (e.key === exKey ? fn(e) : e)) } } : prev
+    })
+  const saveEdit = async (id: string) => {
+    const s = editing[id]
+    if (!s || !(await put(s))) return
+    // クライアントの記録を直したら「トレーナーが修正」を付ける（DB と同じ）
+    setSessions(prev => prev.map(x => (x.id === id ? { ...doneOnly(s), recordedBy: s.recordedBy ?? 'trainer_edited' } : x)))
+    cancelEdit(id)
+    router.refresh()
+  }
+
+  const removeSession = async (s: EditSession) => {
+    if (!window.confirm(`${fmtDate(s.trainedOn)}の記録を消しますか？\nクライアントの記録から消え、元に戻せません。`)) return
+    setBusyId(s.id)
+    setError(s.id, null)
     try {
-      const res = await fetch(`/api/trainer/client-sessions/${draft.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trainee_id: traineeId, trained_at: draft.trainedOn, sets: payload.sets }),
-      })
+      const res = await fetch(`/api/trainer/client-sessions/${s.id}`, { method: 'DELETE' })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error((data as { error?: string }).error ?? '記録できませんでした')
+        throw new Error((data as { error?: string }).error ?? '削除に失敗しました')
       }
-      // 記録した内容（✓ のセットだけ）を下の記録の一番上に足す。ここからは他の記録と同じく「直す」で直す
-      exists.current.add(draft.id)
-      const saved: EditSession = { ...draft, exercises: draft.exercises.map(e => ({ ...e, sets: e.sets.filter(st => st.done) })) }
-      const next = [saved, ...sessionsRef.current]
-      setSessions(next)
-      sessionsRef.current = next
-      setDrafts(prev => { const n = { ...prev }; delete n[planExerciseId]; return n })
+      setSessions(prev => prev.filter(x => x.id !== s.id))
+      cancelEdit(s.id)
       router.refresh()
     } catch (e) {
-      fail(e instanceof Error && e.message !== 'Failed to fetch' ? e.message : '記録できませんでした。通信を確かめてください')
+      setError(s.id, e instanceof Error && e.message !== 'Failed to fetch' ? e.message : '削除できませんでした。通信を確かめてください')
     } finally {
-      setRecordingPe(null)
+      setBusyId(null)
     }
   }
 
-  // 記録済みの種目の「記録を直す」: 下の記録を開いてそこへ移る
-  const openRecordOf = (planExerciseId: string) => {
-    const found = sessionsRef.current.find(s => s.exercises.some(e => e.planExerciseId === planExerciseId))
-    if (!found) return
-    setOpen(prev => new Set(prev).add(found.id))
-    document.getElementById(`record-${found.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
-
   const day = week?.days[Math.min(dayIdx, (week?.days.length ?? 1) - 1)]
+  const primaryButton = 'px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-semibold disabled:opacity-40'
+  const secondaryButton = 'px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-40'
 
   return (
-    <div ref={rootRef} className="space-y-5">
+    <div className="space-y-5">
       {editable && week && day && (
         <div className="px-5 py-4 rounded-2xl trainer-card space-y-3">
           <div className="flex items-center justify-between gap-2">
@@ -324,7 +223,7 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
                 const isOpen = openPe === ex.planExerciseId
                 const draft = drafts[ex.planExerciseId]
                 const recordedExercises = sessions.flatMap(se => se.exercises.filter(e => e.planExerciseId === ex.planExerciseId))
-                const error = draftErrors[ex.planExerciseId]
+                const error = errors[ex.planExerciseId]
                 return (
                   <div key={ex.planExerciseId}>
                     <button onClick={() => togglePlanExercise(ex.planExerciseId, recorded)} aria-expanded={isOpen} className="w-full flex items-center gap-3 py-3 text-left">
@@ -333,7 +232,7 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
                         ? <span className="shrink-0 flex items-center gap-1 text-xs font-semibold text-brand-text"><Check className="w-3.5 h-3.5" />記録済み</span>
                         : ex.skipped
                         ? <span className="shrink-0 text-xs text-zinc-400">スキップ</span>
-                        : draft?.exercises.some(e => e.cardio ? e.cardio.done : e.sets.some(st => st.done))
+                        : draft && hasDone(draft)
                         ? <span className="shrink-0 text-xs text-zinc-500">記録中</span>
                         : null}
                       <ChevronDown className={`w-4 h-4 shrink-0 text-zinc-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -354,7 +253,7 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
                           <div className="space-y-1.5">
                             {recordedExercises.map(e => <p key={e.key} className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">記録 {summary(e)}</p>)}
                             {recordedExercises.length > 0 && (
-                              <button onClick={() => openRecordOf(ex.planExerciseId)} className="flex items-center gap-1 text-xs text-zinc-500 hover:text-black dark:hover:text-white">
+                              <button onClick={() => editRecordOf(ex.planExerciseId)} className="flex items-center gap-1 text-xs text-zinc-500 hover:text-black dark:hover:text-white">
                                 <Pencil className="w-3.5 h-3.5" />記録を直す
                               </button>
                             )}
@@ -375,10 +274,10 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
                             {error && <p className="text-xs text-red-500">{error}</p>}
                             <button
                               onClick={() => recordDraft(ex.planExerciseId)}
-                              disabled={recordingPe != null}
-                              className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-on-brand text-sm font-semibold disabled:opacity-40"
+                              disabled={busyId != null}
+                              className={primaryButton}
                             >
-                              {recordingPe === ex.planExerciseId ? '記録中…' : '記録する'}
+                              {draft && busyId === draft.id ? '記録中…' : '記録する'}
                             </button>
                           </div>
                         ) : (
@@ -395,48 +294,31 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
       )}
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-semibold text-zinc-400">{title}</p>
-          {editable && (
-            <div className="flex items-center gap-1">
-              {notice && <span className="text-xs text-zinc-500 mr-1">{notice}</span>}
-              <button onClick={undo} disabled={undoStack.length === 0} title="元に戻す（⌘Z / Ctrl+Z）" aria-label="元に戻す" className="p-1.5 rounded-lg text-zinc-500 enabled:hover:text-black enabled:hover:bg-zinc-100 dark:enabled:hover:text-white dark:enabled:hover:bg-zinc-900 disabled:opacity-30">
-                <Undo2 className="w-4 h-4" />
-              </button>
-              <button onClick={redo} disabled={redoStack.length === 0} title="やり直す（⇧⌘Z / Ctrl+Y）" aria-label="やり直す" className="p-1.5 rounded-lg text-zinc-500 enabled:hover:text-black enabled:hover:bg-zinc-100 dark:enabled:hover:text-white dark:enabled:hover:bg-zinc-900 disabled:opacity-30">
-                <Redo2 className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </div>
-        {editable && <p className="text-xs text-zinc-400 dark:text-zinc-500">「直す」で直した記録は、入力が止まると自動で保存します（✓ を外したセットは記録から外れます）。クライアントの画面には「トレーナーが修正」と出ます。</p>}
+        <p className="text-xs font-semibold text-zinc-400">{title}</p>
         {sessions.length === 0 ? (
           <p className="text-sm text-zinc-400 dark:text-zinc-500 py-4">まだ記録がありません。</p>
         ) : (
-          sessions.map(s => {
-            const isOpen = editable && (open.has(s.id) || !exists.current.has(s.id))
-            const status = savingIds.has(s.id) ? '保存中…' : errors[s.id] ?? null
+          sessions.map(saved => {
+            const edit = editable ? editing[saved.id] : undefined
+            const s = edit ?? saved
+            const busy = busyId === s.id
             return (
-              <div key={s.id} id={`record-${s.id}`} className="px-5 py-4 rounded-2xl trainer-card space-y-2">
+              <div key={s.id} id={`record-${s.id}`} className={`px-5 py-4 rounded-2xl trainer-card space-y-2 ${edit ? 'ring-1 ring-brand' : ''}`}>
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-black dark:text-white">{fmtDate(s.trainedOn)}</p>
                   {s.recordedBy && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-brand-soft text-brand-text">{RECORDED_BY_LABELS[s.recordedBy]}</span>}
-                  {!exists.current.has(s.id) && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">まだ保存されていません</span>}
                   <span className="flex-1" />
-                  {editable && (isOpen ? (
-                    exists.current.has(s.id) && <button onClick={() => setOpen(prev => { const n = new Set(prev); n.delete(s.id); return n })} className="text-xs text-zinc-500 hover:text-black dark:hover:text-white">閉じる</button>
-                  ) : (
-                    <button onClick={() => setOpen(prev => new Set(prev).add(s.id))} className="flex items-center gap-1 text-xs text-zinc-500 hover:text-black dark:hover:text-white">
+                  {editable && !edit && (
+                    <button onClick={() => startEdit(saved)} className="flex items-center gap-1 text-xs text-zinc-500 hover:text-black dark:hover:text-white">
                       <Pencil className="w-3.5 h-3.5" />直す
                     </button>
-                  ))}
+                  )}
                   {editable && (
-                    <button onClick={() => removeSession(s.id)} title="この記録を消す" aria-label="この記録を消す" className="p-1 text-zinc-400 hover:text-red-500">
+                    <button onClick={() => removeSession(saved)} disabled={busy} title="この記録を消す" aria-label="この記録を消す" className="p-1 text-zinc-400 hover:text-red-500 disabled:opacity-40">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
                 </div>
-                {status && <p className={`text-xs ${errors[s.id] ? 'text-red-500' : 'text-zinc-400'}`}>{status}</p>}
                 {s.exercises.map(e => (
                   <div key={e.key} className="text-sm">
                     <p className="text-black dark:text-white">
@@ -444,11 +326,26 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
                       {/* トレーニーがホームの「種目を追加」から記録した、プランに無い種目 */}
                       {e.offPlan && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">プラン外</span>}
                     </p>
-                    {isOpen
-                      ? <ExerciseInputs exercise={e} onSet={(k, p) => patchSet(s.id, e.key, k, p)} onCardio={p => patchCardio(s.id, e.key, p)} onAddSet={() => patchExercise(s.id, e.key, x => ({ ...x, sets: [...x.sets, nextSet(x.sets)] }))} />
+                    {edit
+                      ? <ExerciseInputs
+                          exercise={e}
+                          onSet={(k, p) => patchEditing(s.id, e.key, x => ({ ...x, sets: x.sets.map(st => (st.key === k ? { ...st, ...p } : st)) }))}
+                          onCardio={p => patchEditing(s.id, e.key, x => (x.cardio ? { ...x, cardio: { ...x.cardio, ...p } } : x))}
+                          onAddSet={() => patchEditing(s.id, e.key, x => ({ ...x, sets: [...x.sets, nextSet(x.sets)] }))}
+                        />
                       : <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{summary(e)}</p>}
                   </div>
                 ))}
+                {errors[s.id] && <p className="text-xs text-red-500">{errors[s.id]}</p>}
+                {edit && (
+                  <div className="space-y-2 pt-1">
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500">✓ を外したセットは記録から外れます。保存すると、クライアントの画面に「トレーナーが修正」と出ます。</p>
+                    <div className="flex gap-2">
+                      <button onClick={() => saveEdit(s.id)} disabled={busyId != null} className={primaryButton}>{busy ? '保存中…' : '保存する'}</button>
+                      <button onClick={() => cancelEdit(s.id)} disabled={busy} className={secondaryButton}>やめる</button>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })
@@ -456,6 +353,11 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
       </div>
     </div>
   )
+}
+
+/** ✓ を付けたセット（有酸素は記録の ✓）がある */
+function hasDone(s: EditSession): boolean {
+  return s.exercises.some(e => (e.cardio ? e.cardio.done : e.sets.some(st => st.done)))
 }
 
 // 閉じている記録の1行（✓ のセットだけ）

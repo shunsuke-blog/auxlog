@@ -4,7 +4,7 @@ import { parseCardioInput } from '@/lib/record/cardio'
 
 // トレーナーがクライアントの記録を直す・代わりに入力する画面の状態と、保存する形への変換（2026-10-29）。
 // 記録は「✓ を付けたセット」だけを保存する。代理入力はプランの目標を初期値にした ✓ の無いセットから始め、
-// ✓ を付けた時に初めて記録ができる。すべての ✓ を外すと記録は消える（元に戻すで戻せる）。
+// ✓ を付けて「記録する」を押した時に記録ができる（2026-10-30 自動保存はやめた）。✓ が1つも無い記録は保存しない（消すのはゴミ箱から）。
 
 export type EditSet = {
   key: string
@@ -130,7 +130,7 @@ export function recordedPlanExerciseIds(sessions: EditSession[]): Set<string> {
 }
 
 /**
- * 保存する形へ。✓ のセットだけを、種目ごとに 1 からの番号で送る。sets が空なら記録を消す。
+ * 保存する形へ。✓ のセットだけを、種目ごとに 1 からの番号で送る（sets が空なら保存しない）。
  * ✓ のセットの入力が途中（回数が空など）なら保存しない（理由を返す）。
  */
 export function toSavePayload(session: EditSession): { ok: true; sets: SavePayloadSet[] } | { ok: false; error: string } {
