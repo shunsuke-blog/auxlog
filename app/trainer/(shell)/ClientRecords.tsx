@@ -342,9 +342,9 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
                 {edit && (
                   <div className="space-y-2 pt-1">
                     <p className="text-xs text-zinc-400 dark:text-zinc-500">✓ を外したセットは記録から外れます。保存すると、クライアントの画面に「トレーナーが修正」と出ます。</p>
-                    <div className="flex gap-2">
-                      <button onClick={() => saveEdit(s.id)} disabled={busyId != null} className={primaryButton}>{busy ? '保存中…' : '保存する'}</button>
+                    <div className="flex justify-end gap-2">
                       <button onClick={() => cancelEdit(s.id)} disabled={busy} className={secondaryButton}>やめる</button>
+                      <button onClick={() => saveEdit(s.id)} disabled={busyId != null} className={primaryButton}>{busy ? '保存中…' : '保存する'}</button>
                     </div>
                   </div>
                 )}
