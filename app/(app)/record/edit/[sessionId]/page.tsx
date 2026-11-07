@@ -333,7 +333,7 @@ function EditContent() {
 
       <div className="px-6 py-6 space-y-6 pb-32">
         <div>
-          <h2 className="text-xs font-semibold text-zinc-400  mb-3">疲労度</h2>
+          <h2 className="text-xs font-semibold text-zinc-400  mb-3">消耗度</h2>
           <FatigueSelector value={fatigueLevel} onChange={setFatigueLevel} />
         </div>
 
