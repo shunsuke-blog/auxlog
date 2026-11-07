@@ -100,7 +100,8 @@ export async function loadCoachingRecord(supabase: SupabaseClient, userId: strin
     .sort((a, b) => a.set_number - b.set_number)
     .map(s => {
       const fromLast = lastSets.find(l => l.set_number === s.set_number && l.is_warmup === s.is_warmup) ?? (s.is_warmup ? undefined : lastWorking)
-      const weight = s.target_weight_kg != null ? Number(s.target_weight_kg) : isBodyweight ? 0 : fromLast?.weight_kg ?? null
+      // 自重の種目も前回の加重（懸垂の +15kg など）を引き継ぐ。前回が無い・自重だけなら 0（加重なし）。セルフモードと同じ（2026-11-07）
+      const weight = s.target_weight_kg != null ? Number(s.target_weight_kg) : isBodyweight ? fromLast?.weight_kg ?? 0 : fromLast?.weight_kg ?? null
       return {
         setNumber: s.set_number,
         weightKg: weight,
