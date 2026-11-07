@@ -19,6 +19,17 @@ export type LoginLinkPeek = {
  *  LINE の中のブラウザだとログインがその中にしか残らず、ホーム画面にも追加できないため（2026-10-28） */
 export const loginLinkUrl = (origin: string, token: string) => `${origin}/join/${token}?openExternalBrowser=1`
 
+/** iOS アプリでリンクを開く URL（2026-11-07）。同じ auxlog.app の中から移る時は Universal Links が効かないため、アプリの URL スキームで開く */
+export const appJoinUrl = (token: string) => `auxlogmobile://join/${token}`
+
+export const APP_STORE_URL = 'https://apps.apple.com/jp/app/id6790152534'
+
+/** iPhone・iPad か（アプリへの案内を出す。Android のアプリはまだ出していない） */
+export const isIosUserAgent = (ua: string | null) => /iPhone|iPad|iPod/i.test(ua ?? '')
+
+/** 仮のメールアドレス（リンクで作ったアカウント）か */
+export const isLinkOnlyEmail = (email: string | null | undefined) => (email ?? '').endsWith('@clients.auxlog.app')
+
 /** LINE で送る文（招待文は「リンクを押すだけ」、2026-10-28 オーナー決定） */
 export function loginLinkMessage(url: string, clientName: string, kind: 'invite' | 'relogin') {
   return kind === 'invite'

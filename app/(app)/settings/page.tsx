@@ -1,8 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronRight, Dumbbell, Mail, UserCircle } from 'lucide-react'
 import AddToHomeScreenSection from '@/components/ui/AddToHomeScreenSection'
+import OpenInAppSection from '@/components/ui/OpenInAppSection'
+import { isIosUserAgent, isLinkOnlyEmail } from '@/lib/trainer/loginLink'
 import { getTrainerProfile } from '@/lib/trainer/session'
 import { getTraineeLink } from '@/lib/coaching/trainee'
 import TrainerContractSection from './TrainerContractSection'
@@ -33,9 +36,10 @@ export default async function SettingsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [trainerProfile, traineeLink] = await Promise.all([
+  const [trainerProfile, traineeLink, requestHeaders] = await Promise.all([
     getTrainerProfile(supabase, user.id),
     getTraineeLink(supabase, user.id),
+    headers(),
   ])
 
   return (
@@ -67,6 +71,9 @@ export default async function SettingsPage() {
         <Row href="/settings/account" icon={UserCircle} label="アカウント" />
         {!traineeLink && <Row href="/exercises" icon={Dumbbell} label="種目を管理する" />}
         <Row href="/contact" icon={Mail} label="お問い合わせ" />
+
+        {/* トレーナーからのリンクで作ったアカウントは、アプリにはリンクでしか入れない（2026-11-07） */}
+        {isLinkOnlyEmail(user.email) && isIosUserAgent(requestHeaders.get('user-agent')) && <OpenInAppSection />}
 
         <AddToHomeScreenSection />
 

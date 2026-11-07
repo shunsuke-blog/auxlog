@@ -7,7 +7,8 @@ import { useRouter } from 'next/navigation'
 import { AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import AddToHomeScreenSection from '@/components/ui/AddToHomeScreenSection'
-import type { LoginLinkState } from '@/lib/trainer/loginLink'
+import OpenInAppSection from '@/components/ui/OpenInAppSection'
+import { APP_STORE_URL, appJoinUrl, type LoginLinkState } from '@/lib/trainer/loginLink'
 
 type Props = {
   token: string
@@ -18,6 +19,8 @@ type Props = {
   trainerName: string
   /** ログイン中のアカウント（email は仮のアドレスなら null） */
   signedIn: { email: string | null; isLinkTrainer: boolean } | null
+  /** iPhone・iPad のブラウザ。アプリで始める案内を出す（アプリが入っていれば Universal Links でアプリが開くので、ここに来るのは入っていない人か LINE などから開いた人、2026-11-07） */
+  ios: boolean
 }
 
 const INVALID_MESSAGES: Record<Exclude<LoginLinkState, 'valid'>, string> = {
@@ -32,12 +35,14 @@ const primary = 'w-full px-6 py-3.5 rounded-xl bg-black dark:bg-white text-white
 const secondary = 'w-full px-6 py-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-50'
 
 // ログイン用リンクを開いた時の画面（2026-10-28）。ボタンを押すまで何もしない（LINE のプレビューでリンクを使い切らない）
-export default function JoinClient({ token, state, kind, clientName, trainerName, signedIn }: Props) {
+export default function JoinClient({ token, state, kind, clientName, trainerName, signedIn, ios }: Props) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // はじめた後、スマホのブラウザならホーム画面への追加を案内してからメニューへ（タブを閉じても戻れるように、2026-10-28）
   const [done, setDone] = useState(false)
+  // リンクで新しくログインした（アカウントが仮のメールなので、アプリへはリンクでしか移れない）
+  const [startedByLink, setStartedByLink] = useState(false)
 
   const openMenu = () => {
     router.replace('/')
@@ -57,6 +62,7 @@ export default function JoinClient({ token, state, kind, clientName, trainerName
       if (!res.ok) throw new Error((data as { error?: string }).error ?? 'うまくいきませんでした。もう一度お試しください')
       const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) && !standalone) {
+        setStartedByLink(mode === 'start')
         setDone(true)
         setBusy(false)
       } else {
@@ -85,6 +91,20 @@ export default function JoinClient({ token, state, kind, clientName, trainerName
     </p>
   )
 
+  // アプリで始める（2026-11-07 オーナー了承）: 遅延ディープリンクはやらず、App Store で入れてからもう一度リンクを押してもらう。
+  // LINE から開くと Universal Links が効かないことがあるので、入れた人がこの画面からアプリを開けるボタンも置く
+  const appStart = (
+    <div className="pt-4 border-t border-zinc-100 dark:border-zinc-900 space-y-3">
+      <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed text-center">
+        アプリで始める時は、App Store で Auxlog を入れてから、もう一度このリンクを押してください。
+      </p>
+      <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" className={`${secondary} block text-center`}>アプリで始める（App Store）</a>
+      <p className="text-center">
+        <a href={appJoinUrl(token)} className="text-sm text-black dark:text-white underline hover:text-zinc-500">アプリを入れた方はこちら</a>
+      </p>
+    </div>
+  )
+
   let title: string
   let body: React.ReactNode
   if (done) {
@@ -95,6 +115,7 @@ export default function JoinClient({ token, state, kind, clientName, trainerName
           ホーム画面に追加しておくと、次からはアイコンを押すだけでメニューが開きます。
         </p>
         <AddToHomeScreenSection />
+        {startedByLink && ios && <OpenInAppSection />}
         <button onClick={openMenu} className={primary}>メニューを開く</button>
       </div>
     )
@@ -136,9 +157,12 @@ export default function JoinClient({ token, state, kind, clientName, trainerName
           {trainerName}さんから、トレーニングのメニューが届いています。登録やパスワードは不要です。
         </p>
         <div className="space-y-3">
-          <button onClick={() => join('start')} disabled={busy} className={primary}>{busy ? '準備しています…' : 'はじめる'}</button>
+          <button onClick={() => join('start')} disabled={busy} className={primary}>
+            {busy ? '準備しています…' : ios ? 'このまま始める（ブラウザ）' : 'はじめる'}
+          </button>
           {terms}
         </div>
+        {ios && appStart}
         <div className="pt-2 border-t border-zinc-100 dark:border-zinc-900 text-center space-y-1">
           <p className="text-xs text-zinc-400">すでに Auxlog をお使いの方</p>
           <Link href={`/login?next=${encodeURIComponent(`/join/${token}`)}`} className="text-sm text-black dark:text-white underline hover:text-zinc-500">
@@ -158,6 +182,7 @@ export default function JoinClient({ token, state, kind, clientName, trainerName
         <button onClick={signedIn ? signOutAndStart : () => join('start')} disabled={busy} className={primary}>
           {busy ? 'ログインしています…' : signedIn ? 'ログアウトしてログインする' : 'ログインする'}
         </button>
+        {ios && <a href={appJoinUrl(token)} className={`${secondary} block text-center`}>アプリでログインする</a>}
       </div>
     )
   }
