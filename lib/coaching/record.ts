@@ -25,7 +25,8 @@ export type CoachingRecordData = {
   isBodyweight: boolean
   prefill: PrefillSet[]
   alreadyRecorded: boolean
-  /** 前回までの自己ベスト（記録中の「Record! / Volume Up!」と「前回 ▶ 今回」の総挙上量に使う）。初めての種目は null */
+  /** 前回の記録（記録中の「Record! / Volume Up!」と「前回 ▶ 今回」の総挙上量に使う）。初めての種目は null。
+   *  セルフモード（lib/suggest/engine.ts の prev_volume など）と同じく前回のワーキングセットから出す（2026-11-07、それまでは自己ベストで「前回」と食い違っていた） */
   prevBest: { weight: number; reps: number; volume: number; totalReps: number } | null
   /** 今の週の予定の開始日より前（週を早く進めた）。オーバーワークの注意を出す（セルフモードと同じ、2026-10-25） */
   beforeWeekStart: boolean
@@ -76,20 +77,20 @@ export async function loadCoachingRecord(supabase: SupabaseClient, userId: strin
   ])
 
   // 前回の記録（重量が空欄＝自動のセットの初期値）。同じセット番号、無ければ最後のワーキングセット
-  let lastSets: { set_number: number; weight_kg: number; is_warmup: boolean }[] = []
+  let lastSets: { set_number: number; weight_kg: number; reps: number; is_warmup: boolean }[] = []
   let previousCardio: (CardioRecord & { trainedAt: string }) | null = null
   if (userExercise) {
     const { data: last } = await supabase
       .from('training_sessions')
-      .select('id, trained_at, training_sets!inner(set_number, weight_kg, is_warmup, exercise_id, duration_seconds, distance_km, calories_kcal)')
+      .select('id, trained_at, training_sets!inner(set_number, weight_kg, reps, is_warmup, exercise_id, duration_seconds, distance_km, calories_kcal)')
       .eq('user_id', userId)
       .eq('training_sets.exercise_id', userExercise.id)
       .order('trained_at', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
-    type LastSet = { set_number: number; weight_kg: number; is_warmup: boolean }
-    lastSets = ((last?.training_sets ?? []) as LastSet[]).map(r => ({ set_number: r.set_number, weight_kg: Number(r.weight_kg), is_warmup: r.is_warmup }))
+    type LastSet = { set_number: number; weight_kg: number; reps: number; is_warmup: boolean }
+    lastSets = ((last?.training_sets ?? []) as LastSet[]).map(r => ({ set_number: r.set_number, weight_kg: Number(r.weight_kg), reps: r.reps, is_warmup: r.is_warmup }))
     const lastCardio = ((last?.training_sets ?? []) as (LastSet & CardioRecord)[]).find(r => r.duration_seconds != null)
     if (lastCardio && last) previousCardio = { trainedAt: last.trained_at as string, duration_seconds: lastCardio.duration_seconds, distance_km: lastCardio.distance_km, calories_kcal: lastCardio.calories_kcal }
   }
@@ -112,9 +113,18 @@ export async function loadCoachingRecord(supabase: SupabaseClient, userId: strin
       }
     })
 
-  const { data: best } = userExercise
-    ? await supabase.from('exercise_bests').select('best_weight_kg, best_reps, best_volume, best_total_reps').eq('user_id', userId).eq('exercise_id', userExercise.id).maybeSingle()
-    : { data: null }
+  // 前回のワーキングセットのベスト・総挙上量・合計回数（セルフモードと同じ計算）
+  const lastWorkingSets = lastSets.filter(s => !s.is_warmup)
+  let prevBest: CoachingRecordData['prevBest'] = null
+  if (lastWorkingSets.length > 0) {
+    const weight = Math.max(...lastWorkingSets.map(s => s.weight_kg))
+    prevBest = {
+      weight,
+      reps: Math.max(...lastWorkingSets.filter(s => s.weight_kg === weight).map(s => s.reps)),
+      volume: lastWorkingSets.reduce((sum, s) => sum + s.weight_kg * s.reps, 0),
+      totalReps: lastWorkingSets.reduce((sum, s) => sum + s.reps, 0),
+    }
+  }
 
   // 今の週の予定の開始日（プランの開始日＋(週−1)×7日）がまだ来ていない＝前の週を早く終えて週を進めた。
   // Week 1 は「前の週」が無いので出さない（開始日より前に記録しても、早く進めたわけではない。2026-10-25 不具合修正）
@@ -134,9 +144,7 @@ export async function loadCoachingRecord(supabase: SupabaseClient, userId: strin
     isBodyweight,
     prefill,
     alreadyRecorded: (recorded ?? []).length > 0,
-    prevBest: best
-      ? { weight: Number(best.best_weight_kg), reps: best.best_reps, volume: Number(best.best_volume), totalReps: best.best_total_reps }
-      : null,
+    prevBest,
     beforeWeekStart,
     cardio: isCardio
       ? {
