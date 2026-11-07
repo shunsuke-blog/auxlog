@@ -10,7 +10,8 @@ import SaveComplete from '@/components/ui/SaveComplete'
 import { useNavigationGuard } from '@/lib/contexts/NavigationGuard'
 import { todayLocalDate } from '@/lib/utils/date'
 import type { CoachingRecordData, PrefillSet } from '@/lib/coaching/record'
-import { calcBadge } from '@/lib/record/badge'
+import { BADGE_LABEL, calcBadge } from '@/lib/record/badge'
+import VolumeCompare from '@/components/record/VolumeCompare'
 import PendingSetsModal from '@/components/record/PendingSetsModal'
 import CardioInputs, { type CardioInputValue } from '@/components/record/CardioInputs'
 import { formatCardio, formatDuration, parseCardioInput } from '@/lib/record/cardio'
@@ -60,7 +61,7 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
   // チェックしていないセットがある時の「このまま保存しますか？」（セルフモードと同じ）
   const [confirmingPending, setConfirmingPending] = useState(false)
 
-  // 記録中の「Record! / Volume Up!」と「前回 ▶ 今回」の総挙上量（セルフモードと同じ）
+  // 記録中の「前回超え / 総挙上量アップ」と「前回・今回」の総挙上量（セルフモードと同じ）
   const workingSets = sets.filter(s => !s.is_warmup)
   const badge = calcBadge(workingSets, workingSets.length > 0 && workingSets.every(s => s.done), prevBest ?? undefined)
   const doneWorking = workingSets.filter(s => s.done)
@@ -205,15 +206,13 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               {badge && (
-                <span className={`text-xs font-bold animate-pulse shrink-0 ${badge === 'record' ? 'px-2 py-0.5 rounded-full bg-pr text-on-pr' : 'text-emerald-500'}`}>
-                  {badge === 'record' ? 'Record!' : badge === 'volume_up' ? 'Volume Up!' : 'Good Job!'}
+                <span className={`text-xs font-bold shrink-0 ${badge === 'record' ? 'px-2 py-0.5 rounded-full bg-pr text-on-pr' : 'text-brand-text'}`}>
+                  {BADGE_LABEL[badge]}
                 </span>
               )}
-              <span className="ml-auto text-xs text-zinc-400 tabular-nums">
-                {bodyweightNoLoad
-                  ? `${(prevBest?.totalReps ?? 0).toLocaleString()}回 ▶︎ ${doneTotalReps.toLocaleString()}回`
-                  : `${Math.round(prevBest?.volume ?? 0).toLocaleString()}kg ▶︎ ${Math.round(doneVolume).toLocaleString()}kg`}
-              </span>
+              {bodyweightNoLoad
+                ? <VolumeCompare prev={prevBest?.totalReps} now={doneTotalReps} unit="回" />
+                : <VolumeCompare prev={prevBest?.volume} now={doneVolume} unit="kg" />}
             </div>
             {sets.map((s, i) => (
               <div key={i}>

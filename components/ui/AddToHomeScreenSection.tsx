@@ -33,8 +33,8 @@ export default function AddToHomeScreenSection() {
           ホーム画面
         </h2>
         <div className="flex items-center gap-3">
-          <Smartphone className="w-4 h-4 text-emerald-500" />
-          <span className="text-sm text-emerald-500 font-medium">
+          <Smartphone className="w-4 h-4 text-brand-text" />
+          <span className="text-sm text-brand-text font-medium">
             ホーム画面に追加済み
           </span>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Pencil, ChevronDown, PenLine } from 'lucide-react'
+import { Pencil, ChevronDown } from 'lucide-react'
 import type { UserExercise, HistorySession } from '@/types'
 import { formatCardio } from '@/lib/record/cardio'
 
@@ -114,7 +114,7 @@ export default function SessionList({ sessions, exercises }: Props) {
                         href={`/record/edit/${cardioSet.session_id}?exerciseId=${exId}`}
                         className="px-3 py-3 text-zinc-300 dark:text-zinc-700 hover:text-black dark:hover:text-white transition-colors shrink-0"
                       >
-                        <PenLine className="w-3.5 h-3.5" />
+                        <Pencil className="w-3.5 h-3.5" />
                       </Link>
                     </div>
                   )
@@ -149,7 +149,7 @@ export default function SessionList({ sessions, exercises }: Props) {
                         className="px-3 py-3 text-zinc-300 dark:text-zinc-700 hover:text-black dark:hover:text-white transition-colors shrink-0"
                         onClick={e => e.stopPropagation()}
                       >
-                        <PenLine className="w-3.5 h-3.5" />
+                        <Pencil className="w-3.5 h-3.5" />
                       </Link>
                     </div>
 
@@ -198,7 +198,7 @@ export default function SessionList({ sessions, exercises }: Props) {
                             <span className="text-xs text-black dark:text-white text-right font-medium">
                               {set.reps}回
                             </span>
-                            <span className={`text-xs text-right font-medium ${set.is_warmup ? 'text-zinc-300 dark:text-zinc-700' : set.rir ? 'text-emerald-500' : 'text-red-500'}`}>
+                            <span className={`text-xs text-right font-medium ${set.is_warmup ? 'text-zinc-300 dark:text-zinc-700' : set.rir ? 'text-black dark:text-white' : 'text-red-500'}`}>
                               {set.is_warmup ? '—' : set.rir ? '余裕' : '限界'}
                             </span>
                           </div>

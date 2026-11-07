@@ -15,7 +15,8 @@ import { todayLocalDate } from '@/lib/utils/date'
 import SaveComplete from '@/components/ui/SaveComplete'
 import { useNavigationGuard } from '@/lib/contexts/NavigationGuard'
 import { buildProgramGuidance, type ProgramSetMeta } from '@/lib/utils/set_guidance'
-import { calcBadge } from '@/lib/record/badge'
+import { BADGE_LABEL, calcBadge } from '@/lib/record/badge'
+import VolumeCompare from '@/components/record/VolumeCompare'
 
 type ExerciseSets = {
   exercise: UserExercise
@@ -505,18 +506,16 @@ function RecordContent() {
                           </h2>
                         )}
                         {badge && (
-                          <span className={`text-xs font-bold animate-pulse shrink-0 ${
-                            badge === 'record' ? 'px-2 py-0.5 rounded-full bg-pr text-on-pr' : 'text-emerald-500'
+                          <span className={`text-xs font-bold shrink-0 ${
+                            badge === 'record' ? 'px-2 py-0.5 rounded-full bg-pr text-on-pr' : 'text-brand-text'
                           }`}>
-                            {badge === 'record' ? 'Record!' : badge === 'volume_up' ? 'Volume Up!' : 'Good Job!'}
+                            {BADGE_LABEL[badge]}
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-zinc-400 tabular-nums shrink-0">
-                        {isBodyweightNoLoad
-                          ? `${(prevBests[ex.exercise.id]?.totalReps ?? 0).toLocaleString()}回 ▶︎ ${doneTotalReps.toLocaleString()}回`
-                          : `${Math.round(prevBests[ex.exercise.id]?.volume ?? 0).toLocaleString()}kg ▶︎ ${Math.round(doneVolume).toLocaleString()}kg`}
-                      </span>
+                      {isBodyweightNoLoad
+                        ? <VolumeCompare prev={prevBests[ex.exercise.id]?.totalReps} now={doneTotalReps} unit="回" />
+                        : <VolumeCompare prev={prevBests[ex.exercise.id]?.volume} now={doneVolume} unit="kg" />}
                     </div>
                     {isVisible && ex.guidance && ex.guidance.length > 0 && (
                       <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900 px-3 py-2 space-y-0.5">

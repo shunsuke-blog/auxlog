@@ -1,10 +1,17 @@
 import type { SetData } from '@/components/record/SetRow'
 
-// 記録中に出す「Record! / Volume Up! / Good Job!」の判定（セルフモードの記録画面とコーチングモードの記録画面で共通）。
-// ワーキングセットをすべてチェックした時だけ出す。前回までの自己ベスト（exercise_bests）と比べて、
+// 記録中に出すバッジの判定（セルフモードの記録画面とコーチングモードの記録画面で共通）。
+// ワーキングセットをすべてチェックした時だけ出す。前回の記録と比べて、
 // 最大重量（同じ重量なら回数）が上回れば record、総挙上量が上回れば volume_up、それ以外は done。
+// 表示は日本語（2026-11-07 hallmark の audit、それまでは Record! / Volume Up! / Good Job!。アプリと同じ）
 
 export type Badge = 'record' | 'volume_up' | 'done'
+
+export const BADGE_LABEL: Record<Badge, string> = {
+  record: '前回超え',
+  volume_up: '総挙上量アップ',
+  done: '完了',
+}
 
 export type PrevBest = { weight: number; reps: number; volume: number; totalReps: number }
 

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import RirToggle from './RirToggle'
-import { Minus, Plus, Check } from 'lucide-react'
+import { CircleMinus, Plus, Check } from 'lucide-react'
 import { toDecimalInput, toIntegerInput } from '@/lib/utils/number_input'
 
 export type SetData = {
@@ -62,9 +62,11 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
           <button
             type="button"
             onClick={onDelete}
-            className="p-1 text-zinc-300 dark:text-zinc-700 hover:text-red-400 transition-colors shrink-0"
+            aria-label={`${setData.set_number}セット目を削除`}
+            className="p-1 text-zinc-400 dark:text-zinc-600 hover:text-red-400 transition-colors shrink-0"
           >
-            <Minus className="w-4 h-4" />
+            {/* ただの「—」だとマイナスの記号に見えたので、丸で囲んだ削除のアイコンにする（hallmark の audit 2026-11-07、アプリと同じ） */}
+            <CircleMinus className="w-4 h-4" />
           </button>
         ) : (
           <span className="w-6 shrink-0" />
@@ -149,7 +151,7 @@ export default function SetRow({ setData, canDelete, isBodyweight = false, onCha
               : 'border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-600 hover:border-accent hover:text-accent'
           }`}
         >
-          {is_warmup ? 'W/UP' : 'W/UP'}
+          アップ
         </button>
 
         {/* 実施フラグ（右端・右利きに配慮） */}

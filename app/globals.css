@@ -3,6 +3,7 @@
  * built: the project · redesign: polish · v2.0.0 */
 /* Hallmark · waive 7b · trainer-card on --background over the grey trainer base · the owner specified white cards (#FFFFFF) on a grey base for the trainer screens */
 /* Hallmark · dismissed 74 · the zinc utilities resolve to project tokens: --color-zinc-* is redefined per scope below */
+/* Hallmark · checked: 2026-11-07 · fixed 74 · the red, amber and blue utilities resolve to colours mixed for the teal brand (:root below), as in the app */
 @import "tailwindcss";
 
 /* dark: は端末がダークモードの時に効く。ただしトレーナー画面（.light-only の中）は常にライトモード
@@ -37,11 +38,34 @@
   --line: var(--color-zinc-100);
   --shadow-card: 0 1px 2px rgb(15 23 42 / 0.06);
   /* グラフ（使用重量の推移）: フェーズの帯・線・吹き出し */
-  --chart-vol: #dbeafe;
-  --chart-int: #fef3c7;
-  --chart-dld: #d1fae5;
-  --chart-max: #fee2e2;
-  --chart-line: #3b82f6;
+  --chart-vol: #DDE6F2;
+  --chart-int: #F5EBD2;
+  --chart-dld: #DCEEE6;
+  --chart-max: #F5E0DB;
+  --chart-line: #3F78C9;
+  /* Tailwind の既定の赤・琥珀・青（red-500 など）はそのまま使わず、ブランドのティールに合わせて作った色にする
+     （hallmark の audit 2026-11-07、アプリの constants/theme.ts の Palette と同じ値）。クラス名はそのまま使える。
+     赤は「限界」・エラー・削除、琥珀は注意、青は土曜。「余裕」には色を付けない */
+  --color-red-50: #FBEDEA;
+  --color-red-100: #F7DCD7;
+  --color-red-200: #EFC0B8;
+  --color-red-300: #F2A79D;
+  --color-red-400: #EC8072;
+  --color-red-500: #D4483A;
+  --color-red-600: #B93A2E;
+  --color-red-700: #9A3026;
+  --color-red-800: #7D2820;
+  --color-red-900: #5E1F19;
+  --color-red-950: #3A130F;
+  --color-amber-50: #FBF3E4;
+  --color-amber-300: #EBC27A;
+  --color-amber-400: #DFA548;
+  --color-amber-600: #B57A1F;
+  --color-amber-700: #8F5F18;
+  --color-amber-800: #6E4813;
+  --color-amber-950: #2A1C08;
+  --color-blue-400: #5E8FD4;
+  --color-blue-500: #3F78C9;
   --chart-tooltip-bg: #18181b;
   --chart-tooltip-fg: #ffffff;
   /* トレーナー画面（.light-only）のパレット。値はここで宣言し、.light-only はこれを参照する */
