@@ -42,7 +42,7 @@ type PlanRecordRow = {
   is_warmup: boolean
   plan_exercise_id: string
   training_sessions: { trained_at: string }
-  plan_exercises: { exercise_master: ExerciseRef; trainer_exercises: ExerciseRef; cardio_master: ExerciseRef; plan_sets: { set_number: number; target_weight_kg: number | string | null; target_reps: number; is_warmup: boolean }[] }
+  plan_exercises: { exercise_master_id: string | null; trainer_exercise_id: string | null; cardio_master_id: string | null; exercise_master: ExerciseRef; trainer_exercises: ExerciseRef; cardio_master: ExerciseRef; plan_sets: { set_number: number; target_weight_kg: number | string | null; target_reps: number; is_warmup: boolean }[] }
 }
 type SkipRow = {
   plan_exercises: { exercise_master_id: string | null; trainer_exercise_id: string | null; cardio_master_id: string | null; exercise_master: ExerciseRef; trainer_exercises: ExerciseRef; cardio_master: ExerciseRef; plan_days: { week_number: number } }
@@ -57,6 +57,8 @@ type SessionRow = {
 }
 
 export const ACTIVITY_LIMIT = 12
+/** アクティビティを1人・1日にまとめるために読む記録の数（1日に種目ごとに保存するので、ACTIVITY_LIMIT よりかなり多く読む） */
+const ACTIVITY_SESSIONS = 300
 
 export async function loadDashboard(supabase: SupabaseClient, trainerId: string, now = new Date()): Promise<DashboardData> {
   const { data: activityData } = await supabase.rpc('trainer_trainee_activity', { p_since: activitySince(now) })
@@ -69,19 +71,23 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
   const traineeIds = [...linkByUser.keys()]
   const linkIds = trainees.map(r => r.linkId)
 
-  const [{ data: sessions }, { data: plans }] = await Promise.all([
+  const [{ data: sessions }, { data: plans }, { data: acks }] = await Promise.all([
     traineeIds.length > 0
       ? supabase
           .from('training_sessions')
           .select('id, user_id, trained_at, created_at, training_sets(exercise_id, user_exercises(custom_name, exercise_master(name)), plan_exercises(plan_days(week_number, day_number, plan_id)))')
           .in('user_id', traineeIds)
           .order('created_at', { ascending: false })
-          .limit(ACTIVITY_LIMIT)
+          .limit(ACTIVITY_SESSIONS)
       : Promise.resolve({ data: [] }),
     linkIds.length > 0
       ? supabase.from('coaching_plans').select('id, name, link_id, started_at').in('link_id', linkIds)
       : Promise.resolve({ data: [] }),
+    // 「確認した」で消したアラート（トレーナーごと、2026-11-09）
+    supabase.from('trainer_alert_acks').select('link_id, alert_key').eq('trainer_id', trainerId),
   ])
+  const acked = new Set((acks ?? []).map(a => `${a.link_id}:${a.alert_key}`))
+  const notAcked = <T extends { linkId: string; ackKey?: string }>(items: T[]) => items.filter(i => !i.ackKey || !acked.has(`${i.linkId}:${i.ackKey}`))
   const planName = new Map((plans ?? []).map(p => [p.id as string, p.name as string]))
   const linkById = new Map(trainees.map(r => [r.linkId, r]))
 
@@ -95,20 +101,43 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
     const link = linkById.get(p.link_id as string)
     if (link && p.started_at) events.push({ at: p.started_at as string, linkId: link.linkId, name: link.name, kind: 'plan_started', text: `が「${p.name}」を始めました` })
   }
+  // 記録は1人・1日で1行にまとめる（2026-11-09 オーナー指摘: プランは種目ごとに保存するので、1回の保存ずつだと細かすぎて
+  // 複数のクライアントを把握できない）。時刻はその日の最後の記録、Day はその日に記録した Day を並べる
+  const byPersonDay = new Map<string, { link: TraineeRow; at: string; planIds: Set<string>; days: { week: number; day: number }[]; exercises: Set<string>; offPlanNames: Set<string> }>()
   for (const s of (sessions ?? []) as unknown as SessionRow[]) {
     const link = linkByUser.get(s.user_id)
     if (!link) continue
-    const count = new Set(s.training_sets.map(t => t.exercise_id)).size
-    const day = s.training_sets.map(t => t.plan_exercises?.plan_days).find(d => d != null)
+    const key = `${s.user_id}:${s.trained_at}`
+    const entry = byPersonDay.get(key) ?? { link, at: s.created_at, planIds: new Set<string>(), days: [], exercises: new Set<string>(), offPlanNames: new Set<string>() }
+    if (s.created_at > entry.at) entry.at = s.created_at
+    for (const t of s.training_sets) {
+      entry.exercises.add(t.exercise_id)
+      const d = t.plan_exercises?.plan_days
+      if (d) {
+        entry.planIds.add(d.plan_id)
+        if (!entry.days.some(x => x.week === d.week_number && x.day === d.day_number)) entry.days.push({ week: d.week_number, day: d.day_number })
+      } else {
+        entry.offPlanNames.add(t.user_exercises?.exercise_master?.name ?? t.user_exercises?.custom_name ?? '種目')
+      }
+    }
+    byPersonDay.set(key, entry)
+  }
+  for (const e of byPersonDay.values()) {
+    const days = [...e.days].sort((a, b) => a.week - b.week || a.day - b.day)
+    const sameWeek = days.every(d => d.week === days[0]?.week)
+    const dayText = days.length === 0 ? '' : sameWeek
+      ? `Week ${days[0].week} ${days.map(d => `Day ${d.day}`).join(' と ')}`
+      : days.map(d => `Week ${d.week} Day ${d.day}`).join(' と ')
+    const plan = e.planIds.size === 1 ? planName.get([...e.planIds][0]) : null
     events.push({
-      at: s.created_at,
-      linkId: link.linkId,
-      name: link.name,
+      at: e.at,
+      linkId: e.link.linkId,
+      name: e.link.name,
       kind: 'recorded',
-      text: day
-        ? `が「${planName.get(day.plan_id) ?? 'プラン'}」の Week ${day.week_number} Day ${day.day_number} を記録しました（${count}種目）`
-        // プランの種目に紐付いていない記録＝トレーニーが「種目を追加」から記録した、プラン外の種目
-        : `がプラン外の種目を記録しました（${[...new Set(s.training_sets.map(t => t.user_exercises?.exercise_master?.name ?? t.user_exercises?.custom_name ?? '種目'))].join('・')}）`,
+      text: days.length > 0
+        ? `が${plan ? `「${plan}」の ` : ''}${dayText} を記録しました（${e.exercises.size}種目${e.offPlanNames.size > 0 ? '、プラン外を含む' : ''}）`
+        // プランの種目に紐付いていない記録だけ＝トレーニーが「種目を追加」から記録した、プラン外の種目
+        : `がプラン外の種目を記録しました（${[...e.offPlanNames].join('、')}）`,
     })
   }
 
@@ -130,7 +159,7 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
     const [{ data: recs }, { data: skips }] = await Promise.all([
       supabase
         .from('training_sets')
-        .select('set_number, weight_kg, reps, is_warmup, plan_exercise_id, training_sessions!inner(trained_at), plan_exercises!inner(exercise_master(name), trainer_exercises(name), cardio_master(name), plan_sets(set_number, target_weight_kg, target_reps, is_warmup), plan_days!inner(plan_id))')
+        .select('set_number, weight_kg, reps, is_warmup, plan_exercise_id, training_sessions!inner(trained_at), plan_exercises!inner(exercise_master_id, trainer_exercise_id, cardio_master_id, exercise_master(name), trainer_exercises(name), cardio_master(name), plan_sets(set_number, target_weight_kg, target_reps, is_warmup), plan_days!inner(plan_id))')
         .eq('plan_exercises.plan_days.plan_id', planId)
         .gte('training_sessions.trained_at', since),
       supabase
@@ -146,6 +175,8 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
         linkId: r.linkId,
         name: r.name,
         exercise: pe.exercise_master?.name ?? pe.trainer_exercises?.name ?? pe.cardio_master?.name ?? '種目',
+        exerciseKey: pe.exercise_master_id ?? pe.trainer_exercise_id ?? pe.cardio_master_id ?? undefined,
+        planExerciseId: t.plan_exercise_id,
         trainedOn: t.training_sessions.trained_at,
         actual: [],
         targets: pe.plan_sets.map(ps => ({ setNumber: ps.set_number, weightKg: ps.target_weight_kg == null ? null : Number(ps.target_weight_kg), reps: ps.target_reps, isWarmup: ps.is_warmup })),
@@ -167,7 +198,7 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
   return {
     rows,
     activeCount: trainees.filter(r => r.status === 'active').length,
-    todos: dashboardTodos(rows),
+    todos: notAcked(dashboardTodos(rows)),
     week: weekSummary(rows),
     activity: sortActivity(events, ACTIVITY_LIMIT),
     highlights: found.map(h => {
@@ -176,8 +207,8 @@ export async function loadDashboard(supabase: SupabaseClient, trainerId: string,
     }),
     finalWeek: livePlans.filter(r => r.plan!.currentWeek >= r.plan!.totalWeeks).map(r => ({ linkId: r.linkId, name: r.name })),
     usedSlots: usedTraineeSlots(rows),
-    shortfalls: shortfalls(perPlan.flatMap(p => p.records).sort((x, y) => y.trainedOn.localeCompare(x.trainedOn))),
-    notStarted: notStartedThisWeek(rows, todayInJapan(now)),
+    shortfalls: notAcked(shortfalls(perPlan.flatMap(p => p.records).sort((x, y) => y.trainedOn.localeCompare(x.trainedOn)))),
+    notStarted: notAcked(notStartedThisWeek(rows, todayInJapan(now))),
     repeatedSkips: repeatedSkips(perPlan.flatMap(p => p.skipped)),
     pendingInvites: pendingInvites(rows),
   }

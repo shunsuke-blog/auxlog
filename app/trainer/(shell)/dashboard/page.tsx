@@ -43,7 +43,7 @@ export default async function TrainerDashboardPage() {
     ...data.pendingInvites,
   ]
   const alertItems: Item[] = [
-    ...todos.filter(t => t.kind === 'no_record' || t.kind === 'stalled').map(t => ({ linkId: t.linkId, name: t.name, text: t.message })),
+    ...todos.filter(t => t.kind === 'no_record' || t.kind === 'stalled').map(t => ({ linkId: t.linkId, name: t.name, text: t.message, ackKey: t.ackKey })),
     ...data.notStarted,
     ...data.shortfalls,
   ]

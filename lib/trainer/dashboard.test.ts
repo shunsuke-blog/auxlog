@@ -99,6 +99,19 @@ test('shortfalls: 目標より軽くした・回数が足りないセットを�
   ])
 })
 
+test('shortfalls: 種目ごとに最新の記録だけで判定する（次の週に目標に届いたら消える）', () => {
+  const rec = (trainedOn: string, planExerciseId: string, reps: number) => ({
+    linkId: 'l', name: 'A', exercise: 'ライイングトライセプスEX', exerciseKey: 'm1', planExerciseId, trainedOn,
+    actual: [{ setNumber: 1, weightKg: 22.5, reps, isWarmup: false }], targets: [{ setNumber: 1, weightKg: null, reps: 10, isWarmup: false }],
+  })
+  // 新しい順に渡す。最新（11/6）は届いているので、10/28 の未達は出さない
+  assert.deepEqual(shortfalls([rec('2026-11-06', 'pe2', 10), rec('2026-10-28', 'pe1', 7)]), [])
+  // 最新が届いていなければ、その記録だけ（「確認した」の鍵はプランの種目）
+  assert.deepEqual(shortfalls([rec('2026-11-06', 'pe2', 8), rec('2026-10-28', 'pe1', 7)]).map(i => [i.text, i.ackKey]), [
+    ['ライイングトライセプスEX 目標 10回 → 8回（11/6）', 'shortfall:pe2'],
+  ])
+})
+
 test('repeatedSkips: 直近3週のうち2週以上でスキップした種目だけ', () => {
   const s = (exerciseKey: string, week: number) => ({ linkId: 'l', name: 'A', exerciseKey, exercise: exerciseKey, week, currentWeek: 5 })
   assert.deepEqual(repeatedSkips([s('ディップス', 4), s('ディップス', 5), s('カール', 2), s('カール', 5), s('ベンチ', 5)]).map(i => i.text), ['ディップスを直近3週で2回スキップ。種目の入れ替えを検討する'])

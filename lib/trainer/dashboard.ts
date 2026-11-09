@@ -11,7 +11,15 @@ export const HIGHLIGHT_DAYS = 28
 /** 推定1RMの丸め誤差での微増を「更新」と言わない（成長レポートと同じ 1kg 以上） */
 export const HIGHLIGHT_MIN_GAIN_KG = 1
 
-export type TodoItem = { linkId: string; name: string; kind: 'no_record' | 'stalled' | 'invite_expired' | 'waiting_plan'; message: string }
+/** ackKey: アラートの「確認した」の鍵（2026-11-09）。同じ状態の間は同じ鍵、状態が変われば別の鍵になって、また出る */
+export type TodoItem = { linkId: string; name: string; kind: 'no_record' | 'stalled' | 'invite_expired' | 'waiting_plan'; message: string; ackKey?: string }
+
+/** 記録なしは最後の記録日（記録すれば鍵が変わる）、停滞はプランの週（次の週もまだ停滞なら、また出る） */
+function alertAckKey(r: TraineeRow, kind: 'no_record' | 'stalled'): string {
+  return kind === 'no_record'
+    ? `no_record:${r.lastTrainedOn ?? 'none'}`
+    : `stalled:${r.plan?.id ?? 'none'}:${r.plan?.currentWeek ?? 0}`
+}
 
 const isLive = (status: string) => status === 'shared' || status === 'active'
 
@@ -19,7 +27,7 @@ export function dashboardTodos(rows: TraineeRow[]): TodoItem[] {
   const items: TodoItem[] = []
   for (const r of rows) {
     if (r.isSelf) continue
-    for (const a of r.alerts) items.push({ linkId: r.linkId, name: r.name, kind: a.kind, message: a.message })
+    for (const a of r.alerts) items.push({ linkId: r.linkId, name: r.name, kind: a.kind, message: a.message, ackKey: alertAckKey(r, a.kind) })
     if (r.status === 'invited' && r.invite?.expired) {
       items.push({ linkId: r.linkId, name: r.name, kind: 'invite_expired', message: '招待リンクの期限が切れています（作り直してください）' })
     }
@@ -132,7 +140,7 @@ export function usedTraineeSlots(rows: TraineeRow[]): number {
   return rows.filter(r => !r.isSelf && (r.status === 'invited' || r.status === 'active' || r.status === 'paused')).length
 }
 
-export type DashboardItem = { linkId: string; name: string; text: string }
+export type DashboardItem = { linkId: string; name: string; text: string; ackKey?: string }
 
 /** 週の半ば（4日目）を過ぎても、今週まだ1種目も記録していない人。7日記録なしのアラートが出ている人は除く（重複させない） */
 export const NOT_STARTED_FROM_DAY = 4
@@ -145,7 +153,7 @@ export function notStartedThisWeek(rows: TraineeRow[], todayJst: string): Dashbo
     const weekStart = new Date(`${r.plan.startDate}T00:00:00Z`)
     weekStart.setUTCDate(weekStart.getUTCDate() + (r.plan.currentWeek - 1) * 7)
     const day = Math.floor((new Date(`${todayJst}T00:00:00Z`).getTime() - weekStart.getTime()) / DAY_MS) + 1
-    if (day >= NOT_STARTED_FROM_DAY && day <= 7) items.push({ linkId: r.linkId, name: r.name, text: `今週（Week ${r.plan.currentWeek}）はまだ記録がありません（${day}日目）` })
+    if (day >= NOT_STARTED_FROM_DAY && day <= 7) items.push({ linkId: r.linkId, name: r.name, text: `今週（Week ${r.plan.currentWeek}）はまだ記録がありません（${day}日目）`, ackKey: `not_started:${r.plan.id}:${r.plan.currentWeek}` })
   }
   return items
 }
@@ -154,6 +162,10 @@ export type RecordedExercise = {
   linkId: string
   name: string
   exercise: string
+  /** 同じ種目かを見る鍵（種目マスタ・独自種目・有酸素の ID）。無ければ種目名 */
+  exerciseKey?: string
+  /** プランの種目（「確認した」の鍵） */
+  planExerciseId?: string
   trainedOn: string
   actual: { setNumber: number; weightKg: number; reps: number; isWarmup: boolean }[]
   targets: { setNumber: number; weightKg: number | null; reps: number; isWarmup: boolean }[]
@@ -163,10 +175,15 @@ export type RecordedExercise = {
  * プランの目標に届かなかった記録。ワーキングセットを順に目標と突き合わせ、最初に届かなかったセットを出す。
  * 届かない = 目標の重量があるのに軽くした、または回数（時間で行う種目は秒数）が目標より少ない。
  * 目標より多いセットを足した分・少ないセット数は見ない（回数・重量だけで判定）。
+ * 種目ごとに最新の記録だけで判定する（2026-11-09 オーナー決定: 次の週に目標に届いたら消える）。records は新しい順で渡す
  */
 export function shortfalls(records: RecordedExercise[]): DashboardItem[] {
   const items: DashboardItem[] = []
+  const seen = new Set<string>()
   for (const r of records) {
+    const key = `${r.linkId}:${r.exerciseKey ?? r.exercise}`
+    if (seen.has(key)) continue
+    seen.add(key)
     const unit = r.exercise.includes('（秒）') ? '秒' : '回'
     const actual = r.actual.filter(s => !s.isWarmup).sort((a, b) => a.setNumber - b.setNumber)
     const targets = r.targets.filter(s => !s.isWarmup).sort((a, b) => a.setNumber - b.setNumber)
@@ -177,7 +194,7 @@ export function shortfalls(records: RecordedExercise[]): DashboardItem[] {
       if (!lighter && a.reps >= t.reps) continue
       const target = `${t.weightKg != null ? `${t.weightKg}kg×` : ''}${t.reps}${unit}`
       const done = lighter ? `${a.weightKg}kg×${a.reps}${unit}` : `${a.reps}${unit}`
-      items.push({ linkId: r.linkId, name: r.name, text: `${r.exercise} 目標 ${target} → ${done}（${r.trainedOn.slice(5).replace('-', '/').replace(/^0/, '')}）` })
+      items.push({ linkId: r.linkId, name: r.name, text: `${r.exercise} 目標 ${target} → ${done}（${Number(r.trainedOn.slice(5, 7))}/${Number(r.trainedOn.slice(8, 10))}）`, ackKey: `shortfall:${r.planExerciseId ?? `${r.exerciseKey ?? r.exercise}:${r.trainedOn}`}` })
       break
     }
   }
