@@ -309,61 +309,81 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
         {sessions.length === 0 ? (
           <p className="text-sm text-zinc-400 dark:text-zinc-500 py-4">まだ記録がありません。</p>
         ) : (
-          sessions.map(saved => {
-            const edit = editable ? editing[saved.id] : undefined
-            const s = edit ?? saved
-            const busy = busyId === s.id
-            return (
-              <div key={s.id} id={`record-${s.id}`} className={`px-5 py-4 rounded-2xl trainer-card space-y-2 ${edit ? 'ring-1 ring-brand' : ''}`}>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-black dark:text-white">{fmtDate(s.trainedOn)}</p>
-                  {s.recordedBy && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-brand-soft text-brand-text">{RECORDED_BY_LABELS[s.recordedBy]}</span>}
-                  <span className="flex-1" />
-                  {editable && !edit && (
-                    <button onClick={() => startEdit(saved)} className="flex items-center gap-1 text-xs text-zinc-500 hover:text-black dark:hover:text-white">
-                      <Pencil className="w-3.5 h-3.5" />直す
-                    </button>
-                  )}
-                  {editable && (
-                    <button onClick={() => removeSession(saved)} disabled={busy} title="この記録を消す" aria-label="この記録を消す" className="p-1 text-zinc-400 hover:text-red-500 disabled:opacity-40">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                {s.exercises.map(e => (
-                  <div key={e.key} className="text-sm">
-                    <p className="text-black dark:text-white">
-                      {e.name}
-                      {/* トレーニーがホームの「種目を追加」から記録した、プランに無い種目 */}
-                      {e.offPlan && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">プラン外</span>}
-                    </p>
-                    {edit
-                      ? <ExerciseInputs
-                          exercise={e}
-                          onSet={(k, p) => patchEditing(s.id, e.key, x => ({ ...x, sets: x.sets.map(st => (st.key === k ? { ...st, ...p } : st)) }))}
-                          onCardio={p => patchEditing(s.id, e.key, x => (x.cardio ? { ...x, cardio: { ...x.cardio, ...p } } : x))}
-                          onAddSet={() => patchEditing(s.id, e.key, x => ({ ...x, sets: [...x.sets, nextSet(x.sets)] }))}
-                        />
-                      : <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{summary(e)}</p>}
-                  </div>
-                ))}
-                {errors[s.id] && <p className="text-xs text-red-500">{errors[s.id]}</p>}
-                {edit && (
-                  <div className="space-y-2 pt-1">
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500">✓ を外したセットは記録から外れます。保存すると、クライアントの画面に「トレーナーが修正」と出ます。</p>
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => cancelEdit(s.id)} disabled={busy} className={secondaryButton}>やめる</button>
-                      <button onClick={() => saveEdit(s.id)} disabled={busyId != null} className={primaryButton}>{busy ? '保存中…' : '保存する'}</button>
+          // 同じ日の記録は1枚のカードにまとめる（2026-11-09 オーナー指示。クライアントの履歴と同じ見え方）。
+          // 記録はプランの1種目ごとに分かれているので、直す・消すはカードの中の記録ごと
+          groupByDate(sessions).map(([date, group]) => (
+            <div key={date} className="px-5 py-4 rounded-2xl trainer-card space-y-3">
+              <p className="text-sm font-semibold text-black dark:text-white">{fmtDate(date)}</p>
+              <div className="divide-y divide-zinc-100 dark:divide-zinc-900">
+                {group.map(saved => {
+                  const edit = editable ? editing[saved.id] : undefined
+                  const s = edit ?? saved
+                  const busy = busyId === s.id
+                  return (
+                    <div key={s.id} id={`record-${s.id}`} className={`py-2.5 first:pt-0 last:pb-0 space-y-2 ${edit ? '-mx-3 px-3 rounded-xl ring-1 ring-brand' : ''}`}>
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          {s.exercises.map(e => (
+                            <div key={e.key} className="text-sm">
+                              <p className="text-black dark:text-white">
+                                {e.name}
+                                {/* トレーニーがホームの「種目を追加」から記録した、プランに無い種目 */}
+                                {e.offPlan && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">プラン外</span>}
+                                {s.recordedBy && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-brand-soft text-brand-text">{RECORDED_BY_LABELS[s.recordedBy]}</span>}
+                              </p>
+                              {edit
+                                ? <ExerciseInputs
+                                    exercise={e}
+                                    onSet={(k, p) => patchEditing(s.id, e.key, x => ({ ...x, sets: x.sets.map(st => (st.key === k ? { ...st, ...p } : st)) }))}
+                                    onCardio={p => patchEditing(s.id, e.key, x => (x.cardio ? { ...x, cardio: { ...x.cardio, ...p } } : x))}
+                                    onAddSet={() => patchEditing(s.id, e.key, x => ({ ...x, sets: [...x.sets, nextSet(x.sets)] }))}
+                                  />
+                                : <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{summary(e)}</p>}
+                            </div>
+                          ))}
+                        </div>
+                        {editable && !edit && (
+                          <button onClick={() => startEdit(saved)} className="shrink-0 flex items-center gap-1 text-xs text-zinc-500 hover:text-black dark:hover:text-white">
+                            <Pencil className="w-3.5 h-3.5" />直す
+                          </button>
+                        )}
+                        {editable && (
+                          <button onClick={() => removeSession(saved)} disabled={busy} title="この記録を消す" aria-label="この記録を消す" className="shrink-0 p-1 -mt-0.5 text-zinc-400 hover:text-red-500 disabled:opacity-40">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      {errors[s.id] && <p className="text-xs text-red-500">{errors[s.id]}</p>}
+                      {edit && (
+                        <div className="space-y-2 pt-1">
+                          <p className="text-xs text-zinc-400 dark:text-zinc-500">✓ を外したセットは記録から外れます。保存すると、クライアントの画面に「トレーナーが修正」と出ます。</p>
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => cancelEdit(s.id)} disabled={busy} className={secondaryButton}>やめる</button>
+                            <button onClick={() => saveEdit(s.id)} disabled={busyId != null} className={primaryButton}>{busy ? '保存中…' : '保存する'}</button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  )
+                })}
               </div>
-            )
-          })
+            </div>
+          ))
         )}
       </div>
     </div>
   )
+}
+
+/** 同じ日の記録をまとめる（並びは元の順。新しい日が上） */
+function groupByDate(sessions: EditSession[]): [string, EditSession[]][] {
+  const groups = new Map<string, EditSession[]>()
+  for (const s of sessions) {
+    const list = groups.get(s.trainedOn)
+    if (list) list.push(s)
+    else groups.set(s.trainedOn, [s])
+  }
+  return [...groups.entries()]
 }
 
 /** ✓ を付けたセット（有酸素は記録の ✓）がある */
