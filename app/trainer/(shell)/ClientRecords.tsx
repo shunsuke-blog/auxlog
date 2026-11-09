@@ -43,6 +43,8 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
   // 保存済みの記録（画面の表示）。直している記録は editing に写しを持ち、「保存する」で初めてここと DB に反映する
   const [sessions, setSessions] = useState<EditSession[]>(() => toEditSessions(initialSessions))
   const [editing, setEditing] = useState<Record<string, EditSession>>({})
+  // 直している記録の中で、入力欄を開いている種目（1つの記録に複数の種目がある時。2026-11-09 種目ごとに直す）
+  const [editingKey, setEditingKey] = useState<Record<string, string>>({})
   const [busyId, setBusyId] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [dayIdx, setDayIdx] = useState(0)
@@ -151,15 +153,20 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
   const editRecordOf = (planExerciseId: string) => {
     const found = sessions.find(s => s.exercises.some(e => e.planExerciseId === planExerciseId))
     if (!found) return
-    startEdit(found)
+    startEdit(found, found.exercises.find(e => e.planExerciseId === planExerciseId)?.key)
     setTab('records')
     requestAnimationFrame(() => document.getElementById(`record-${found.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
   }
 
   // ── 今までの記録を直す（「保存する」で保存、「やめる」で元のまま） ──
-  const startEdit = (s: EditSession) => setEditing(prev => (prev[s.id] ? prev : { ...prev, [s.id]: s }))
+  const startEdit = (s: EditSession, exKey?: string) => {
+    setEditing(prev => (prev[s.id] ? prev : { ...prev, [s.id]: s }))
+    const key = exKey ?? s.exercises[0]?.key
+    if (key) setEditingKey(prev => ({ ...prev, [s.id]: key }))
+  }
   const cancelEdit = (id: string) => {
     setEditing(prev => { const n = { ...prev }; delete n[id]; return n })
+    setEditingKey(prev => { const n = { ...prev }; delete n[id]; return n })
     setError(id, null)
   }
   const patchEditing = (id: string, exKey: string, fn: (e: EditExercise) => EditExercise) =>
@@ -173,6 +180,15 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
     // クライアントの記録を直したら「トレーナーが修正」を付ける（DB と同じ）
     setSessions(prev => prev.map(x => (x.id === id ? { ...doneOnly(s), recordedBy: s.recordedBy ?? 'trainer_edited' } : x)))
     cancelEdit(id)
+    router.refresh()
+  }
+
+  const removeExercise = async (s: EditSession, e: EditExercise) => {
+    if (s.exercises.length <= 1) return removeSession(s)
+    if (!window.confirm(`${fmtDate(s.trainedOn)}の${e.name}の記録を消しますか？\nクライアントの記録から消え、元に戻せません。`)) return
+    const rest = { ...s, exercises: s.exercises.filter(x => x.key !== e.key) }
+    if (!(await put(rest))) return
+    setSessions(prev => prev.map(x => (x.id === s.id ? { ...doneOnly(rest), recordedBy: s.recordedBy ?? 'trainer_edited' } : x)))
     router.refresh()
   }
 
@@ -314,57 +330,60 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
           groupByDate(sessions).map(([date, group]) => (
             <div key={date} className="px-5 py-4 rounded-2xl trainer-card space-y-3">
               <p className="text-sm font-semibold text-black dark:text-white">{fmtDate(date)}</p>
+              {/* 種目ごとに1行（記録が1種目ずつでも、1回の記録に複数の種目があっても同じ見え方、2026-11-09 オーナー指摘） */}
               <div className="divide-y divide-zinc-100 dark:divide-zinc-900">
-                {group.map(saved => {
+                {group.flatMap(saved => {
                   const edit = editable ? editing[saved.id] : undefined
                   const s = edit ?? saved
                   const busy = busyId === s.id
-                  return (
-                    <div key={s.id} id={`record-${s.id}`} className={`py-2.5 first:pt-0 last:pb-0 space-y-2 ${edit ? '-mx-3 px-3 rounded-xl ring-1 ring-brand' : ''}`}>
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1 min-w-0 space-y-1.5">
-                          {s.exercises.map(e => (
-                            <div key={e.key} className="text-sm">
-                              <p className="text-black dark:text-white">
-                                {e.name}
-                                {/* トレーニーがホームの「種目を追加」から記録した、プランに無い種目 */}
-                                {e.offPlan && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">プラン外</span>}
-                                {s.recordedBy && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-brand-soft text-brand-text">{RECORDED_BY_LABELS[s.recordedBy]}</span>}
-                              </p>
-                              {edit
-                                ? <ExerciseInputs
-                                    exercise={e}
-                                    onSet={(k, p) => patchEditing(s.id, e.key, x => ({ ...x, sets: x.sets.map(st => (st.key === k ? { ...st, ...p } : st)) }))}
-                                    onCardio={p => patchEditing(s.id, e.key, x => (x.cardio ? { ...x, cardio: { ...x.cardio, ...p } } : x))}
-                                    onAddSet={() => patchEditing(s.id, e.key, x => ({ ...x, sets: [...x.sets, nextSet(x.sets)] }))}
-                                  />
-                                : <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{summary(e)}</p>}
-                            </div>
-                          ))}
+                  const openKey = edit ? editingKey[s.id] ?? s.exercises[0]?.key : undefined
+                  return s.exercises.map((e, i) => {
+                    const open = e.key === openKey
+                    return (
+                      <div key={`${s.id}-${e.key}`} id={i === 0 ? `record-${s.id}` : undefined} className={`py-2.5 first:pt-0 last:pb-0 space-y-2 ${open ? '-mx-3 px-3 rounded-xl ring-1 ring-brand' : ''}`}>
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0 text-sm">
+                            <p className="text-black dark:text-white">
+                              {e.name}
+                              {/* トレーニーがホームの「種目を追加」から記録した、プランに無い種目 */}
+                              {e.offPlan && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">プラン外</span>}
+                              {s.recordedBy && <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-brand-soft text-brand-text">{RECORDED_BY_LABELS[s.recordedBy]}</span>}
+                            </p>
+                            {open
+                              ? <ExerciseInputs
+                                  exercise={e}
+                                  onSet={(k, p) => patchEditing(s.id, e.key, x => ({ ...x, sets: x.sets.map(st => (st.key === k ? { ...st, ...p } : st)) }))}
+                                  onCardio={p => patchEditing(s.id, e.key, x => (x.cardio ? { ...x, cardio: { ...x.cardio, ...p } } : x))}
+                                  onAddSet={() => patchEditing(s.id, e.key, x => ({ ...x, sets: [...x.sets, nextSet(x.sets)] }))}
+                                />
+                              : <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{summary(e)}</p>}
+                          </div>
+                          {/* 同じ記録の別の種目を直している間は、ほかの種目のボタンは出さない（保存は記録ごとのため） */}
+                          {editable && !edit && (
+                            <button onClick={() => startEdit(saved, e.key)} className="shrink-0 flex items-center gap-1 text-xs text-zinc-500 hover:text-black dark:hover:text-white">
+                              <Pencil className="w-3.5 h-3.5" />直す
+                            </button>
+                          )}
+                          {editable && !edit && (
+                            <button onClick={() => removeExercise(saved, saved.exercises.find(x => x.key === e.key) ?? e)} disabled={busy} title="この記録を消す" aria-label="この記録を消す" className="shrink-0 p-1 -mt-0.5 text-zinc-400 hover:text-red-500 disabled:opacity-40">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
-                        {editable && !edit && (
-                          <button onClick={() => startEdit(saved)} className="shrink-0 flex items-center gap-1 text-xs text-zinc-500 hover:text-black dark:hover:text-white">
-                            <Pencil className="w-3.5 h-3.5" />直す
-                          </button>
-                        )}
-                        {editable && (
-                          <button onClick={() => removeSession(saved)} disabled={busy} title="この記録を消す" aria-label="この記録を消す" className="shrink-0 p-1 -mt-0.5 text-zinc-400 hover:text-red-500 disabled:opacity-40">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        {/* 直している種目の下、直していない時（種目を外して失敗した時など）は記録の最初の種目の下 */}
+                        {(open || (!edit && i === 0)) && errors[s.id] && <p className="text-xs text-red-500">{errors[s.id]}</p>}
+                        {open && (
+                          <div className="space-y-2 pt-1">
+                            <p className="text-xs text-zinc-400 dark:text-zinc-500">✓ を外したセットは記録から外れます。保存すると、クライアントの画面に「トレーナーが修正」と出ます。</p>
+                            <div className="flex justify-end gap-2">
+                              <button onClick={() => cancelEdit(s.id)} disabled={busy} className={secondaryButton}>やめる</button>
+                              <button onClick={() => saveEdit(s.id)} disabled={busyId != null} className={primaryButton}>{busy ? '保存中…' : '保存する'}</button>
+                            </div>
+                          </div>
                         )}
                       </div>
-                      {errors[s.id] && <p className="text-xs text-red-500">{errors[s.id]}</p>}
-                      {edit && (
-                        <div className="space-y-2 pt-1">
-                          <p className="text-xs text-zinc-400 dark:text-zinc-500">✓ を外したセットは記録から外れます。保存すると、クライアントの画面に「トレーナーが修正」と出ます。</p>
-                          <div className="flex justify-end gap-2">
-                            <button onClick={() => cancelEdit(s.id)} disabled={busy} className={secondaryButton}>やめる</button>
-                            <button onClick={() => saveEdit(s.id)} disabled={busyId != null} className={primaryButton}>{busy ? '保存中…' : '保存する'}</button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )
+                    )
+                  })
                 })}
               </div>
             </div>
