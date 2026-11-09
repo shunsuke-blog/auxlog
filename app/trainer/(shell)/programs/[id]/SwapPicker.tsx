@@ -16,7 +16,8 @@ type Props = {
   /** その Day にすでにある種目（候補に「この Day にあり」と出す） */
   inDay: Set<string>
   /** 範囲の選択を出すか（Dayごと表示のみ）。dayNumber と totalWeeks は文言用 */
-  scope?: { dayNumber: number; totalWeeks: number }
+  /** fromWeek: クライアントのプランの変更では今の週から後だけ（2026-11-09） */
+  scope?: { dayNumber: number; totalWeeks: number; fromWeek?: number }
   onPick: (ex: CatalogExercise, scope: SwapScope) => void
   onClose: () => void
 }
@@ -62,7 +63,7 @@ export default function SwapPicker({ current, oneRmSource, catalog, inDay, scope
           {scope && (
             <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl">
               {([
-                ['sameDayAllWeeks', `全週の Day ${scope.dayNumber}（Week 1〜${scope.totalWeeks}）`],
+                ['sameDayAllWeeks', (scope.fromWeek ?? 1) > 1 ? `残りの週の Day ${scope.dayNumber}（Week ${scope.fromWeek}〜${scope.totalWeeks}）` : `全週の Day ${scope.dayNumber}（Week 1〜${scope.totalWeeks}）`],
                 ['this', 'この週だけ'],
               ] as const).map(([v, label]) => (
                 <button

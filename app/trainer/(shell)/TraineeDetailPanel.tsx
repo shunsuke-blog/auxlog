@@ -1,4 +1,5 @@
-import { CircleAlert } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowLeftRight, CircleAlert } from 'lucide-react'
 import { TARGET_MUSCLE_LABELS } from '@/types'
 import { createClient } from '@/lib/supabase/server'
 import { loadTraineeDetail, type TraineeRow } from '@/lib/trainer/trainees'
@@ -37,10 +38,13 @@ export default async function TraineeDetailPanel({ row, templates, selfName, rea
   const livePlan = editable && row.plan && (row.plan.status === 'shared' || row.plan.status === 'active') ? row.plan : null
   const week = livePlan ? { weekNumber: livePlan.currentWeek, days: await loadCoachingWeek(supabase, livePlan.id, livePlan.currentWeek) } : null
   const hasBests = !!detail && (detail.oneRms.length > 0 || detail.bests.length > 0)
+  // プランのタブ: 今の週から後の Day と種目（2026-11-09 プランの途中変更）
+  const planWeeks = livePlan ? await loadPlanOutline(supabase, livePlan.id, livePlan.currentWeek) : null
 
   const tabs: DetailTab[] = [
     ...(week ? [{ key: 'week' as const, label: '今週' }] : []),
     { key: 'records', label: '記録' },
+    ...(planWeeks ? [{ key: 'plan' as const, label: 'プラン' }] : []),
     ...(hasBests ? [{ key: 'bests' as const, label: '1RM・自己ベスト' }] : []),
   ]
   const plan = row.plan && !(row.isSelf && row.plan.status === 'ended') ? row.plan : null
@@ -130,6 +134,36 @@ export default async function TraineeDetailPanel({ row, templates, selfName, rea
             editable={editable}
             title={row.isSelf ? '直近20回' : '契約期間内の直近20回'}
           />
+          {planWeeks && livePlan && (
+            <TabPanel name="plan">
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <p className="flex-1 text-sm text-zinc-500 dark:text-zinc-400">
+                    Week {livePlan.currentWeek} から後の種目の入れ替え・セットの変更ができます。記録した種目は変わりません。
+                  </p>
+                  <Link href={`/trainer/plans/${livePlan.id}`} className="shrink-0 self-end sm:self-auto flex items-center gap-1.5 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-black dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900">
+                    <ArrowLeftRight className="w-4 h-4" />
+                    プランを変更する
+                  </Link>
+                </div>
+                {planWeeks.map(w => (
+                  <details key={w.week} open={w.week === livePlan.currentWeek} className="px-5 py-3 rounded-2xl trainer-card">
+                    <summary className="cursor-pointer text-sm font-semibold text-black dark:text-white">
+                      Week {w.week}{w.week === livePlan.currentWeek && <span className="ml-2 text-xs font-normal text-zinc-500">今週</span>}
+                    </summary>
+                    <div className="pt-2 space-y-1.5">
+                      {w.days.map(d => (
+                        <p key={d.day} className="text-sm">
+                          <span className="inline-block w-14 text-xs text-zinc-400">Day {d.day}</span>
+                          <span className="text-black dark:text-white">{d.exercises.length > 0 ? d.exercises.join('、') : '種目なし'}</span>
+                        </p>
+                      ))}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </TabPanel>
+          )}
           {hasBests && (
             <TabPanel name="bests">
               <div className="grid md:grid-cols-2 gap-4">
@@ -164,4 +198,27 @@ export default async function TraineeDetailPanel({ row, templates, selfName, rea
       )}
     </div>
   )
+}
+
+type OutlineDay = { week_number: number; day_number: number; plan_exercises: { sort_order: number; exercise_master: { name: string } | null; trainer_exercises: { name: string } | null; cardio_master: { name: string } | null }[] }
+
+// プランのタブの一覧（今の週から後の週ごとの Day と種目名）
+async function loadPlanOutline(supabase: Awaited<ReturnType<typeof createClient>>, planId: string, fromWeek: number) {
+  const { data } = await supabase
+    .from('plan_days')
+    .select('week_number, day_number, plan_exercises(sort_order, exercise_master(name), trainer_exercises(name), cardio_master(name))')
+    .eq('plan_id', planId)
+    .gte('week_number', fromWeek)
+    .order('week_number')
+    .order('day_number')
+  const weeks: { week: number; days: { day: number; exercises: string[] }[] }[] = []
+  for (const d of (data ?? []) as unknown as OutlineDay[]) {
+    let w = weeks.find(x => x.week === d.week_number)
+    if (!w) { w = { week: d.week_number, days: [] }; weeks.push(w) }
+    w.days.push({
+      day: d.day_number,
+      exercises: [...d.plan_exercises].sort((a, b) => a.sort_order - b.sort_order).map(e => e.exercise_master?.name ?? e.trainer_exercises?.name ?? e.cardio_master?.name ?? '種目'),
+    })
+  }
+  return weeks
 }

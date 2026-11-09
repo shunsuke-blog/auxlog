@@ -21,7 +21,11 @@ export type EditorDay = { id: string; weekNumber: number; dayNumber: number; lab
 
 // planId が null は取り込んだメニューの下書き（2026-10-28）。DB にはまだ何も無く、「保存」で初めてテンプレートを作る。
 // 下書きはテンプレートの一覧の画面の中で開くので、「戻る」は onExit（保存するか確かめてから呼ぶ）
-type Props = { planId: string | null; initialName: string; totalWeeks: number; days: EditorDay[]; catalog: CatalogExercise[]; onExit?: () => void }
+// client: 契約中のクライアントのプランを途中で変える（2026-11-09 オーナー決定）。days は今の週から後だけ。
+// 自動保存にせず「保存する」で変えた Day をまとめて反映する（クライアントのメニューが変わるので、記録の修正と同じ扱い）。
+// 今の週で記録した・スキップした種目は locked（Day ごとの名前）として上に出すだけで、編集の対象にしない（保存しても残る）
+export type ClientPlanMode = { clientName: string; currentWeek: number; backHref: string; locked: Record<string, { name: string; status: string }[]> }
+type Props = { planId: string | null; initialName: string; totalWeeks: number; days: EditorDay[]; catalog: CatalogExercise[]; onExit?: () => void; client?: ClientPlanMode }
 type View = 'day' | 'exercise'
 
 /** Day の中の種目カードを並べ替えるときの dataTransfer の型名 */
@@ -40,9 +44,15 @@ const HISTORY_LIMIT = 100
 const HISTORY_MERGE_MS = 1000
 type Snapshot = Record<string, EditorExercise[]>
 
-export default function TemplateEditor({ planId, initialName, totalWeeks, days, catalog: initialCatalog, onExit }: Props) {
+// クライアントのプランを保存した後は読み込み直す（新しい行の ID を受け取るため）。読み込み直した後に「保存しました」を出す印
+const CLIENT_SAVED_KEY = 'auxlog:client-plan-saved'
+
+export default function TemplateEditor({ planId, initialName, totalWeeks, days, catalog: initialCatalog, onExit, client }: Props) {
   const router = useRouter()
   const isDraft = planId == null
+  // 自動保存はテンプレートだけ（取り込みの下書きとクライアントのプランは「保存」を押した時）
+  const autoSave = !isDraft && !client
+  const firstWeek = client?.currentWeek ?? 1
   const [draftName, setDraftName] = useState(initialName)
   // 下書きを保存して作ったテンプレート（保存のあと、そのテンプレートの編集画面に移る）
   const createdId = useRef<string | null>(null)
@@ -52,8 +62,8 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   // 下書きは全部の Day が未保存
   const [dirty, setDirty] = useState<Set<string>>(() => new Set(isDraft ? days.map(d => d.id) : []))
   const [view, setView] = useState<View>('day')
-  const [week, setWeek] = useState(1)
-  const [dayId, setDayId] = useState(days.find(d => d.weekNumber === 1)?.id ?? days[0]?.id ?? '')
+  const [week, setWeek] = useState(firstWeek)
+  const [dayId, setDayId] = useState(days.find(d => d.weekNumber === firstWeek)?.id ?? days[0]?.id ?? '')
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null)
   const [catalog, setCatalog] = useState(initialCatalog)
   const [picking, setPicking] = useState(false)
@@ -65,6 +75,15 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   const [dropIndex, setDropIndex] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  useEffect(() => {
+    if (!client) return
+    try {
+      if (sessionStorage.getItem(CLIENT_SAVED_KEY)) {
+        sessionStorage.removeItem(CLIENT_SAVED_KEY)
+        setMessage({ kind: 'ok', text: '保存しました。クライアントのメニューに反映されています' })
+      }
+    } catch { /* 読めなくても保存はできている */ }
+  }, [client])
   // 自動保存: 保存中の Day と、保存できなかった Day の理由（入力の途中・通信の失敗）
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
   const [dayErrors, setDayErrors] = useState<Record<string, string>>({})
@@ -123,7 +142,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     setDirty(prev => { const n = new Set(prev); changed.forEach(id => n.add(id)); return n })
     setMessage(null)
     lastEdit.current = null
-    if (!isDraft) changed.forEach(id => scheduleSave(id))
+    if (autoSave) changed.forEach(id => scheduleSave(id))
   }
   const undo = () => {
     const target = undoStack[undoStack.length - 1]
@@ -160,7 +179,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     setByDay(prev => ({ ...prev, [id]: fn(prev[id] ?? []) }))
     setDirty(prev => new Set(prev).add(id))
     setMessage(null)
-    if (!isDraft) scheduleSave(id)
+    if (autoSave) scheduleSave(id)
   }
   const patchExercise = (id: string, key: string, fn: (ex: EditorExercise) => EditorExercise) =>
     updateDay(id, list => list.map(e => (e.key === key ? fn(e) : e)))
@@ -256,9 +275,51 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
   useEffect(() => { flushRef.current = flushDay })
   useEffect(() => () => { for (const id of [...timers.current.keys()]) flushRef.current(id) }, [])
 
+  // クライアントのプラン: 変えた Day をまとめて1回で保存する（途中で失敗しても半端に残らない）
+  const saveClientPlan = async (): Promise<boolean> => {
+    const ids = sortedDays.filter(d => dirty.has(d.id)).map(d => d.id)
+    if (ids.length === 0) return true
+    const payloadDays = []
+    for (const id of ids) {
+      const list = byDayRef.current[id] ?? []
+      const payload = toSavePayload(list)
+      if (!payload.ok) {
+        const d = days.find(x => x.id === id)
+        if (d) { setView('day'); setWeek(d.weekNumber); setDayId(id) }
+        setMessage({ kind: 'error', text: `${label(id)}: ${payload.error}` })
+        return false
+      }
+      // 種目を変えていない行は元の ID を送る（ID を残して更新する）
+      payloadDays.push({ plan_day_id: id, exercises: payload.exercises.map((e, i) => ({ ...(e as object), plan_exercise_id: list[i]?.planExerciseId ?? null })) })
+    }
+    setSaving(true)
+    setMessage(null)
+    try {
+      const res = await fetch(`/api/trainer/client-plans/${planId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days: payloadDays }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error((data as { error?: string }).error ?? '保存に失敗しました')
+      }
+      setDirty(new Set())
+      try { sessionStorage.setItem(CLIENT_SAVED_KEY, '1') } catch { /* 印が残せなくても保存はできている */ }
+      router.refresh()
+      return true
+    } catch (e) {
+      setMessage({ kind: 'error', text: e instanceof Error && e.message !== 'Failed to fetch' ? e.message : '保存できませんでした。通信を確かめてください' })
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // 指定した Day を今すぐ保存する（画面を離れる時・「もう一度保存」）。1件でも保存できなければ false
   const saveDays = async (ids: string[]): Promise<boolean> => {
     if (isDraft) return createFromDraft()
+    if (client) return saveClientPlan()
     const results = await Promise.all(ids.map(flushDay))
     return results.every(Boolean)
   }
@@ -280,7 +341,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
     if (target && target.id !== dayId) { setMessage(null); setWeek(w); setDayId(target.id) }
   }
 
-  const { pending, resolvePending, confirmLeave } = useUnsavedLeaveGuard(dirty, saveDays, discardDays, !isDraft)
+  const { pending, resolvePending, confirmLeave } = useUnsavedLeaveGuard(dirty, saveDays, discardDays, autoSave)
 
   const handleSaveClick = async () => {
     const ok = await saveDays([...dirty])
@@ -417,7 +478,11 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       <div className="sticky top-0 z-10 trainer-header px-4 md:px-6 py-3 md:py-4 space-y-2 md:space-y-3">
         {/* 1行目は表示を切り替えても高さ・位置が変わらない（切り替えボタンの位置を固定する） */}
         <div className="flex items-center gap-2">
-          {onExit ? (
+          {client ? (
+            <Link href={client.backHref} aria-label="クライアントの詳細に戻る" className="p-1 -ml-1 text-zinc-400 hover:text-black dark:hover:text-white">
+              <ChevronLeft className="w-5 h-5" />
+            </Link>
+          ) : onExit ? (
             <button onClick={() => (dirty.size > 0 ? confirmLeave(onExit) : onExit())} aria-label="テンプレートの一覧に戻る" className="p-1 -ml-1 text-zinc-400 hover:text-black dark:hover:text-white">
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -426,7 +491,14 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
               <ChevronLeft className="w-5 h-5" />
             </Link>
           )}
-          <TemplateNameInput planId={planId} initialName={initialName} onChange={setDraftName} />
+          {client ? (
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-semibold text-black dark:text-white truncate">{client.clientName}さんのプラン</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{initialName}（Week {client.currentWeek} から後を変えられます）</p>
+            </div>
+          ) : (
+            <TemplateNameInput planId={planId} initialName={initialName} onChange={setDraftName} />
+          )}
           <div className="shrink-0 flex">
             <button onClick={undo} disabled={undoStack.length === 0} title="元に戻す（⌘Z / Ctrl+Z）" aria-label="元に戻す" className="p-2 rounded-lg text-zinc-500 enabled:hover:text-black enabled:hover:bg-zinc-100 dark:enabled:hover:text-white dark:enabled:hover:bg-zinc-900 disabled:opacity-30">
               <Undo2 className="w-4 h-4" />
@@ -451,7 +523,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
         {view === 'day' ? (
           <>
             <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
-              {Array.from({ length: totalWeeks }, (_, i) => i + 1).map(w => (
+              {Array.from({ length: totalWeeks - firstWeek + 1 }, (_, i) => i + firstWeek).map(w => (
                 <button key={w} onClick={() => selectWeek(w)} className={chip(w === week)}>Week {w}</button>
               ))}
             </div>
@@ -488,7 +560,17 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
             </button>
           )}
 
-          {exercises.length === 0 && <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-8">この日の種目はまだありません。</p>}
+          {/* 今の週で記録した・スキップした種目は変えない（保存しても残る） */}
+          {client && (client.locked[dayId]?.length ?? 0) > 0 && (
+            <div className="px-4 py-3 rounded-2xl bg-zinc-50 dark:bg-zinc-900 space-y-1">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">記録した・スキップした種目は変えられません</p>
+              {client.locked[dayId].map((l, i) => (
+                <p key={i} className="text-sm text-black dark:text-white">{l.name}<span className="ml-2 text-xs text-zinc-400">{l.status}</span></p>
+              ))}
+            </div>
+          )}
+
+          {exercises.length === 0 && <p className="text-sm text-zinc-400 dark:text-zinc-500 text-center py-8">{client && (client.locked[dayId]?.length ?? 0) > 0 ? 'ほかに種目はありません。' : 'この日の種目はまだありません。'}</p>}
 
           {exercises.map((ex, exIdx) => (
             <div key={ex.key} className="relative" onDragOver={e => { e.stopPropagation(); onDragOverCard(e, exIdx) }} onDrop={e => { e.stopPropagation(); onDropAt(e, dropIndex ?? exIdx) }}>
@@ -560,7 +642,9 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           </button>
 
           <p className="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">
-            重量の「%1RM」はクライアントを追加するときに入力する1RMから kg を計算します。「自動」は前回の記録から重量を提案します（アイソレーション種目向け）。
+            {client
+              ? '重量の「%1RM」は、このプランの同じ種目の1RMから kg を計算します（無い種目は、クライアントの初めての記録から）。「自動」は前回の記録から重量を提案します。'
+              : '重量の「%1RM」はクライアントを追加するときに入力する1RMから kg を計算します。「自動」は前回の記録から重量を提案します（アイソレーション種目向け）。'}
           </p>
         </div>
       ) : (
@@ -624,7 +708,17 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
       )}
       </div>
 
-      {isDraft ? (
+      {client ? (
+        // クライアントのプラン: 「保存する」で反映する（2026-11-09 オーナー決定）
+        <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 z-10 px-4 md:px-6 py-3 pointer-events-none md:pointer-events-auto md:bg-white md:dark:bg-black md:border-t border-zinc-100 dark:border-zinc-900 flex items-center justify-end gap-3">
+          <p className={`pointer-events-auto md:flex-1 text-xs md:text-sm max-md:px-3 max-md:py-2 max-md:rounded-xl max-md:bg-white/95 max-md:shadow-md max-md:border max-md:border-zinc-100 ${message?.kind === 'error' ? 'text-red-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
+            {message?.text ?? (dirty.size > 0 ? `${dirty.size}日分の変更があります。「保存する」でクライアントのメニューに反映します` : '変えたら「保存する」でクライアントのメニューに反映します')}
+          </p>
+          <button onClick={() => saveClientPlan()} disabled={saving || dirty.size === 0} className="pointer-events-auto shrink-0 px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-sm font-medium text-on-brand disabled:opacity-40 max-md:shadow-lg">
+            {saving ? '保存中…' : '保存する'}
+          </button>
+        </div>
+      ) : isDraft ? (
         // 取り込みの下書き: 「保存」で初めてテンプレートを作る。スマホは保存ボタンだけを右下に浮かせる（2026-10-25 オーナー依頼）
         <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 z-10 px-4 md:px-6 py-3 pointer-events-none md:pointer-events-auto md:bg-white md:dark:bg-black md:border-t border-zinc-100 dark:border-zinc-900 flex items-center justify-end gap-3">
           <p className={`pointer-events-auto md:flex-1 text-xs md:text-sm max-md:px-3 max-md:py-2 max-md:rounded-xl max-md:bg-white/95 max-md:shadow-md max-md:border max-md:border-zinc-100 ${message?.kind === 'error' ? 'text-red-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
@@ -663,10 +757,12 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           pending={pending}
           saving={saving}
           label={label}
-          message={isDraft
+          message={client
+            ? 'クライアントのプランの変更がまだ保存されていません。保存しないと、変更は消えます。'
+            : isDraft
             ? '取り込んだメニューはまだ保存されていません。保存しないと、取り込んだ内容は消えます。'
             : `保存できていない変更があります（${Object.entries(dayErrors).map(([id, text]) => `${label(id)}: ${text}`)[0] ?? '保存に失敗しました'}）。このまま離れると、その変更は失われます。`}
-          autoSave={!isDraft}
+          autoSave={autoSave}
           onResolve={resolvePending}
         />
       )}
@@ -677,7 +773,7 @@ export default function TemplateEditor({ planId, initialName, totalWeeks, days, 
           oneRmSource={swapSource.oneRm}
           catalog={catalog}
           inDay={swapSource.inDay}
-          scope={swap.kind === 'card' ? { dayNumber: days.find(d => d.id === swap.dayId)?.dayNumber ?? 1, totalWeeks } : undefined}
+          scope={swap.kind === 'card' ? { dayNumber: days.find(d => d.id === swap.dayId)?.dayNumber ?? 1, totalWeeks, fromWeek: firstWeek } : undefined}
           onPick={applySwap}
           onClose={() => setSwap(null)}
         />

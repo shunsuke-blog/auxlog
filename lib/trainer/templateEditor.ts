@@ -35,6 +35,8 @@ export type EditorExercise = {
   /** 有酸素の種目の目標（分・km）。有酸素はセットを持たない */
   targetMinutes?: string
   targetDistanceKm?: string
+  /** クライアントのプランを変える時の、元の行の ID（種目を変えていなければ ID を残して更新する、2026-11-09） */
+  planExerciseId?: string
 }
 
 export type CatalogExercise = {
@@ -60,6 +62,8 @@ export type PlanSetRow = {
 }
 
 export type PlanExerciseRow = {
+  /** クライアントのプランの編集の時だけ読む */
+  id?: string
   sort_order: number
   note: string | null
   exercise_master_id: string | null
@@ -89,6 +93,7 @@ export function toEditorExercises(rows: PlanExerciseRow[]): EditorExercise[] {
     .sort((a, b) => a.sort_order - b.sort_order)
     .map(r => ({
       key: newKey(),
+      ...(r.id ? { planExerciseId: r.id } : {}),
       exerciseMasterId: r.exercise_master_id,
       trainerExerciseId: r.trainer_exercise_id,
       cardioMasterId: r.cardio_master_id,
