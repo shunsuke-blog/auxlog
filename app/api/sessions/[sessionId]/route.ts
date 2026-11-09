@@ -49,6 +49,8 @@ export async function PATCH(
   // 編集前の種目（編集で外した種目の自己ベストも計算し直すため）
   const { data: beforeSets } = await supabase.from('training_sets').select('exercise_id, training_sessions!inner(user_id)').eq('session_id', sessionId).eq('training_sessions.user_id', user.id)
   const touchedExerciseIds = [...(beforeSets ?? []).map(r => r.exercise_id as string), ...sets.map(s => s.exercise_id)]
+  // 編集前の日付（コーチングプランとの紐付けを同じ日の記録から引き継ぐため。下で日付を書き換える前に読む）
+  const { data: before } = await supabase.from('training_sessions').select('trained_at').eq('id', sessionId).eq('user_id', user.id).maybeSingle()
 
   // update_session_with_sets RPC でアトミックに更新
   // SQL: lib/sql/update_session_with_sets.sql を Supabase で実行済みであること
@@ -71,13 +73,18 @@ export async function PATCH(
 
     if (sessionError) return dbError('セッションの更新に失敗しました', sessionError)
 
-    // 削除→再作成でコーチングプランとの紐付け（plan_exercise_id）が消えないよう、種目ごとに引き継ぐ
+    // 削除→再作成でコーチングプランとの紐付け（plan_exercise_id）が消えないよう、種目ごとに引き継ぐ。
+    // 同じ日の自分の記録すべてから引き継ぐ: 履歴の日付の鉛筆から直すと、同じ日の記録をこの記録にまとめて保存してから
+    // 残りを消すので、この記録の分だけだと、まとめた側の種目の紐付けが消えて「プラン外」になっていた（2026-11-09 修正）。
+    // 同じ種目が同じ日に2つあれば、この記録の紐付けを優先する
     const { data: oldSets } = await supabase
       .from('training_sets')
-      .select('exercise_id, plan_exercise_id')
-      .eq('session_id', sessionId)
+      .select('session_id, exercise_id, plan_exercise_id, training_sessions!inner(user_id, trained_at)')
+      .eq('training_sessions.user_id', user.id)
+      .eq('training_sessions.trained_at', before?.trained_at ?? trained_at)
       .not('plan_exercise_id', 'is', null)
-    const planExerciseByExercise = new Map((oldSets ?? []).map(r => [r.exercise_id as string, r.plan_exercise_id as string]))
+    const ordered = [...(oldSets ?? [])].sort((a, b) => Number(a.session_id === sessionId) - Number(b.session_id === sessionId))
+    const planExerciseByExercise = new Map(ordered.map(r => [r.exercise_id as string, r.plan_exercise_id as string]))
 
     await supabase.from('training_sets').delete().eq('session_id', sessionId)
     const rows = sets.map(s => ({
