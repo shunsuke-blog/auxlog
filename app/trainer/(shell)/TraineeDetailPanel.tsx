@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowLeftRight, CircleAlert } from 'lucide-react'
+import { ArrowLeftRight, ChevronDown, CircleAlert } from 'lucide-react'
 import { TARGET_MUSCLE_LABELS } from '@/types'
 import { createClient } from '@/lib/supabase/server'
 import { loadTraineeDetail, type TraineeRow } from '@/lib/trainer/trainees'
@@ -146,17 +146,31 @@ export default async function TraineeDetailPanel({ row, templates, selfName, rea
                     プランを変更する
                   </Link>
                 </div>
+                {/* 週ごとに開く。中は Day ごとの列に、種目を1行ずつ（読点でつなぐと折り返して読みにくかった、2026-11-09 オーナー指摘） */}
                 {planWeeks.map(w => (
-                  <details key={w.week} open={w.week === livePlan.currentWeek} className="px-5 py-3 rounded-2xl trainer-card">
-                    <summary className="cursor-pointer text-sm font-semibold text-black dark:text-white">
-                      Week {w.week}{w.week === livePlan.currentWeek && <span className="ml-2 text-xs font-normal text-zinc-500">今週</span>}
+                  <details key={w.week} open={w.week === livePlan.currentWeek} className="group rounded-2xl trainer-card">
+                    <summary className="flex items-center gap-2 px-5 py-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                      <span className="text-sm font-semibold text-black dark:text-white">Week {w.week}</span>
+                      {w.week === livePlan.currentWeek && <span className="text-xs text-zinc-500">今週</span>}
+                      <ChevronDown className="ml-auto w-4 h-4 text-zinc-400 transition-transform group-open:rotate-180" />
                     </summary>
-                    <div className="pt-2 space-y-1.5">
+                    <div className="px-5 pb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {w.days.map(d => (
-                        <p key={d.day} className="text-sm">
-                          <span className="inline-block w-14 text-xs text-zinc-400">Day {d.day}</span>
-                          <span className="text-black dark:text-white">{d.exercises.length > 0 ? d.exercises.join('、') : '種目なし'}</span>
-                        </p>
+                        <div key={d.day} className="space-y-1.5">
+                          <p className="text-xs font-semibold text-zinc-400">Day {d.day}</p>
+                          {d.exercises.length === 0 ? (
+                            <p className="text-sm text-zinc-400">種目なし</p>
+                          ) : (
+                            <ul className="space-y-1">
+                              {d.exercises.map((e, i) => (
+                                <li key={i} className="flex items-baseline gap-2 text-sm">
+                                  <span className="flex-1 min-w-0 text-black dark:text-white">{e.name}</span>
+                                  {e.target && <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{e.target}</span>}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </details>
@@ -200,24 +214,48 @@ export default async function TraineeDetailPanel({ row, templates, selfName, rea
   )
 }
 
-type OutlineDay = { week_number: number; day_number: number; plan_exercises: { sort_order: number; exercise_master: { name: string } | null; trainer_exercises: { name: string } | null; cardio_master: { name: string } | null }[] }
+type OutlineDay = {
+  week_number: number
+  day_number: number
+  plan_exercises: {
+    sort_order: number
+    target_duration_seconds: number | null
+    exercise_master: { name: string } | null
+    trainer_exercises: { name: string } | null
+    cardio_master: { name: string } | null
+    plan_sets: { target_reps: number; is_warmup: boolean }[]
+  }[]
+}
+
+// 種目の横に出す目標（ワーキングセットの数×回数、有酸素は分）。回数がセットで違えば幅で出す（5×5〜6）
+function targetText(e: OutlineDay['plan_exercises'][number]): string {
+  if (e.target_duration_seconds != null) return `${Math.round(e.target_duration_seconds / 60)}分`
+  const working = e.plan_sets.filter(s => !s.is_warmup).map(s => s.target_reps)
+  if (working.length === 0) return ''
+  const lo = Math.min(...working)
+  const hi = Math.max(...working)
+  return `${working.length}×${lo === hi ? lo : `${lo}〜${hi}`}`
+}
 
 // プランのタブの一覧（今の週から後の週ごとの Day と種目名）
 async function loadPlanOutline(supabase: Awaited<ReturnType<typeof createClient>>, planId: string, fromWeek: number) {
   const { data } = await supabase
     .from('plan_days')
-    .select('week_number, day_number, plan_exercises(sort_order, exercise_master(name), trainer_exercises(name), cardio_master(name))')
+    .select('week_number, day_number, plan_exercises(sort_order, target_duration_seconds, exercise_master(name), trainer_exercises(name), cardio_master(name), plan_sets(target_reps, is_warmup))')
     .eq('plan_id', planId)
     .gte('week_number', fromWeek)
     .order('week_number')
     .order('day_number')
-  const weeks: { week: number; days: { day: number; exercises: string[] }[] }[] = []
+  const weeks: { week: number; days: { day: number; exercises: { name: string; target: string }[] }[] }[] = []
   for (const d of (data ?? []) as unknown as OutlineDay[]) {
     let w = weeks.find(x => x.week === d.week_number)
     if (!w) { w = { week: d.week_number, days: [] }; weeks.push(w) }
     w.days.push({
       day: d.day_number,
-      exercises: [...d.plan_exercises].sort((a, b) => a.sort_order - b.sort_order).map(e => e.exercise_master?.name ?? e.trainer_exercises?.name ?? e.cardio_master?.name ?? '種目'),
+      exercises: [...d.plan_exercises].sort((a, b) => a.sort_order - b.sort_order).map(e => ({
+        name: e.exercise_master?.name ?? e.trainer_exercises?.name ?? e.cardio_master?.name ?? '種目',
+        target: targetText(e),
+      })),
     })
   }
   return weeks
