@@ -9,6 +9,7 @@
 --     同じ行・同じセット番号・同じ % なら元の kg、それ以外は同じプランの同じ種目の kg÷% から出した 1RM で計算する。
 --     どちらも無ければ空のまま（初めての記録から入る、今までどおり）
 --   権限は記録の代理入力と同じ: 担当トレーナーかチームの管理者、契約中（active）のクライアントだけ。
+--   一時的な表を空にする delete には where true を付ける（API 経由では条件の無い delete が止められる pg_safeupdate、2026-11-09 本番で失敗）
 
 begin;
 
@@ -57,7 +58,7 @@ begin
 
   -- このプランの種目ごとの 1RM（%1RM のセットに入っている kg ÷ %）。消す前に読んでおく
   create temp table if not exists _client_plan_one_rm (exercise_master_id uuid, trainer_exercise_id uuid, one_rm numeric) on commit drop;
-  delete from _client_plan_one_rm;
+  delete from _client_plan_one_rm where true;
   insert into _client_plan_one_rm
   select pe.exercise_master_id, pe.trainer_exercise_id, max(s.target_weight_kg / s.target_pct_1rm)
   from plan_sets s join plan_exercises pe on pe.id = s.plan_exercise_id join plan_days d on d.id = pe.plan_day_id
@@ -130,7 +131,7 @@ begin
             target_distance_km = nullif(r_ex->>'target_distance_km', '')::numeric
         where id = v_ex;
         create temp table if not exists _client_plan_old_sets (set_number int, target_pct_1rm numeric, target_weight_kg numeric) on commit drop;
-        delete from _client_plan_old_sets;
+        delete from _client_plan_old_sets where true;
         insert into _client_plan_old_sets select set_number, target_pct_1rm, target_weight_kg from plan_sets where plan_exercise_id = v_ex;
         delete from plan_sets where plan_exercise_id = v_ex;
       else
@@ -147,7 +148,7 @@ begin
         )
         returning id into v_ex;
         create temp table if not exists _client_plan_old_sets (set_number int, target_pct_1rm numeric, target_weight_kg numeric) on commit drop;
-        delete from _client_plan_old_sets;
+        delete from _client_plan_old_sets where true;
       end if;
 
       select one_rm into v_one_rm from _client_plan_one_rm
