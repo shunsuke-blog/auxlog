@@ -13,12 +13,15 @@ import {
   draftFromPrefill, nextSet, recordedPlanExerciseIds, toEditSessions, toSavePayload,
   type EditCardio, type EditExercise, type EditSession, type EditSet,
 } from '@/lib/trainer/clientRecordEditor'
+import { useDetailTab } from './DetailTabs'
 
 // クライアントの記録をトレーナーがその場で直す・代わりに入力する（2026-10-29 オーナー決定: 代理入力も含める・
 // 契約中のクライアントだけ・入力者を残して出す）。✓ を付けたセットが記録になる。
 // クライアントの記録は自動では保存しない（2026-10-30 オーナー指示）: 代理入力は今週のメニュー（アコーディオン）の
 // 「記録する」、今までの記録は「直す」→「保存する」で保存し、消す時は確かめる。
 // editable が false（契約中でない・自分）の時は今までどおり読むだけ。
+// 詳細のタブ（2026-11-09）: 今週のメニューは「今週」、記録は「記録」のタブに出す。どちらも画面に残したまま見せ方だけ変えるので、
+// タブを移っても入力中の内容は消えない
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' })
 const inputClass = 'px-2 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm tabular-nums text-black dark:text-white'
@@ -35,6 +38,8 @@ type Props = {
 
 export default function ClientRecords({ traineeId, sessions: initialSessions, week, editable, title }: Props) {
   const router = useRouter()
+  const { tab, setTab } = useDetailTab()
+  const show = (key: 'week' | 'records') => tab == null || tab === key
   // 保存済みの記録（画面の表示）。直している記録は editing に写しを持ち、「保存する」で初めてここと DB に反映する
   const [sessions, setSessions] = useState<EditSession[]>(() => toEditSessions(initialSessions))
   const [editing, setEditing] = useState<Record<string, EditSession>>({})
@@ -147,6 +152,7 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
     const found = sessions.find(s => s.exercises.some(e => e.planExerciseId === planExerciseId))
     if (!found) return
     startEdit(found)
+    setTab('records')
     requestAnimationFrame(() => document.getElementById(`record-${found.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
   }
 
@@ -196,7 +202,7 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
 
   return (
     <div className="space-y-5">
-      {editable && week && day && (
+      {editable && week && day && show('week') && (
         <div className="px-5 py-4 rounded-2xl trainer-card space-y-3">
           {/* Day のボタンは見出しの下の段に置く（同じ段だと Day 4 以上でスマホの見出しが折り返す、2026-10-30 オーナー指摘） */}
           <div className="space-y-2">
@@ -298,8 +304,8 @@ export default function ClientRecords({ traineeId, sessions: initialSessions, we
         </div>
       )}
 
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-zinc-400">{title}</p>
+      <div className="space-y-2" hidden={!show('records')}>
+        <p className="text-xs text-zinc-400">{title}</p>
         {sessions.length === 0 ? (
           <p className="text-sm text-zinc-400 dark:text-zinc-500 py-4">まだ記録がありません。</p>
         ) : (

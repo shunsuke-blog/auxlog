@@ -3,18 +3,22 @@ import { TARGET_MUSCLE_LABELS } from '@/types'
 import { createClient } from '@/lib/supabase/server'
 import { loadTraineeDetail, type TraineeRow } from '@/lib/trainer/trainees'
 import { ProgressBar, STATUS_LABELS } from './TraineeListItem'
-import DetailActions, { EndContractButton } from './DetailActions'
+import DetailHeader, { LoginLinkCard } from './DetailActions'
 import TraineeNameEditor from './TraineeNameEditor'
 import SelfPlanActions from './SelfPlanActions'
 import type { TemplateOption } from './TemplateOneRmFields'
-import { ReassignSelect } from './team/TeamActions'
 import { formatMonthDay, todayInJapan, weekDateRange } from '@/lib/coaching/week_dates'
 import { loadCoachingWeek } from '@/lib/coaching/trainee'
 import ClientRecords from './ClientRecords'
+import { DetailTabs, TabPanel, type DetailTab } from './DetailTabs'
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' })
+const fmtDay = (iso: string) => iso.slice(5, 10).replace('-', '/')
 
-// トレーニーの詳細: 契約の状態とプラン、契約期間内の記録、（契約中のみ）自己ベストと1RM。
+// トレーニーの詳細（2026-11-09 オーナーと整理）:
+// - 上には開いてすぐ「今どうなっているか」がわかる分だけを常に出す（名前・アラート・プラン・今の週と進み具合・最終記録）
+// - 下はタブ（今週・記録・1RM と自己ベスト）。たまにしか使わない操作（ログイン用のリンク・担当替え・契約の終了）は名前の横の「･･･」
+// - 招待中は招待リンクが今やることなので、タブを出さずに招待リンクを出す
 // 自分の行（isSelf）は契約の表示・名前の変更・契約の終了の代わりに、自分のトレーニー画面を開くボタンと
 // 自分に割り当てるプログラムの変更を出す（2026-10-26）。
 // readOnly: チームの管理者がメンバーのクライアントを見る時（名前の変更・招待・契約の終了は出さない。記録は直せる）。
@@ -32,30 +36,43 @@ export default async function TraineeDetailPanel({ row, templates, selfName, rea
   const editable = !row.isSelf && row.status === 'active'
   const livePlan = editable && row.plan && (row.plan.status === 'shared' || row.plan.status === 'active') ? row.plan : null
   const week = livePlan ? { weekNumber: livePlan.currentWeek, days: await loadCoachingWeek(supabase, livePlan.id, livePlan.currentWeek) } : null
+  const hasBests = !!detail && (detail.oneRms.length > 0 || detail.bests.length > 0)
+
+  const tabs: DetailTab[] = [
+    ...(week ? [{ key: 'week' as const, label: '今週' }] : []),
+    { key: 'records', label: '記録' },
+    ...(hasBests ? [{ key: 'bests' as const, label: '1RM・自己ベスト' }] : []),
+  ]
+  const plan = row.plan && !(row.isSelf && row.plan.status === 'ended') ? row.plan : null
+
+  const title = row.isSelf ? (
+    <div className="space-y-1">
+      <h2 className="text-xl font-semibold text-black dark:text-white">{selfName}（自分）</h2>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+        {row.plan && row.plan.status !== 'ended' ? '割り当てたプログラムで記録しています' : 'セルフモード（自動で作るプログラム）で記録しています'}
+      </p>
+    </div>
+  ) : (
+    <div className="space-y-1">
+      <div className="flex items-center gap-2 min-w-0">
+        {readOnly
+          ? <h2 className="text-xl font-semibold text-black dark:text-white truncate">{row.name}</h2>
+          : <TraineeNameEditor key={row.name} linkId={row.linkId} name={row.name} />}
+        {/* 状態のラベルは「契約中」以外の時だけ（一覧と同じ） */}
+        {row.status !== 'active' && <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">{STATUS_LABELS[row.status]}</span>}
+      </div>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        {row.startedAt ? `契約期間 ${fmtDate(row.startedAt)} 〜 ${row.endedAt ? fmtDate(row.endedAt) : ''}` : 'まだ招待リンクが開かれていません'}
+      </p>
+    </div>
+  )
 
   return (
     // PC の広い画面でカードが横に伸びすぎないよう、幅に上限を付ける（2026-10-30）
     <div className="max-w-4xl px-4 md:px-6 py-4 md:py-6 space-y-5">
-      {row.isSelf ? (
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold text-black dark:text-white">{selfName}（自分）</h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {row.plan && row.plan.status !== 'ended' ? '割り当てたプログラムで記録しています' : 'セルフモード（自動で作るプログラム）で記録しています'}
-          </p>
-        </div>
-      ) : (
-      <div className="space-y-1">
-        <div className="flex items-center gap-2 min-w-0">
-          {readOnly
-            ? <h2 className="text-xl font-semibold text-black dark:text-white truncate">{row.name}</h2>
-            : <TraineeNameEditor key={row.name} linkId={row.linkId} name={row.name} />}
-          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">{STATUS_LABELS[row.status]}</span>
-        </div>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          {row.startedAt ? `契約期間 ${fmtDate(row.startedAt)} 〜 ${row.endedAt ? fmtDate(row.endedAt) : ''}` : 'まだ招待リンクが開かれていません'}
-        </p>
-      </div>
-      )}
+      {row.isSelf
+        ? title
+        : <DetailHeader linkId={row.linkId} name={row.name} status={row.status} invite={row.invite} reassign={reassign} readOnly={readOnly}>{title}</DetailHeader>}
 
       {row.alerts.length > 0 && (
         <div className="px-4 py-3 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/40 space-y-1">
@@ -68,83 +85,83 @@ export default async function TraineeDetailPanel({ row, templates, selfName, rea
         </div>
       )}
 
-      {row.plan && !(row.isSelf && row.plan.status === 'ended') && (
-        <div className="px-5 py-4 rounded-2xl trainer-card space-y-2">
-          <p className="text-xs font-semibold text-zinc-400 ">プラン</p>
-          <p className="text-sm font-semibold text-black dark:text-white">{row.plan.name}</p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Week {row.plan.currentWeek} / {row.plan.totalWeeks}
-            {row.plan.status === 'shared' && '（まだ記録が始まっていません）'}
-            {row.plan.status === 'ended' && '（終了）'}
-          </p>
-          {/* プランの開始日はトレーニーがコード入力時に選ぶ（契約期間とは別、2026-10-25） */}
-          {row.plan.startDate && row.plan.status !== 'ended' && (
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              {row.plan.startDate > todayInJapan() ? `${formatMonthDay(row.plan.startDate)} 開始予定` : `開始日 ${formatMonthDay(row.plan.startDate)}`}
-              <span className="ml-3">Week {row.plan.currentWeek}：{weekDateRange(row.plan.startDate, row.plan.currentWeek)}</span>
+      {/* プランと今の週（常に出す） */}
+      {plan && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <p className="text-sm font-semibold text-black dark:text-white">{plan.name}</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+              Week {plan.currentWeek} / {plan.totalWeeks}
+              {plan.status === 'shared' && '（まだ記録が始まっていません）'}
+              {plan.status === 'ended' && '（終了）'}
             </p>
-          )}
-          {row.progress && row.status !== 'ended' && (
-            <div className="space-y-1 pt-1">
+            {/* プランの開始日はクライアントが受け取った時に決まる（契約期間とは別、2026-10-25） */}
+            {plan.startDate && plan.status !== 'ended' && (
               <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+                {plan.startDate > todayInJapan() ? `${formatMonthDay(plan.startDate)} 開始予定` : weekDateRange(plan.startDate, plan.currentWeek)}
+              </p>
+            )}
+          </div>
+          {row.progress && row.status !== 'ended' && (
+            <div className="flex items-center gap-3">
+              <div className="flex-1"><ProgressBar done={row.progress.done} total={row.progress.total} /></div>
+              <p className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                 今週 {row.progress.done} / {row.progress.total} 種目{row.progress.skipped > 0 && `（スキップ ${row.progress.skipped}）`}
               </p>
-              <ProgressBar done={row.progress.done} total={row.progress.total} />
             </div>
           )}
+          {!row.isSelf && <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">最終記録 {row.lastTrainedOn ? fmtDay(row.lastTrainedOn) : 'なし'}</p>}
         </div>
       )}
 
-      {row.isSelf
-        ? <SelfPlanActions templates={templates} hasPlan={!!row.plan && row.plan.status !== 'ended'} />
-        : !readOnly && <DetailActions linkId={row.linkId} name={row.name} status={row.status} invite={row.invite} />}
+      {row.isSelf && <SelfPlanActions templates={templates} hasPlan={!!row.plan && row.plan.status !== 'ended'} />}
 
-      {reassign && !row.isSelf && row.status !== 'ended' && reassign.trainers.length > 1 && (
-        <ReassignSelect linkId={row.linkId} currentTrainerId={reassign.currentTrainerId} trainers={reassign.trainers} />
-      )}
-
-      {detail && (detail.oneRms.length > 0 || detail.bests.length > 0) && (
-        <div className="grid md:grid-cols-2 gap-4">
-          {detail.oneRms.length > 0 && (
-            <div className="px-5 py-4 rounded-2xl trainer-card space-y-2">
-              <p className="text-xs font-semibold text-zinc-400 ">1RM</p>
-              {detail.oneRms.map(o => (
-                <div key={o.label} className="flex justify-between text-sm">
-                  <span className="text-black dark:text-white">{o.label}</span>
-                  <span className="tabular-nums text-zinc-500">{o.oneRmKg}kg</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {detail.bests.length > 0 && (
-            <div className="px-5 py-4 rounded-2xl trainer-card space-y-2">
-              <p className="text-xs font-semibold text-zinc-400 ">自己ベスト</p>
-              {/* 部位の順（胸 → 背中 → 肩 → 腕 → 脚 → 体幹）。件数は絞らずすべて出す */}
-              {detail.bests.map(b => (
-                <div key={b.name} className="flex items-baseline gap-2 text-sm">
-                  <span className="w-7 shrink-0 text-[11px] text-zinc-400">{b.targetMuscle ? TARGET_MUSCLE_LABELS[b.targetMuscle] : ''}</span>
-                  <span className="flex-1 min-w-0 text-black dark:text-white truncate pr-2">{b.name}</span>
-                  <span className="tabular-nums text-zinc-500 shrink-0">{b.weightKg}kg × {b.reps}回</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* 招待中: 招待リンクが今やること（タブは出さない） */}
+      {row.status === 'invited' && !readOnly && <LoginLinkCard linkId={row.linkId} name={row.name} status={row.status} invite={row.invite} />}
 
       {detail && row.traineeId && (
-        <ClientRecords
-          // 別のクライアントに移ったら、入力の状態と元に戻すの履歴を持ち越さない
-          key={row.traineeId}
-          traineeId={row.traineeId}
-          sessions={detail.sessions}
-          week={week}
-          editable={editable}
-          title={row.isSelf ? '記録（直近20回）' : '記録（契約期間内・直近20回）'}
-        />
+        <DetailTabs key={row.linkId} tabs={tabs}>
+          <ClientRecords
+            // 別のクライアントに移ったら、入力の状態を持ち越さない
+            key={row.traineeId}
+            traineeId={row.traineeId}
+            sessions={detail.sessions}
+            week={week}
+            editable={editable}
+            title={row.isSelf ? '直近20回' : '契約期間内の直近20回'}
+          />
+          {hasBests && (
+            <TabPanel name="bests">
+              <div className="grid md:grid-cols-2 gap-4">
+                {detail.oneRms.length > 0 && (
+                  <div className="px-5 py-4 rounded-2xl trainer-card space-y-2">
+                    <p className="text-xs font-semibold text-zinc-400">1RM</p>
+                    {detail.oneRms.map(o => (
+                      <div key={o.label} className="flex justify-between text-sm">
+                        <span className="text-black dark:text-white">{o.label}</span>
+                        <span className="tabular-nums text-zinc-500">{o.oneRmKg}kg</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {detail.bests.length > 0 && (
+                  <div className="px-5 py-4 rounded-2xl trainer-card space-y-2">
+                    <p className="text-xs font-semibold text-zinc-400">自己ベスト</p>
+                    {/* 部位の順（胸 → 背中 → 肩 → 腕 → 脚 → 体幹）。件数は絞らずすべて出す */}
+                    {detail.bests.map(b => (
+                      <div key={b.name} className="flex items-baseline gap-2 text-sm">
+                        <span className="w-7 shrink-0 text-[11px] text-zinc-400">{b.targetMuscle ? TARGET_MUSCLE_LABELS[b.targetMuscle] : ''}</span>
+                        <span className="flex-1 min-w-0 text-black dark:text-white truncate pr-2">{b.name}</span>
+                        <span className="tabular-nums text-zinc-500 shrink-0">{b.weightKg}kg × {b.reps}回</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabPanel>
+          )}
+        </DetailTabs>
       )}
-
-      {!row.isSelf && !readOnly && <EndContractButton linkId={row.linkId} status={row.status} />}
     </div>
   )
 }
