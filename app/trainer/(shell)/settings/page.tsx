@@ -6,10 +6,11 @@ import BillingButton, { ChangePlanButton } from './BillingButton'
 import { PAID_PLANS, PAID_PLAN_INFO, type PaidPlan } from '@/lib/trainer/billing'
 import { TRAINER_PLANS } from '@/lib/trainer/dashboard'
 import InquiryForm from '@/components/trainer/InquiryForm'
+import TrainerNameEditor from './TrainerNameEditor'
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' })
 
-// トレーナーの設定: プラン（課金、2026-10-26）・アカウント・ログアウト。
+// トレーナーの設定: プラン（課金、2026-10-26）・アカウント（表示名の変更、2026-11-10）・ログアウト。
 // ベーシック ¥2,980/月・プロ ¥6,800/月・ビジネス ¥19,800/月（税込、2026-10-27 改定）は Stripe で申し込み、有料プラン同士は日割りで切り替え、
 // カードの変更・解約・領収書は Stripe のお客様ポータル。チームのメンバーはチームのビジネスプランで使う。
 export default async function TrainerSettingsPage({ searchParams }: { searchParams: Promise<{ billing?: string }> }) {
@@ -90,8 +91,11 @@ export default async function TrainerSettingsPage({ searchParams }: { searchPara
 
           <div className="px-5 py-4 rounded-2xl trainer-card space-y-3">
             <h2 className="text-xs font-semibold text-zinc-400">アカウント</h2>
-            <p className="text-sm text-black dark:text-white">{profile?.display_name}</p>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">{user.email}</p>
+            {profile && <TrainerNameEditor key={profile.display_name} name={profile.display_name} />}
+            <div>
+              <p className="text-xs text-zinc-400">ログイン中のアカウント</p>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">{user.email}</p>
+            </div>
           </div>
           <LogoutButton redirectTo="/trainer/login" />
         </div>
