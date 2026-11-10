@@ -505,10 +505,9 @@ function RecordContent() {
                             {ex.exercise.name}
                           </h2>
                         )}
+                        {/* 前回との比較なので、ゴールド（自己ベストの時だけの色）は使わない（2026-11-10） */}
                         {badge && (
-                          <span className={`text-xs font-bold shrink-0 ${
-                            badge === 'record' ? 'px-2 py-0.5 rounded-full bg-pr text-on-pr' : 'text-brand-text'
-                          }`}>
+                          <span className="text-xs font-bold shrink-0 text-brand-text">
                             {BADGE_LABEL[badge]}
                           </span>
                         )}

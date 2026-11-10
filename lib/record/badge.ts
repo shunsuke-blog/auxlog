@@ -2,13 +2,15 @@ import type { SetData } from '@/components/record/SetRow'
 
 // 記録中に出すバッジの判定（セルフモードの記録画面とコーチングモードの記録画面で共通）。
 // ワーキングセットをすべてチェックした時だけ出す。前回の記録と比べて、
-// 最大重量（同じ重量なら回数）が上回れば record、総挙上量が上回れば volume_up、それ以外は done。
-// 表示は日本語（2026-11-07 hallmark の audit、それまでは Record! / Volume Up! / Good Job!。アプリと同じ）
+// 最大重量が上回れば weight_up、同じ重量で回数が上回れば reps_up、総挙上量が上回れば volume_up、それ以外は done。
+// 表示は日本語（2026-11-07 hallmark の audit、それまでは Record! / Volume Up! / Good Job!。アプリと同じ）。
+// 「前回超え」は重量を上げて回数が減った時に、総挙上量が前回より少ないのに出て矛盾して見えたので、何が上がったかを書く（2026-11-10）
 
-export type Badge = 'record' | 'volume_up' | 'done'
+export type Badge = 'weight_up' | 'reps_up' | 'volume_up' | 'done'
 
 export const BADGE_LABEL: Record<Badge, string> = {
-  record: '前回超え',
+  weight_up: '重量アップ',
+  reps_up: '回数アップ',
   volume_up: '総挙上量アップ',
   done: '完了',
 }
@@ -36,7 +38,8 @@ export function calcBadge(
     0,
   )
 
-  if (currWeight > prev.weight || (currWeight === prev.weight && currReps > prev.reps)) return 'record'
+  if (currWeight > prev.weight) return 'weight_up'
+  if (currWeight === prev.weight && currReps > prev.reps) return 'reps_up'
   if (currVolume > prev.volume) return 'volume_up'
   return 'done'
 }

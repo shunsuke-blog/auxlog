@@ -61,7 +61,7 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
   // チェックしていないセットがある時の「このまま保存しますか？」（セルフモードと同じ）
   const [confirmingPending, setConfirmingPending] = useState(false)
 
-  // 記録中の「前回超え / 総挙上量アップ」と「前回・今回」の総挙上量（セルフモードと同じ）
+  // 記録中の「重量アップ / 回数アップ / 総挙上量アップ」と「前回・今回」の総挙上量（セルフモードと同じ）
   const workingSets = sets.filter(s => !s.is_warmup)
   const badge = calcBadge(workingSets, workingSets.length > 0 && workingSets.every(s => s.done), prevBest ?? undefined)
   const doneWorking = workingSets.filter(s => s.done)
@@ -205,8 +205,9 @@ export default function CoachingRecordClient({ planExerciseId, name, note, day, 
           {!cardio && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
+              {/* 前回との比較なので、ゴールド（自己ベストの時だけの色）は使わない（2026-11-10） */}
               {badge && (
-                <span className={`text-xs font-bold shrink-0 ${badge === 'record' ? 'px-2 py-0.5 rounded-full bg-pr text-on-pr' : 'text-brand-text'}`}>
+                <span className="text-xs font-bold shrink-0 text-brand-text">
                   {BADGE_LABEL[badge]}
                 </span>
               )}
