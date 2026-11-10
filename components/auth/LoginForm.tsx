@@ -189,14 +189,15 @@ export default function LoginForm({ next, subtitle, switchLink, lightOnly }: Pro
                     className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium disabled:opacity-50"
                   >
                     <Mail className="w-4 h-4" />
-                    {emailBusy ? '送信中…' : 'メールでログインコードを受け取る'}
+                    {/* 新規の人も押すボタンなので「ログイン」とは書かない（2026-11-10） */}
+                    {emailBusy ? '送信中…' : 'メールでコードを受け取る'}
                   </button>
                 </form>
 
                 {emailError && <p className="mt-3 text-sm text-red-500 text-center">{emailError}</p>}
 
                 <div className="mt-6 space-y-1.5 text-center text-xs text-zinc-400 leading-relaxed">
-                  <p>アカウントが無い場合は自動で作成されます。</p>
+                  <p>初めての方は、このまま続けるとアカウントが作られます。</p>
                   <p>
                     続けると、
                     <a href="https://auxlog.com/terms" target="_blank" rel="noopener noreferrer" className="underline">利用規約</a>
